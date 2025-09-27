@@ -1,4 +1,6 @@
+#[cfg(feature = "wasm")]
 mod config_wasm;
+#[cfg(feature = "wasm")]
 mod element_wasm;
 mod data;
 // First, import any modules and re-export the types for Rust usage
