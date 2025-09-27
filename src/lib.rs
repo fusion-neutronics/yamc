@@ -25,32 +25,24 @@ use pyo3::pymodule;
 use pyo3::wrap_pyfunction;
 
 // Conditionally include the Python modules
-#[cfg(feature = "pyo3")]
-mod config_python;
-#[cfg(feature = "pyo3")]
-mod element_python;
-#[cfg(feature = "pyo3")]
-mod material_python;
-#[cfg(feature = "pyo3")]
-mod materials_python;
-#[cfg(feature = "pyo3")]
-mod nuclide_python;
-#[cfg(feature = "pyo3")]
-mod reaction_python;
 
-// Re-export Python modules for Maturin to find
 #[cfg(feature = "pyo3")]
-pub use config_python::*;
-#[cfg(feature = "pyo3")]
-pub use element_python::*;
-#[cfg(feature = "pyo3")]
-pub use material_python::*;
-#[cfg(feature = "pyo3")]
-pub use materials_python::*;
-#[cfg(feature = "pyo3")]
-pub use nuclide_python::*;
-#[cfg(feature = "pyo3")]
-pub use reaction_python::*;
+mod python {
+    pub mod config_python;
+    pub mod element_python;
+    pub mod material_python;
+    pub mod materials_python;
+    pub mod nuclide_python;
+    pub mod reaction_python;
+    pub mod data_python;
+    pub use config_python::*;
+    pub use element_python::*;
+    pub use material_python::*;
+    pub use materials_python::*;
+    pub use nuclide_python::*;
+    pub use reaction_python::*;
+    pub use data_python::*;
+}
 
 // Declare the data module
 pub mod data;
@@ -60,10 +52,6 @@ mod data_wasm;
 #[cfg(feature = "wasm")]
 pub use data_wasm::*;
 
-#[cfg(feature = "pyo3")]
-mod data_python;
-#[cfg(feature = "pyo3")]
-pub use data_python::*;
 
 // WASM Modules
 #[cfg(feature = "wasm")]
@@ -103,6 +91,14 @@ pub use reaction_wasm::*;
 #[cfg(feature = "pyo3")]
 #[pymodule]
 fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    use crate::python::material_python;
+    use crate::python::materials_python;
+    use crate::python::nuclide_python;
+    use crate::python::reaction_python;
+    use crate::python::config_python;
+    use crate::python::element_python;
+    use crate::python::data_python;
+
     m.add_class::<material_python::PyMaterial>()?;
     m.add_class::<materials_python::PyMaterials>()?;
     m.add_class::<nuclide_python::PyNuclide>()?;
@@ -114,9 +110,9 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
-    m.add_function(wrap_pyfunction!(crate::data_python::natural_abundance, m)?)?;
-    m.add_function(wrap_pyfunction!(crate::data_python::element_nuclides, m)?)?;
-    m.add_function(wrap_pyfunction!(crate::data_python::element_names, m)?)?;
-    m.add_function(wrap_pyfunction!(crate::data_python::atomic_masses, m)?)?;
+    m.add_function(wrap_pyfunction!(data_python::natural_abundance, m)?)?;
+    m.add_function(wrap_pyfunction!(data_python::element_nuclides, m)?)?;
+    m.add_function(wrap_pyfunction!(data_python::element_names, m)?)?;
+    m.add_function(wrap_pyfunction!(data_python::atomic_masses, m)?)?;
     Ok(())
 }

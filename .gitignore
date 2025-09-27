@@ -31,3 +31,4 @@ tests/__pycache__/
 docs/build/
 wheelhouse/
 dist/
+docs/__pycache__/
