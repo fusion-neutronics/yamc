@@ -1,4 +1,3 @@
-// Move to: /home/jon/materials_for_mc/src/python/materials_python.rs
 use crate::material_python::PyMaterial;
 use crate::materials::Materials;
 use pyo3::exceptions::PyIndexError;

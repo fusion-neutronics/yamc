@@ -1,4 +1,3 @@
-// Move to: /home/jon/materials_for_mc/src/python/material_python.rs
 use pyo3::prelude::*;
 use crate::material::Material;
 use pyo3::exceptions::PyValueError;
