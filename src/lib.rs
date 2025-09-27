@@ -1,7 +1,26 @@
 #[cfg(feature = "wasm")]
-mod config_wasm;
+pub use wasm::material_wasm;
 #[cfg(feature = "wasm")]
-mod element_wasm;
+pub use wasm::nuclide_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::reaction_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::config_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::element_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::data_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::material_wasm::WasmMaterial;
+#[cfg(feature = "wasm")]
+pub mod wasm {
+    pub mod config_wasm;
+    pub mod element_wasm;
+    pub mod material_wasm;
+    pub mod nuclide_wasm;
+    pub mod reaction_wasm;
+    pub mod data_wasm;
+}
 mod data;
 // First, import any modules and re-export the types for Rust usage
 mod config;
@@ -51,14 +70,6 @@ mod python {
     pub use data_python::*;
 }
 #[cfg(feature = "wasm")]
-pub mod material_wasm;
-#[cfg(feature = "wasm")]
-pub mod nuclide_wasm;
-#[cfg(feature = "wasm")]
-pub mod reaction_wasm;
-
-// WASM setup
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "wasm")]
@@ -67,17 +78,19 @@ pub fn wasm_start() {
     console_error_panic_hook::set_once();
 }
 
-// Export WASM modules
+// Export WASM modules from the wasm submodule
 #[cfg(feature = "wasm")]
-pub use config_wasm::*;
+pub use wasm::config_wasm::*;
 #[cfg(feature = "wasm")]
-pub use element_wasm::*;
+pub use wasm::element_wasm::*;
 #[cfg(feature = "wasm")]
-pub use material_wasm::*;
+pub use wasm::material_wasm::*;
 #[cfg(feature = "wasm")]
-pub use nuclide_wasm::*;
+pub use wasm::nuclide_wasm::*;
 #[cfg(feature = "wasm")]
-pub use reaction_wasm::*;
+pub use wasm::reaction_wasm::*;
+#[cfg(feature = "wasm")]
+pub use wasm::data_wasm::*;
 
 // If you have a main Python module entry point, update it to include PyMaterials:
 #[cfg(feature = "pyo3")]

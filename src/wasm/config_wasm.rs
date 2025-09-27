@@ -1,3 +1,4 @@
+use crate::wasm::nuclide_wasm;
 use crate::config::CONFIG;
 use js_sys::{Map, Object, Reflect};
 use std::collections::HashMap;
@@ -53,7 +54,7 @@ impl WasmConfig {
 
     #[wasm_bindgen]
     pub fn set_nuclide_data(nuclide_name: &str, json_content: &str) -> Result<(), JsValue> {
-        match crate::nuclide_wasm::set_nuclide_json_content(nuclide_name, json_content) {
+    match nuclide_wasm::set_nuclide_json_content(nuclide_name, json_content) {
             Ok(_) => Ok(()),
             Err(e) => Err(JsValue::from_str(&format!(
                 "Failed to set nuclide data: {:?}",
