@@ -1,7 +1,7 @@
 
 use crate::cell::Cell;
-use crate::region_python::PyRegion;
-use materials_for_mc::Material;
+use crate::python::region_python::PyRegion;
+use crate::material::Material;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
 
@@ -21,12 +21,12 @@ impl PyMaterial {
                 nuclides: std::collections::HashMap::new(),
                 density: None,
                 density_units: "g/cm3".to_string(),
-                volume: None,
                 temperature: "293.6".to_string(),
                 nuclide_data: std::collections::HashMap::new(),
                 macroscopic_xs_neutron: std::collections::HashMap::new(),
                 unified_energy_grid_neutron: Vec::new(),
                 macroscopic_xs_neutron_total_by_nuclide: None,
+                    volume: None,
             }
         }
     }
@@ -53,12 +53,12 @@ impl PyCell {
     }
 
     /// Return the closest surface (as PySurface) and distance, or None if no intersection
-    pub fn closest_surface(&self, point: (f64, f64, f64), direction: (f64, f64, f64)) -> Option<(crate::surface_python::PySurface, f64)> {
+    pub fn closest_surface(&self, point: (f64, f64, f64), direction: (f64, f64, f64)) -> Option<(crate::python::surface_python::PySurface, f64)> {
         let point_arr = [point.0, point.1, point.2];
         let dir_arr = [direction.0, direction.1, direction.2];
         if let Some(surf_arc) = self.inner.closest_surface(point_arr, dir_arr) {
             if let Some(dist) = surf_arc.distance_to_surface(point_arr, dir_arr) {
-                return Some((crate::surface_python::PySurface { inner: (*surf_arc).clone() }, dist));
+                return Some((crate::python::surface_python::PySurface { inner: (*surf_arc).clone() }, dist));
             }
         }
         None

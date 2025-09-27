@@ -1,5 +1,5 @@
 use crate::geometry;
-use crate::cell_python::PyCell;
+use crate::python::cell_python::PyCell;
 
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;

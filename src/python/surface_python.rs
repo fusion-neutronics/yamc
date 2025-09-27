@@ -1,9 +1,10 @@
-#![allow(non_local_definitions)]
+use crate::python::region_python;
+#[allow(non_local_definitions)]
 
 use pyo3::prelude::*;
 // ...existing code...
 
-use crate::region_python::{PyBoundingBox, PyHalfspace};
+use crate::python::region_python::{PyBoundingBox, PyHalfspace};
 use crate::surface::{BoundaryType, Surface};
 
 #[pyclass(name = "BoundaryType")]
@@ -127,24 +128,24 @@ impl PySurface {
         Ok(())
     }
 
-    fn __neg__(slf: PyRef<'_, Self>) -> PyResult<crate::region_python::PyRegion> {
-        use crate::region_python::{PyRegion, PyRegionExpr};
+    fn __neg__(slf: PyRef<'_, Self>) -> PyResult<region_python::PyRegion> {
+    use crate::python::region_python::{PyRegion, PyRegionExpr};
         let py = slf.py();
-        let py_surface: Py<crate::surface_python::PySurface> = slf.into_py(py).extract(py).unwrap();
+    let py_surface: Py<crate::python::surface_python::PySurface> = slf.into_py(py).extract(py).unwrap();
         let expr =
-            PyRegionExpr::Halfspace(crate::region_python::PyHalfspace::new_below(py_surface));
+    PyRegionExpr::Halfspace(PyHalfspace::new_below(py_surface));
         let region = crate::region::Region {
             expr: expr.to_region_expr(),
         };
         Ok(PyRegion { expr, region })
     }
 
-    fn __pos__(slf: PyRef<'_, Self>) -> PyResult<crate::region_python::PyRegion> {
-        use crate::region_python::{PyRegion, PyRegionExpr};
+    fn __pos__(slf: PyRef<'_, Self>) -> PyResult<region_python::PyRegion> {
+    use crate::python::region_python::{PyRegion, PyRegionExpr};
         let py = slf.py();
-        let py_surface: Py<crate::surface_python::PySurface> = slf.into_py(py).extract(py).unwrap();
+    let py_surface: Py<crate::python::surface_python::PySurface> = slf.into_py(py).extract(py).unwrap();
         let expr =
-            PyRegionExpr::Halfspace(crate::region_python::PyHalfspace::new_above(py_surface));
+    PyRegionExpr::Halfspace(PyHalfspace::new_above(py_surface));
         let region = crate::region::Region {
             expr: expr.to_region_expr(),
         };

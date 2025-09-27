@@ -36,7 +36,7 @@ use pyo3::prelude::*;
 // ...existing code...
 
 // ...existing code...
-use crate::surface_python::PySurface;
+use crate::python::surface_python::PySurface;
 
 #[pyclass(name = "Region")]
 #[derive(Clone)]
@@ -200,9 +200,9 @@ impl PyHalfspace {
         Python::with_gil(|py| {
             let surface = self.surface.as_ref(py);
             if self.is_above {
-                surface.borrow().evaluate(point) > 0.0
+                surface.borrow().inner.evaluate(point) > 0.0
             } else {
-                surface.borrow().evaluate(point) < 0.0
+                surface.borrow().inner.evaluate(point) < 0.0
             }
         })
     }
@@ -304,9 +304,9 @@ impl PyRegionExpr {
             PyRegionExpr::Halfspace(hs) => Python::with_gil(|py| {
                 let surface = hs.surface.as_ref(py);
                 if hs.is_above {
-                    surface.borrow().evaluate(point) > 0.0
+                    surface.borrow().inner.evaluate(point) > 0.0
                 } else {
-                    surface.borrow().evaluate(point) < 0.0
+                    surface.borrow().inner.evaluate(point) < 0.0
                 }
             }),
             PyRegionExpr::Union(a, b) => a.evaluate_contains(point) || b.evaluate_contains(point),
