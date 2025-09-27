@@ -1,4 +1,3 @@
-// Move to: /home/jon/materials_for_mc/src/python/element_python.rs
 // Python bindings for the element module
 // Implement PyO3 wrappers here if needed
 

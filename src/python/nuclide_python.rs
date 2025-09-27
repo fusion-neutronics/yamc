@@ -1,4 +1,3 @@
-// Move to: /home/jon/materials_for_mc/src/python/nuclide_python.rs
 use crate::nuclide::Nuclide;
 use crate::reaction::Reaction;
 #[cfg(feature = "pyo3")]
