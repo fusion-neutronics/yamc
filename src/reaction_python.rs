@@ -1,4 +1,3 @@
-// Move to: /home/jon/materials_for_mc/src/python/reaction_python.rs
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 

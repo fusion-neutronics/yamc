@@ -1,4 +1,3 @@
-// Move to: /home/jon/materials_for_mc/src/python/data_python.rs
 use crate::data::{ATOMIC_MASSES, ELEMENT_NAMES, ELEMENT_NUCLIDES, NATURAL_ABUNDANCE};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;

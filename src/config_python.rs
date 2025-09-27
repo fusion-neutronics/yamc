@@ -1,4 +1,3 @@
-// Move to: /home/jon/materials_for_mc/src/python/config_python.rs
 use crate::config::{Config, CONFIG};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType, PyString};
