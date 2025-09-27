@@ -1,5 +1,5 @@
 use crate::region::Region;
-use materials_for_mc::Material;
+use crate::material::Material;
 use std::sync::Arc;
 
 /// A Cell represents a geometric region
@@ -136,7 +136,7 @@ mod distance_tests {
 }
     #[test]
     fn test_cell_fill_material() {
-        use materials_for_mc::Material;
+    use crate::material::Material;
         use crate::region::{Region, HalfspaceType};
         use crate::surface::{Surface, SurfaceKind, BoundaryType};
         use std::sync::Arc;

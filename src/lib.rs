@@ -1,3 +1,13 @@
+mod bounding_box;
+mod cell;
+mod geometry;
+mod region;
+mod surface;
+pub use bounding_box::*;
+pub use cell::*;
+pub use geometry::*;
+pub use region::*;
+pub use surface::*;
 #[cfg(feature = "wasm")]
 pub use wasm::material_wasm;
 #[cfg(feature = "wasm")]
@@ -61,6 +71,11 @@ mod python {
     pub mod nuclide_python;
     pub mod reaction_python;
     pub mod data_python;
+    pub mod bounding_box_python;
+    pub mod cell_python;
+    pub mod geometry_python;
+    pub mod region_python;
+    pub mod surface_python;
     pub use config_python::*;
     pub use element_python::*;
     pub use material_python::*;
@@ -68,6 +83,11 @@ mod python {
     pub use nuclide_python::*;
     pub use reaction_python::*;
     pub use data_python::*;
+    pub use bounding_box_python::*;
+    pub use cell_python::*;
+    pub use geometry_python::*;
+    pub use region_python::*;
+    pub use surface_python::*;
 }
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
