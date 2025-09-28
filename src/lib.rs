@@ -83,7 +83,7 @@ mod python {
     pub mod source_python;
     pub mod settings_python;
     pub mod model_python;
-    // pub mod particle_python; todo consider adding to python
+    pub mod particle_python;
     pub use config_python::*;
     pub use element_python::*;
     pub use material_python::*;
@@ -124,6 +124,8 @@ pub use wasm::data_wasm::*;
 #[cfg(feature = "pyo3")]
 #[pymodule]
 fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    use crate::python::particle_python;
+    m.add_class::<particle_python::PyParticle>()?;
     use crate::python::model_python;
     m.add_class::<model_python::PyModel>()?;
     use crate::python::material_python;

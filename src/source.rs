@@ -6,9 +6,8 @@ pub struct Source {
 }
 
 impl Source {
-    pub fn sample(&self) -> ([f64; 3], [f64; 3], f64) {
-        // For now, just return the fixed values
-        (self.position, self.direction, self.energy)
+    pub fn sample(&self) -> crate::particle::Particle {
+        crate::particle::Particle::new(self.position, self.direction, self.energy)
     }
 }
 
@@ -24,9 +23,10 @@ mod tests {
             direction: [0.0, 0.0, 1.0],
             energy: 2e6,
         };
-        let (pos, dir, en) = s.sample();
-        assert_eq!(pos, [1.0, 2.0, 3.0]);
-        assert_eq!(dir, [0.0, 0.0, 1.0]);
-        assert_eq!(en, 2e6);
+    let p = s.sample();
+    assert_eq!(p.position, [1.0, 2.0, 3.0]);
+    assert_eq!(p.direction, [0.0, 0.0, 1.0]);
+    assert_eq!(p.energy, 2e6);
+    assert!(p.alive);
     }
 }

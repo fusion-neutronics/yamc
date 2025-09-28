@@ -20,8 +20,8 @@ impl PySource {
         }
     }
 
-    pub fn sample(&self) -> ([f64; 3], [f64; 3], f64) {
-        self.inner.sample()
+    pub fn sample(&self) -> crate::python::particle_python::PyParticle {
+        crate::python::particle_python::PyParticle { inner: self.inner.sample() }
     }
 
     #[getter]
