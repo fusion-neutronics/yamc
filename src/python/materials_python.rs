@@ -6,9 +6,10 @@ use pyo3::types::PyList;
 
 /// Python wrapper for the Rust Materials struct
 #[pyclass(name = "Materials")]
+#[derive(Clone)]
 pub struct PyMaterials {
     /// Internal Rust Materials instance
-    internal: Materials,
+    pub inner: Materials,
 }
 
 #[pymethods]
@@ -17,7 +18,7 @@ impl PyMaterials {
     #[new]
     fn py_new(materials: Option<&PyList>) -> PyResult<Self> {
         let mut result = PyMaterials {
-            internal: Materials::new(),
+            inner: Materials::new(),
         };
 
         // If materials were provided, add them to the collection
@@ -25,7 +26,7 @@ impl PyMaterials {
             for item in mat_list.iter() {
                 // Extract PyMaterial by value, not by reference
                 let material = item.extract::<PyRef<PyMaterial>>()?;
-                result.internal.append(material.get_internal().clone());
+                result.inner.append(material.get_internal().clone());
             }
         }
 
@@ -35,13 +36,13 @@ impl PyMaterials {
     /// Append a material to the collection
     fn append(&mut self, material: &PyMaterial) -> PyResult<()> {
         // Use get_internal() method instead of directly accessing the field
-        self.internal.append(material.get_internal().clone());
+    self.inner.append(material.get_internal().clone());
         Ok(())
     }
 
     /// Get a material by index
     fn get(&self, index: usize) -> PyResult<PyMaterial> {
-        match self.internal.get(index) {
+    match self.inner.get(index) {
             Some(m) => Ok(PyMaterial::from_material(m.clone())),
             None => Err(PyIndexError::new_err(format!(
                 "Index {} out of range",
@@ -52,8 +53,8 @@ impl PyMaterials {
 
     /// Remove a material at the specified index
     fn remove(&mut self, index: usize) -> PyResult<PyMaterial> {
-        if index < self.internal.len() {
-            Ok(PyMaterial::from_material(self.internal.remove(index)))
+        if index < self.inner.len() {
+            Ok(PyMaterial::from_material(self.inner.remove(index)))
         } else {
             Err(PyIndexError::new_err(format!(
                 "Index {} out of range",
@@ -64,7 +65,7 @@ impl PyMaterials {
 
     /// Get the number of materials in the collection
     fn len(&self) -> usize {
-        self.internal.len()
+        self.inner.len()
     }
 
     /// Special method for Python's len() function
@@ -74,17 +75,17 @@ impl PyMaterials {
 
     /// Check if the collection is empty
     fn is_empty(&self) -> bool {
-        self.internal.is_empty()
+        self.inner.is_empty()
     }
 
     /// Return a string representation of the Materials object
     fn __repr__(&self) -> String {
-        format!("Materials with {} entries", self.internal.len())
+        format!("Materials with {} entries", self.inner.len())
     }
 
     /// Make the Materials object behave like a sequence in Python
     fn __getitem__(&self, index: usize) -> PyResult<PyMaterial> {
-        self.get(index)
+    self.get(index)
     }
 
     /// Read nuclides from a JSON-like Python dictionary or a string keyword (delegates to Materials::read_nuclides)
@@ -116,7 +117,7 @@ impl PyMaterials {
         };
         
         // Call pure Rust function
-        self.internal.load_nuclear_data_from_input(dict_data, keyword_data)
+    self.inner.load_nuclear_data_from_input(dict_data, keyword_data)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 }

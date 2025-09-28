@@ -6,6 +6,7 @@ pub mod source;
 pub mod settings;
 pub mod region;
 pub mod surface;
+pub mod model;
 pub use bounding_box::*;
 pub use cell::*;
 pub use geometry::*;
@@ -81,6 +82,7 @@ mod python {
     pub mod surface_python;
     pub mod source_python;
     pub mod settings_python;
+    pub mod model_python;
     // pub mod particle_python; todo consider adding to python
     pub use config_python::*;
     pub use element_python::*;
@@ -122,6 +124,8 @@ pub use wasm::data_wasm::*;
 #[cfg(feature = "pyo3")]
 #[pymodule]
 fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    use crate::python::model_python;
+    m.add_class::<model_python::PyModel>()?;
     use crate::python::material_python;
     use crate::python::materials_python;
     use crate::python::nuclide_python;

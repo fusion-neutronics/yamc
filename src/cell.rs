@@ -6,7 +6,7 @@ use std::sync::Arc;
 /// This follows OpenMC's approach where cells are defined by:
 /// - A region (combination of surfaces using boolean operations)
 /// - A name for identification
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Cell {
     pub cell_id: u32,
     pub name: Option<String>,

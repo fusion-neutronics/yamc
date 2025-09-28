@@ -24,14 +24,14 @@ impl BoundaryType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Surface {
     pub surface_id: usize,
     pub kind: SurfaceKind,
     pub boundary_type: BoundaryType,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum SurfaceKind {
     Plane {
         a: f64,
