@@ -40,4 +40,8 @@ impl PyModel {
     pub fn settings(&self) -> PySettings {
         PySettings { inner: self.inner.settings.clone() }
     }
+
+    pub fn run(&self) {
+        self.inner.run();
+    }
 }

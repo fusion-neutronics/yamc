@@ -33,3 +33,4 @@ def test_model_construction():
     assert model.materials.len() > 0
     nuclides = [n[0] for n in model.materials.get(0).nuclides]
     assert "Li6" in nuclides
+    model.run()

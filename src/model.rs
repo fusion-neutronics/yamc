@@ -15,8 +15,8 @@ impl Model {
         for batch in 0..self.settings.batches {
             println!("Batch {}", batch + 1);
             for _ in 0..self.settings.particles {
-                // Sample a particle from the source
-                let mut particle = self.source.sample();
+                // Sample a particle from the source via settings
+                let mut particle = self.settings.source.sample();
                 particle.alive = true;
 
                 // Transport loop
@@ -99,7 +99,6 @@ use crate::settings::Settings;
 pub struct Model {
     pub geometry: Geometry,
     pub materials: Materials,
-    pub source: Source,
     pub settings: Settings,
 }
 
@@ -161,11 +160,11 @@ mod tests {
         let model = Model {
             geometry,
             materials,
-            source,
+                // source, // Removed source from model construction
             settings,
         };
-        assert_eq!(model.settings.particles, 100);
-        assert_eq!(model.source.energy, 1e6);
+    assert_eq!(model.settings.particles, 100);
+    assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material
         assert_eq!(model.geometry.cells.len(), 1);
         assert!(model.materials.len() > 0);
