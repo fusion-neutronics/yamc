@@ -1,6 +1,5 @@
 use crate::region::Region;
 use crate::material::Material;
-use std::sync::Arc;
 
 /// A Cell represents a geometric region
 /// This follows OpenMC's approach where cells are defined by:

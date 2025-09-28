@@ -1,5 +1,4 @@
-use rand::Rng;
-use crate::particle::Particle;
+
 use crate::surface::BoundaryType;
 impl Model {
     pub fn run(&self) {
@@ -92,7 +91,6 @@ impl Model {
 }
 use crate::geometry::Geometry;
 use crate::materials::Materials;
-use crate::source::Source;
 use crate::settings::Settings;
 
 #[derive(Debug, Clone)]

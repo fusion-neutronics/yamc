@@ -148,7 +148,7 @@ impl Region {
                     collect_constraints(a, axis_lowers, axis_uppers, finite_bounds);
                     collect_constraints(b, axis_lowers, axis_uppers, finite_bounds);
                 }
-                RegionExpr::Complement(inner) => {
+                RegionExpr::Complement(_inner) => {
                     // For complement, ignore constraints (could be improved)
                 }
             }
@@ -241,9 +241,6 @@ fn test_sphere_with_xplanes() {
     assert_eq!(bbox.upper_right, [2.1, 4.2, 4.2]);
 }
 mod tests {
-    use super::*;
-    use crate::surface::{Surface, SurfaceKind};
-    use std::collections::HashMap;
 
     #[test]
     fn test_region_contains() {

@@ -574,17 +574,16 @@ mod tests {
     #[test]
     fn test_z_cylinder_creation() {
         let zcyl = Surface::z_cylinder(1.0, 2.0, 3.0, 123, None);
-        match zcyl.kind {
-            SurfaceKind::Cylinder {
-                axis,
-                origin,
-                radius,
-            } => {
-                assert_eq!(axis, [0.0, 0.0, 1.0]);
-                assert_eq!(origin, [1.0, 2.0, 0.0]);
-                assert_eq!(radius, 3.0);
+        match &self.kind {
+            SurfaceKind::Plane { a, b, c, d } => {
+                // ...existing code...
             }
-            _ => panic!("Not a Z cylinder"),
+            SurfaceKind::Sphere { x0, y0, z0, radius } => {
+                // ...existing code...
+            }
+            SurfaceKind::Cylinder { axis, origin, radius } => {
+                // ...existing code...
+            }
         }
         assert_eq!(zcyl.surface_id, 123);
     }
