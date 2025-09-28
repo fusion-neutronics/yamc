@@ -25,10 +25,10 @@ def test_model_construction():
     materials = mc.Materials()
     materials.append(material)
     source = mc.Source([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6)
-    settings = mc.Settings(100, 10, source)
-    model = mc.Model(geometry, materials, source, settings)
-    assert model.settings.particles == 100
-    assert model.source.energy == 1e6
+    settings = mc.Settings(particles=5, batches=2, source=source)
+    model = mc.Model(geometry, materials, settings)
+    assert model.settings.particles == 5
+    assert model.settings.source.energy == 1e6
     assert len(model.geometry.cells) == 1
     assert model.materials.len() > 0
     nuclides = [n[0] for n in model.materials.get(0).nuclides]
