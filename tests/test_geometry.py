@@ -1,4 +1,4 @@
-import constructive_solid_geometry_for_mc as csg
+import materials_for_mc as csg
 
 def test_geometry_find_cell():
     surf = csg.Sphere(x0=0, y0=0, z0=0, r=2, surface_id=1)

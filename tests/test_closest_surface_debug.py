@@ -1,4 +1,4 @@
-import constructive_solid_geometry_for_mc as csg4mc
+import materials_for_mc as csg4mc
 import math
 
 def test_closest_surface_debug():

@@ -1,5 +1,5 @@
 import pytest
-from constructive_solid_geometry_for_mc import XPlane, YPlane, ZPlane, Sphere, Cylinder, ZCylinder
+from materials_for_mc import XPlane, YPlane, ZPlane, Sphere, Cylinder, ZCylinder
 
 def test_xplane_creation():
     s = XPlane(x0=1.0, surface_id=42)

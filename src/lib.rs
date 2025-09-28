@@ -123,18 +123,44 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     use crate::python::config_python;
     use crate::python::element_python;
     use crate::python::data_python;
+    use crate::python::surface_python;
+    use crate::python::cell_python;
+    use crate::python::region_python;
+    use crate::python::geometry_python;
+    use crate::python::bounding_box_python;
 
+    // Core materials API
     m.add_class::<material_python::PyMaterial>()?;
     m.add_class::<materials_python::PyMaterials>()?;
     m.add_class::<nuclide_python::PyNuclide>()?;
-    m.add_class::<reaction_python::PyReaction>()?; // Exposed as Reaction in Python
+    m.add_class::<reaction_python::PyReaction>()?;
     m.add_class::<config_python::PyConfig>()?;
     m.add_class::<element_python::PyElement>()?;
+
+    // Geometry/CSG API
+    m.add_class::<cell_python::PyCell>()?;
+    m.add_class::<region_python::PyRegion>()?;
+    m.add_class::<region_python::PyHalfspace>()?;
+    m.add_class::<region_python::PyBoundingBox>()?;
+    m.add_class::<surface_python::PySurface>()?;
+    m.add_class::<surface_python::PyBoundaryType>()?;
+    m.add_class::<geometry_python::PyGeometry>()?;
+
+    // Functions for nuclide/data
     m.add_function(wrap_pyfunction!(nuclide_python::py_read_nuclide_from_json, m)?)?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::natural_abundance, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::element_nuclides, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::element_names, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::atomic_masses, m)?)?;
+
+    // Surface constructors (OpenMC-style API)
+    m.add_function(wrap_pyfunction!(surface_python::XPlane, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::YPlane, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::ZPlane, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::Sphere, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::Cylinder, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::ZCylinder, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::Plane, m)?)?;
     Ok(())
 }

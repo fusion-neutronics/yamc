@@ -4,8 +4,9 @@ use pyo3::exceptions::PyValueError;
 use std::collections::HashMap;
 
 #[pyclass(name = "Material")]
+#[derive(Clone)]
 pub struct PyMaterial {
-    internal: Material,
+    pub internal: Material,
 }
 
 #[pymethods]

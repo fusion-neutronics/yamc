@@ -5,37 +5,8 @@ use crate::material::Material;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
 
-#[pyclass(name = "Material")]
-#[derive(Clone)]
-pub struct PyMaterial {
-    pub inner: Material,
-}
-
-#[pymethods]
-impl PyMaterial {
-    #[new]
-    pub fn new(name: String) -> Self {
-        PyMaterial {
-            inner: Material {
-                name: Some(name),
-                nuclides: std::collections::HashMap::new(),
-                density: None,
-                density_units: "g/cm3".to_string(),
-                temperature: "293.6".to_string(),
-                nuclide_data: std::collections::HashMap::new(),
-                macroscopic_xs_neutron: std::collections::HashMap::new(),
-                unified_energy_grid_neutron: Vec::new(),
-                macroscopic_xs_neutron_total_by_nuclide: None,
-                    volume: None,
-            }
-        }
-    }
-
-    #[getter]
-    pub fn name(&self) -> Option<String> {
-        self.inner.name.clone()
-    }
-}
+// Use the PyMaterial definition from material_python.rs
+use crate::python::material_python::PyMaterial;
 
 #[pyclass(name = "Cell")]
 #[derive(Clone)]
@@ -64,9 +35,9 @@ impl PyCell {
         None
     }
     #[new]
-    #[args(cell_id = "0", name = "None", fill = "None")]
-    pub fn new(cell_id: u32, region: PyRegion, name: Option<String>, fill: Option<PyMaterial>) -> Self {
-        let material = fill.map(|m| m.inner);
+    #[pyo3(signature = (region, cell_id=0, name=None, fill=None))]
+    pub fn new(region: PyRegion, cell_id: u32, name: Option<String>, fill: Option<PyMaterial>) -> Self {
+        let material = fill.map(|m| m.internal.clone());
         PyCell {
             inner: Cell::new(cell_id, region.region, name, material),
         }
@@ -84,7 +55,7 @@ impl PyCell {
 
     #[getter]
     pub fn fill(&self) -> Option<PyMaterial> {
-        self.inner.material.clone().map(|m| PyMaterial { inner: m })
+        self.inner.material.clone().map(|m| PyMaterial { internal: m })
     }
 
     pub fn contains(&self, x: f64, y: f64, z: f64) -> bool {
