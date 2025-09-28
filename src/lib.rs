@@ -1,6 +1,9 @@
-mod bounding_box;
-mod cell;
-mod geometry;
+pub mod bounding_box;
+pub mod cell;
+pub mod geometry;
+pub mod particle;
+pub mod source;
+pub mod settings;
 pub mod region;
 pub mod surface;
 pub use bounding_box::*;
@@ -76,6 +79,9 @@ mod python {
     pub mod geometry_python;
     pub mod region_python;
     pub mod surface_python;
+    pub mod source_python;
+    pub mod settings_python;
+    // pub mod particle_python; todo consider adding to python
     pub use config_python::*;
     pub use element_python::*;
     pub use material_python::*;
@@ -128,6 +134,8 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     use crate::python::region_python;
     use crate::python::geometry_python;
     use crate::python::bounding_box_python;
+    use crate::python::source_python;
+    use crate::python::settings_python;
 
     // Core materials API
     m.add_class::<material_python::PyMaterial>()?;
@@ -136,6 +144,10 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<reaction_python::PyReaction>()?;
     m.add_class::<config_python::PyConfig>()?;
     m.add_class::<element_python::PyElement>()?;
+
+    // Particle transport API
+    m.add_class::<source_python::PySource>()?;
+    m.add_class::<settings_python::PySettings>()?;
 
     // Geometry/CSG API
     m.add_class::<cell_python::PyCell>()?;
