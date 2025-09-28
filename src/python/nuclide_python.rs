@@ -6,8 +6,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::collections::HashMap;
 
-
-
 #[cfg(feature = "pyo3")]
 /// Nuclide data container exposed to Python.
 ///
@@ -180,7 +178,7 @@ impl PyNuclide {
     /// file. The subset actually loaded is stored in `loaded_temperatures`.
     ///
     /// Args:
-    ///     path (Optional[str]): Optional path to the nuclide JSON file, keyword 
+    ///     path (Optional[str]): Optional path to the nuclide JSON file, keyword
     ///         (e.g. "tendl-21", "fendl-3.2c"), or filesystem path. If provided,
     ///         this overrides any global configuration for this nuclide. If omitted,
     ///         the constructor `name` is used to look up the path from global config.
@@ -200,15 +198,15 @@ impl PyNuclide {
     ///     
     ///     >>> # Set global default
     ///     >>> m4mc.Config.set_cross_sections("tendl-21")
-    ///     >>> 
+    ///     >>>
     ///     >>> # Load from global config (will use TENDL)
     ///     >>> li6_tendl = m4mc.Nuclide("Li6")
     ///     >>> li6_tendl.read_nuclide_from_json()
-    ///     >>> 
+    ///     >>>
     ///     >>> # Override to use FENDL for comparison
     ///     >>> li6_fendl = m4mc.Nuclide("Li6")
     ///     >>> li6_fendl.read_nuclide_from_json("fendl-3.2c")
-    ///     >>> 
+    ///     >>>
     ///     >>> # Use custom local file
     ///     >>> li6_custom = m4mc.Nuclide("Li6")
     ///     >>> li6_custom.read_nuclide_from_json("path/to/custom_Li6.json")
@@ -219,16 +217,17 @@ impl PyNuclide {
         temperatures: Option<Vec<String>>,
     ) -> PyResult<()> {
         use std::collections::HashSet;
-        
+
         let temps_set: Option<HashSet<String>> = temperatures.map(|v| v.into_iter().collect());
-        
+
         // Use the new Rust backend method that handles all the complex logic
         let nuclide = crate::nuclide::load_nuclide_for_python(
             path.as_deref(),
             self.name.as_deref(),
             temps_set.as_ref(),
-        ).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
+        )
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+
         // Simple field assignment from the loaded nuclide
         *self = PyNuclide::from(nuclide);
         Ok(())
@@ -328,7 +327,7 @@ impl PyNuclide {
     /// Get microscopic cross section data for a specific reaction and temperature.
     ///
     /// Args:
-    ///     reaction (Union[int, str]): Either an ENDF/MT number (int) or reaction name (str) 
+    ///     reaction (Union[int, str]): Either an ENDF/MT number (int) or reaction name (str)
     ///         like "(n,gamma)", "(n,elastic)", "fission", etc.
     ///     temperature (Optional[str]): Temperature to use. If None, uses the single
     ///         loaded temperature if only one is available.
@@ -345,7 +344,7 @@ impl PyNuclide {
         temperature: Option<&str>,
     ) -> PyResult<(Vec<f64>, Vec<f64>)> {
         let mut nuclide: Nuclide = self.clone().into();
-        
+
         // Handle both integer and string inputs
         let result = if let Ok(mt_num) = reaction.extract::<i32>() {
             nuclide.microscopic_cross_section(mt_num, temperature)
@@ -353,27 +352,29 @@ impl PyNuclide {
             nuclide.microscopic_cross_section(reaction_name, temperature)
         } else {
             return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "reaction must be either an integer (MT number) or string (reaction name)"
+                "reaction must be either an integer (MT number) or string (reaction name)",
             ));
         };
-        
+
         match result {
             Ok((cross_section, energy)) => Ok((cross_section, energy)),
-            Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                e.to_string(),
+            )),
         }
     }
 
     /// Sample a reaction based on cross sections at a given energy and temperature.
     ///
-    /// This method randomly selects a nuclear reaction channel based on the relative 
+    /// This method randomly selects a nuclear reaction channel based on the relative
     /// cross sections at the specified neutron energy. It uses Monte Carlo sampling
-    /// to select between absorption, elastic scattering, fission (if fissionable), 
+    /// to select between absorption, elastic scattering, fission (if fissionable),
     /// and non-elastic reactions according to their probabilities.
     ///
     /// Args:
     ///     energy (float): Neutron energy in eV.
     ///     temperature (str): Temperature to use for reaction data (e.g. "294", "300K").
-    ///     seed (Optional[int]): Random seed for reproducible sampling. If None, 
+    ///     seed (Optional[int]): Random seed for reproducible sampling. If None,
     ///         uses system random state.
     ///
     /// Returns:
@@ -401,13 +402,13 @@ impl PyNuclide {
         temperature: &str,
         seed: Option<u64>,
     ) -> PyResult<Option<PyObject>> {
-        use rand::{Rng, SeedableRng};
-        use rand::rngs::StdRng;
         use pyo3::types::PyDict;
         use pyo3::Python;
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
 
         let nuclide: Nuclide = self.clone().into();
-        
+
         // Create random number generator with optional seed
         let mut rng = if let Some(seed_val) = seed {
             StdRng::seed_from_u64(seed_val)

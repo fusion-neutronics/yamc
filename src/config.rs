@@ -40,12 +40,17 @@ impl Config {
         const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-21", "fendl-3.2c"];
         match path {
             Some(p) => {
-                self.cross_sections.insert(nuclide_or_keyword.to_string(), p.to_string());
+                self.cross_sections
+                    .insert(nuclide_or_keyword.to_string(), p.to_string());
             }
             None => {
                 // Validate keyword
                 if !ACCEPTABLE_KEYWORDS.contains(&nuclide_or_keyword) {
-                    panic!("Invalid cross section keyword: '{}'. Acceptable keywords are: {}", nuclide_or_keyword, ACCEPTABLE_KEYWORDS.join(", "));
+                    panic!(
+                        "Invalid cross section keyword: '{}'. Acceptable keywords are: {}",
+                        nuclide_or_keyword,
+                        ACCEPTABLE_KEYWORDS.join(", ")
+                    );
                 }
                 self.default_cross_section = Some(nuclide_or_keyword.to_string());
             }
@@ -54,7 +59,9 @@ impl Config {
 
     /// Get a cross section file path for a nuclide, falling back to the global default if not set
     pub fn get_cross_section(&self, nuclide: &str) -> Option<String> {
-        self.cross_sections.get(nuclide).cloned()
+        self.cross_sections
+            .get(nuclide)
+            .cloned()
             .or_else(|| self.default_cross_section.clone())
     }
 
@@ -97,7 +104,11 @@ impl IntoCrossSectionsInput for &str {
         // List of acceptable keywords
         const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-21", "fendl-3.2c"];
         if !ACCEPTABLE_KEYWORDS.contains(&self) {
-            panic!("Invalid cross section keyword: '{}'. Acceptable keywords are: {}", self, ACCEPTABLE_KEYWORDS.join(", "));
+            panic!(
+                "Invalid cross section keyword: '{}'. Acceptable keywords are: {}",
+                self,
+                ACCEPTABLE_KEYWORDS.join(", ")
+            );
         }
         config.default_cross_section = Some(self.to_string());
     }
@@ -112,105 +123,141 @@ impl IntoCrossSectionsInput for String {
 impl Config {
     /// Get the global configuration instance
     pub fn global() -> std::sync::MutexGuard<'static, Self> {
-        CONFIG.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        CONFIG
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-use super::*;
+    use super::*;
 
-#[test]
-fn test_set_cross_section_global_keyword() {
-    let mut config = Config::new();
-    config.set_cross_section("tendl-21", None);
-    assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
-}
+    #[test]
+    fn test_set_cross_section_global_keyword() {
+        let mut config = Config::new();
+        config.set_cross_section("tendl-21", None);
+        assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
+    }
 
-#[test]
-#[should_panic(expected = "Invalid cross section keyword")]
-fn test_set_cross_section_invalid_keyword() {
-    let mut config = Config::new();
-    config.set_cross_section("invalid-keyword", None);
-}
+    #[test]
+    #[should_panic(expected = "Invalid cross section keyword")]
+    fn test_set_cross_section_invalid_keyword() {
+        let mut config = Config::new();
+        config.set_cross_section("invalid-keyword", None);
+    }
 
-#[test]
-fn test_set_and_get_cross_section_for_nuclide() {
-    let mut config = Config::new();
-    config.set_cross_section("Li6", Some("/path/to/Li6.json"));
-    assert_eq!(config.get_cross_section("Li6"), Some("/path/to/Li6.json".to_string()));
-}
+    #[test]
+    fn test_set_and_get_cross_section_for_nuclide() {
+        let mut config = Config::new();
+        config.set_cross_section("Li6", Some("/path/to/Li6.json"));
+        assert_eq!(
+            config.get_cross_section("Li6"),
+            Some("/path/to/Li6.json".to_string())
+        );
+    }
 
-#[test]
-fn test_get_cross_section_fallback_to_global() {
-    let mut config = Config::new();
-    config.set_cross_section("tendl-21", None);
-    assert_eq!(config.get_cross_section("Fe56"), Some("tendl-21".to_string()));
-}
+    #[test]
+    fn test_get_cross_section_fallback_to_global() {
+        let mut config = Config::new();
+        config.set_cross_section("tendl-21", None);
+        assert_eq!(
+            config.get_cross_section("Fe56"),
+            Some("tendl-21".to_string())
+        );
+    }
 
-#[test]
-fn test_set_cross_section_path_to_file() {
-    let mut config = Config::new();
-    config.set_cross_section("Fe56", Some("../../tests/Fe56.json"));
-    assert_eq!(config.get_cross_section("Fe56"), Some("../../tests/Fe56.json".to_string()));
-}
+    #[test]
+    fn test_set_cross_section_path_to_file() {
+        let mut config = Config::new();
+        config.set_cross_section("Fe56", Some("../../tests/Fe56.json"));
+        assert_eq!(
+            config.get_cross_section("Fe56"),
+            Some("../../tests/Fe56.json".to_string())
+        );
+    }
 
-#[test]
-fn test_set_cross_section_single_keyword() {
-    let mut config = Config::new();
-    config.set_cross_section("Fe56", Some("tendl-21"));
-    assert_eq!(config.get_cross_section("Fe56"), Some("tendl-21".to_string()));
-}
+    #[test]
+    fn test_set_cross_section_single_keyword() {
+        let mut config = Config::new();
+        config.set_cross_section("Fe56", Some("tendl-21"));
+        assert_eq!(
+            config.get_cross_section("Fe56"),
+            Some("tendl-21".to_string())
+        );
+    }
 
-#[test]
-fn test_set_cross_sections_multiple() {
-    let mut config = Config::new();
-    let cross_sections = std::collections::HashMap::from([
-        ("Li7".to_string(), "../../tests/Li7.json".to_string()),
-        ("Li6".to_string(), "tendl-21".to_string()),
-    ]);
-    config.set_cross_sections(cross_sections);
-    assert_eq!(config.get_cross_section("Li7"), Some("../../tests/Li7.json".to_string()));
-    assert_eq!(config.get_cross_section("Li6"), Some("tendl-21".to_string()));
-}
+    #[test]
+    fn test_set_cross_sections_multiple() {
+        let mut config = Config::new();
+        let cross_sections = std::collections::HashMap::from([
+            ("Li7".to_string(), "../../tests/Li7.json".to_string()),
+            ("Li6".to_string(), "tendl-21".to_string()),
+        ]);
+        config.set_cross_sections(cross_sections);
+        assert_eq!(
+            config.get_cross_section("Li7"),
+            Some("../../tests/Li7.json".to_string())
+        );
+        assert_eq!(
+            config.get_cross_section("Li6"),
+            Some("tendl-21".to_string())
+        );
+    }
 
-#[test]
-fn test_set_cross_section_global_keyword_for_all() {
-    let mut config = Config::new();
-    config.set_cross_section("tendl-21", None);
-    assert_eq!(config.get_cross_section("Li6"), Some("tendl-21".to_string()));
-    assert_eq!(config.get_cross_section("Fe56"), Some("tendl-21".to_string()));
-}
+    #[test]
+    fn test_set_cross_section_global_keyword_for_all() {
+        let mut config = Config::new();
+        config.set_cross_section("tendl-21", None);
+        assert_eq!(
+            config.get_cross_section("Li6"),
+            Some("tendl-21".to_string())
+        );
+        assert_eq!(
+            config.get_cross_section("Fe56"),
+            Some("tendl-21".to_string())
+        );
+    }
 
-#[test]
-fn test_set_cross_sections_with_string_keyword() {
-    let mut config = Config::new();
-    config.set_cross_sections("tendl-21");
-    assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
-    assert_eq!(config.get_cross_section("Li6"), Some("tendl-21".to_string()));
-    assert_eq!(config.get_cross_section("Fe56"), Some("tendl-21".to_string()));
-}
+    #[test]
+    fn test_set_cross_sections_with_string_keyword() {
+        let mut config = Config::new();
+        config.set_cross_sections("tendl-21");
+        assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
+        assert_eq!(
+            config.get_cross_section("Li6"),
+            Some("tendl-21".to_string())
+        );
+        assert_eq!(
+            config.get_cross_section("Fe56"),
+            Some("tendl-21".to_string())
+        );
+    }
 
-#[test]
-fn test_set_cross_sections_with_hashmap() {
-    let mut config = Config::new();
-    let cross_sections = std::collections::HashMap::from([
-        ("Li6".to_string(), "../../tests/Li6.json".to_string()),
-        ("Fe56".to_string(), "tendl-21".to_string()),
-    ]);
-    config.set_cross_sections(cross_sections);
-    assert_eq!(config.get_cross_section("Li6"), Some("../../tests/Li6.json".to_string()));
-    assert_eq!(config.get_cross_section("Fe56"), Some("tendl-21".to_string()));
-    // When a keyword is in the hashmap, it should set the global default too
-    assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
-}
+    #[test]
+    fn test_set_cross_sections_with_hashmap() {
+        let mut config = Config::new();
+        let cross_sections = std::collections::HashMap::from([
+            ("Li6".to_string(), "../../tests/Li6.json".to_string()),
+            ("Fe56".to_string(), "tendl-21".to_string()),
+        ]);
+        config.set_cross_sections(cross_sections);
+        assert_eq!(
+            config.get_cross_section("Li6"),
+            Some("../../tests/Li6.json".to_string())
+        );
+        assert_eq!(
+            config.get_cross_section("Fe56"),
+            Some("tendl-21".to_string())
+        );
+        // When a keyword is in the hashmap, it should set the global default too
+        assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
+    }
 
-#[test]
-#[should_panic(expected = "Invalid cross section keyword")]
-fn test_set_cross_sections_invalid_string_keyword() {
-    let mut config = Config::new();
-    config.set_cross_sections("invalid-keyword");
-}
+    #[test]
+    #[should_panic(expected = "Invalid cross section keyword")]
+    fn test_set_cross_sections_invalid_string_keyword() {
+        let mut config = Config::new();
+        config.set_cross_sections("invalid-keyword");
+    }
 }

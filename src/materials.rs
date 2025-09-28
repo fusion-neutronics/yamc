@@ -91,7 +91,9 @@ impl Materials {
         use std::collections::{HashMap as StdHashMap, HashSet};
         // Collect all nuclide names across materials
         let mut merged: HashMap<String, String> = HashMap::new();
-        let cfg = CONFIG.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let cfg = CONFIG
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         for mat in &self.materials {
             for n in mat.nuclides.keys() {
                 if let Some(p) = cfg.cross_sections.get(n) {
@@ -185,9 +187,7 @@ impl Materials {
     }
 
     /// Read nuclides with no input - use defaults (for Python wrapper)
-    pub fn read_nuclides_from_none(
-        &mut self,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn read_nuclides_from_none(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let empty_map = HashMap::new();
         self.read_nuclides_from_json(&empty_map)
     }
@@ -209,7 +209,9 @@ impl Materials {
         }
 
         // Get the global configuration
-        let config = CONFIG.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let config = CONFIG
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
 
         // Load each missing nuclide
         for nuclide_name in &needed {

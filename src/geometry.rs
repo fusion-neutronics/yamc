@@ -14,13 +14,12 @@ impl Geometry {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cell::Cell;
-    use crate::region::{Region, HalfspaceType};
-    use crate::surface::{Surface, SurfaceKind, BoundaryType};
+    use crate::region::{HalfspaceType, Region};
+    use crate::surface::{BoundaryType, Surface, SurfaceKind};
     use std::sync::Arc;
 
     #[test]
@@ -37,7 +36,9 @@ mod tests {
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let cell = Cell::new(1, region, Some("cell1".to_string()), None);
-        let geometry = Geometry { cells: vec![cell.clone()] };
+        let geometry = Geometry {
+            cells: vec![cell.clone()],
+        };
         // Point inside the sphere
         assert!(geometry.find_cell((0.0, 0.0, 0.0)).is_some());
         // Point outside the sphere

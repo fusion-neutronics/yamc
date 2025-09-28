@@ -1,5 +1,5 @@
-use crate::wasm::nuclide_wasm;
 use crate::config::CONFIG;
+use crate::wasm::nuclide_wasm;
 use js_sys::{Map, Object, Reflect};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -32,7 +32,9 @@ impl WasmConfig {
         }
 
         // Access the global config and set the cross sections
-        let mut config = CONFIG.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut config = CONFIG
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         config.set_cross_sections(cross_sections);
         Ok(())
     }
@@ -40,7 +42,9 @@ impl WasmConfig {
     #[wasm_bindgen]
     pub fn get_cross_sections() -> Result<JsValue, JsValue> {
         // Access the global config and get the cross sections
-        let config = CONFIG.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let config = CONFIG
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let cross_sections = &config.cross_sections;
 
         let map = Map::new();
@@ -54,7 +58,7 @@ impl WasmConfig {
 
     #[wasm_bindgen]
     pub fn set_nuclide_data(nuclide_name: &str, json_content: &str) -> Result<(), JsValue> {
-    match nuclide_wasm::set_nuclide_json_content(nuclide_name, json_content) {
+        match nuclide_wasm::set_nuclide_json_content(nuclide_name, json_content) {
             Ok(_) => Ok(()),
             Err(e) => Err(JsValue::from_str(&format!(
                 "Failed to set nuclide data: {:?}",

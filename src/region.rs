@@ -24,7 +24,6 @@ pub enum RegionExpr {
 
 // Regular Rust implementation
 impl Region {
-
     /// Recursively collect all surfaces and their sense (true=Above, false=Below) in the region
     pub fn surfaces_with_sense(&self) -> Vec<(Arc<Surface>, bool)> {
         fn collect(expr: &RegionExpr, surfaces: &mut Vec<(Arc<Surface>, bool)>, sense: bool) {
@@ -47,7 +46,14 @@ impl Region {
 
     /// Check if crossing the given surface at the intersection would exit the region
     /// For unions: exit only if outside all subregions. For intersections: exit if outside any subregion.
-    pub fn is_exit_surface(&self, point: (f64, f64, f64), direction: (f64, f64, f64), _surface: &Surface, dist: f64, _sense: bool) -> bool {
+    pub fn is_exit_surface(
+        &self,
+        point: (f64, f64, f64),
+        direction: (f64, f64, f64),
+        _surface: &Surface,
+        dist: f64,
+        _sense: bool,
+    ) -> bool {
         let eps = 1e-8;
         let p_next = (
             point.0 + direction.0 * (dist + eps),

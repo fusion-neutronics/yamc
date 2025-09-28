@@ -1,5 +1,5 @@
-use crate::region::Region;
 use crate::material::Material;
+use crate::region::Region;
 
 /// A Cell represents a geometric region
 /// This follows OpenMC's approach where cells are defined by:
@@ -15,7 +15,11 @@ pub struct Cell {
 
 impl Cell {
     /// Find the closest surface of this cell to a point along a direction (OpenMC/MCNP: first intersection with any region surface)
-    pub fn closest_surface(&self, point: [f64; 3], direction: [f64; 3]) -> Option<std::sync::Arc<crate::surface::Surface>> {
+    pub fn closest_surface(
+        &self,
+        point: [f64; 3],
+        direction: [f64; 3],
+    ) -> Option<std::sync::Arc<crate::surface::Surface>> {
         let mut min_dist = f64::INFINITY;
         let mut closest_surface = None;
         for (surface_arc, _sense) in self.region.surfaces_with_sense() {
@@ -36,7 +40,15 @@ impl Cell {
         for (surface_arc, sense) in self.region.surfaces_with_sense() {
             let surface: &crate::surface::Surface = surface_arc.as_ref();
             if let Some(dist) = surface.distance_to_surface(point, direction) {
-                if dist > 1e-10 && self.region.is_exit_surface((point[0], point[1], point[2]), (direction[0], direction[1], direction[2]), surface, dist, sense) {
+                if dist > 1e-10
+                    && self.region.is_exit_surface(
+                        (point[0], point[1], point[2]),
+                        (direction[0], direction[1], direction[2]),
+                        surface,
+                        dist,
+                        sense,
+                    )
+                {
                     if dist < min_dist {
                         min_dist = dist;
                     }
@@ -50,7 +62,12 @@ impl Cell {
         }
     }
     /// Create a new cell with a region and optional material (fill)
-    pub fn new(cell_id: u32, region: Region, name: Option<String>, material: Option<Material>) -> Self {
+    pub fn new(
+        cell_id: u32,
+        region: Region,
+        name: Option<String>,
+        material: Option<Material>,
+    ) -> Self {
         Cell {
             cell_id,
             name,
@@ -70,74 +87,74 @@ impl Cell {
 
 #[cfg(test)]
 mod tests {
-// --- Surface distance tests ---
-#[cfg(test)]
-mod distance_tests {
-    use crate::surface::{Surface, SurfaceKind};
+    // --- Surface distance tests ---
+    #[cfg(test)]
+    mod distance_tests {
+        use crate::surface::{Surface, SurfaceKind};
 
-    #[test]
-    fn test_sphere_distance() {
-        let sphere = Surface::new_sphere(0.0, 0.0, 0.0, 1.0, 1, None);
-        // From (2,0,0) toward center
-        let d = sphere.distance_to_surface([2.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
-        assert!((d.unwrap() - 1.0).abs() < 1e-10);
-        // From (0,0,0) outward
-        let d2 = sphere.distance_to_surface([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert!((d2.unwrap() - 1.0).abs() < 1e-10);
-        // No intersection
-        let d3 = sphere.distance_to_surface([2.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert_eq!(d3, None);
-        // On surface, outward
-        let d4 = sphere.distance_to_surface([1.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert_eq!(d4, None);
-    }
+        #[test]
+        fn test_sphere_distance() {
+            let sphere = Surface::new_sphere(0.0, 0.0, 0.0, 1.0, 1, None);
+            // From (2,0,0) toward center
+            let d = sphere.distance_to_surface([2.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
+            assert!((d.unwrap() - 1.0).abs() < 1e-10);
+            // From (0,0,0) outward
+            let d2 = sphere.distance_to_surface([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert!((d2.unwrap() - 1.0).abs() < 1e-10);
+            // No intersection
+            let d3 = sphere.distance_to_surface([2.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert_eq!(d3, None);
+            // On surface, outward
+            let d4 = sphere.distance_to_surface([1.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert_eq!(d4, None);
+        }
 
-    #[test]
-    fn test_cylinder_distance() {
-        // Z-cylinder at (0,0), r=1
-        let cyl = Surface::z_cylinder(0.0, 0.0, 1.0, 1, None);
-        // From (2,0,0) toward center
-        let d = cyl.distance_to_surface([2.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
-        assert!((d.unwrap() - 1.0).abs() < 1e-10);
-        // From (0,2,0) toward center
-        let d2 = cyl.distance_to_surface([0.0, 2.0, 0.0], [0.0, -1.0, 0.0]);
-        assert!((d2.unwrap() - 1.0).abs() < 1e-10);
-        // From (0,0,0) radially outward
-        let d3 = cyl.distance_to_surface([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert!((d3.unwrap() - 1.0).abs() < 1e-10);
-        // No intersection
-        let d4 = cyl.distance_to_surface([2.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert_eq!(d4, None);
-        // On surface, outward
-        let d5 = cyl.distance_to_surface([1.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert_eq!(d5, None);
-    }
+        #[test]
+        fn test_cylinder_distance() {
+            // Z-cylinder at (0,0), r=1
+            let cyl = Surface::z_cylinder(0.0, 0.0, 1.0, 1, None);
+            // From (2,0,0) toward center
+            let d = cyl.distance_to_surface([2.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
+            assert!((d.unwrap() - 1.0).abs() < 1e-10);
+            // From (0,2,0) toward center
+            let d2 = cyl.distance_to_surface([0.0, 2.0, 0.0], [0.0, -1.0, 0.0]);
+            assert!((d2.unwrap() - 1.0).abs() < 1e-10);
+            // From (0,0,0) radially outward
+            let d3 = cyl.distance_to_surface([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert!((d3.unwrap() - 1.0).abs() < 1e-10);
+            // No intersection
+            let d4 = cyl.distance_to_surface([2.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert_eq!(d4, None);
+            // On surface, outward
+            let d5 = cyl.distance_to_surface([1.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert_eq!(d5, None);
+        }
 
-    #[test]
-    fn test_xplane_distance() {
-        let plane = Surface::x_plane(5.0, 1, None);
-        // From (0,0,0) in +x direction
-        let d = plane.distance_to_surface([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert_eq!(d, Some(5.0));
-        // From (0,0,0) in -x direction
-        let d2 = plane.distance_to_surface([0.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
-        assert_eq!(d2, None);
-        // From (10,0,0) in -x direction
-        let d3 = plane.distance_to_surface([10.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
-        assert_eq!(d3, Some(5.0));
-        // Parallel direction
-        let d4 = plane.distance_to_surface([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-        assert_eq!(d4, None);
-        // On plane, outward
-        let d5 = plane.distance_to_surface([5.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
-        assert_eq!(d5, None);
+        #[test]
+        fn test_xplane_distance() {
+            let plane = Surface::x_plane(5.0, 1, None);
+            // From (0,0,0) in +x direction
+            let d = plane.distance_to_surface([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert_eq!(d, Some(5.0));
+            // From (0,0,0) in -x direction
+            let d2 = plane.distance_to_surface([0.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
+            assert_eq!(d2, None);
+            // From (10,0,0) in -x direction
+            let d3 = plane.distance_to_surface([10.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
+            assert_eq!(d3, Some(5.0));
+            // Parallel direction
+            let d4 = plane.distance_to_surface([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+            assert_eq!(d4, None);
+            // On plane, outward
+            let d5 = plane.distance_to_surface([5.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
+            assert_eq!(d5, None);
+        }
     }
-}
     #[test]
     fn test_cell_fill_material() {
-    use crate::material::Material;
-        use crate::region::{Region, HalfspaceType};
-        use crate::surface::{Surface, SurfaceKind, BoundaryType};
+        use crate::material::Material;
+        use crate::region::{HalfspaceType, Region};
+        use crate::surface::{BoundaryType, Surface, SurfaceKind};
         use std::sync::Arc;
 
         let s1 = Surface {
@@ -188,7 +205,7 @@ mod distance_tests {
         let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2)));
         let region = region1.union(&region2);
-    let cell = Cell::new(100, region, Some("union".to_string()), None);
+        let cell = Cell::new(100, region, Some("union".to_string()), None);
         assert!(cell.contains((0.0, 0.0, 0.0))); // inside first sphere
         assert!(cell.contains((3.0, 0.0, 0.0))); // inside second sphere
         assert!(!cell.contains((6.0, 0.0, 0.0))); // outside both
@@ -220,7 +237,7 @@ mod distance_tests {
         let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2)));
         let region = region1.intersection(&region2);
-    let cell = Cell::new(101, region, Some("intersection".to_string()), None);
+        let cell = Cell::new(101, region, Some("intersection".to_string()), None);
         assert!(cell.contains((0.0, 0.0, 0.0))); // inside both
         assert!(cell.contains((1.0, 0.0, 0.0))); // inside both
         assert!(!cell.contains((3.0, 0.0, 0.0))); // outside both
@@ -241,7 +258,7 @@ mod distance_tests {
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let region_complement = region.complement();
-    let cell = Cell::new(102, region_complement, Some("complement".to_string()), None);
+        let cell = Cell::new(102, region_complement, Some("complement".to_string()), None);
         assert!(!cell.contains((0.0, 0.0, 0.0))); // inside original sphere
         assert!(cell.contains((3.0, 0.0, 0.0))); // outside original sphere
     }
@@ -285,7 +302,7 @@ mod distance_tests {
             .intersection(&Region::new_from_halfspace(HalfspaceType::Below(Arc::new(
                 s3,
             ))));
-    let cell = Cell::new(42, region, Some("complex".to_string()), None);
+        let cell = Cell::new(42, region, Some("complex".to_string()), None);
         // Point inside all constraints
         assert!(cell.contains((0.0, 0.0, 0.0)));
         // Point outside s1 (x > 2.1)
@@ -314,7 +331,7 @@ mod distance_tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-    let cell = Cell::new(1, region, None, None);
+        let cell = Cell::new(1, region, None, None);
         assert!(cell.contains((0.0, 0.0, 0.0)));
         assert!(!cell.contains((3.0, 0.0, 0.0)));
     }
@@ -345,16 +362,21 @@ mod distance_tests {
         let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1.clone())));
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2.clone())));
         // Union
-    let union_cell = Cell::new(2, region1.clone().union(&region2.clone()), None, None);
+        let union_cell = Cell::new(2, region1.clone().union(&region2.clone()), None, None);
         assert!(union_cell.contains((0.0, 0.0, 0.0)));
         assert!(union_cell.contains((2.0, 0.0, 0.0)));
         assert!(!union_cell.contains((5.0, 0.0, 0.0)));
         // Intersection
-    let intersection_cell = Cell::new(3, region1.clone().intersection(&region2.clone()), None, None);
+        let intersection_cell = Cell::new(
+            3,
+            region1.clone().intersection(&region2.clone()),
+            None,
+            None,
+        );
         assert!(!intersection_cell.contains((0.0, 0.0, 0.0)));
         assert!(intersection_cell.contains((1.0, 0.0, 0.0)));
         // Complement
-    let complement_cell = Cell::new(4, region1.complement(), None, None);
+        let complement_cell = Cell::new(4, region1.complement(), None, None);
         assert!(!complement_cell.contains((0.0, 0.0, 0.0)));
         assert!(complement_cell.contains((5.0, 0.0, 0.0)));
     }
@@ -372,7 +394,7 @@ mod distance_tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-    let cell = Cell::new(1, region, Some("fuel".to_string()), None);
+        let cell = Cell::new(1, region, Some("fuel".to_string()), None);
         assert_eq!(cell.name, Some("fuel".to_string()));
     }
 }

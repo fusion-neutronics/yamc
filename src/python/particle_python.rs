@@ -1,5 +1,5 @@
-use pyo3::prelude::*;
 use crate::particle::Particle;
+use pyo3::prelude::*;
 
 #[pyclass(name = "Particle")]
 #[derive(Clone)]

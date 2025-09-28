@@ -7,7 +7,6 @@ pub struct Settings {
     pub source: Source,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -36,13 +36,13 @@ impl PyMaterials {
     /// Append a material to the collection
     fn append(&mut self, material: &PyMaterial) -> PyResult<()> {
         // Use get_internal() method instead of directly accessing the field
-    self.inner.append(material.get_internal().clone());
+        self.inner.append(material.get_internal().clone());
         Ok(())
     }
 
     /// Get a material by index
     fn get(&self, index: usize) -> PyResult<PyMaterial> {
-    match self.inner.get(index) {
+        match self.inner.get(index) {
             Some(m) => Ok(PyMaterial::from_material(m.clone())),
             None => Err(PyIndexError::new_err(format!(
                 "Index {} out of range",
@@ -85,7 +85,7 @@ impl PyMaterials {
 
     /// Make the Materials object behave like a sequence in Python
     fn __getitem__(&self, index: usize) -> PyResult<PyMaterial> {
-    self.get(index)
+        self.get(index)
     }
 
     /// Read nuclides from a JSON-like Python dictionary or a string keyword (delegates to Materials::read_nuclides)
@@ -95,7 +95,7 @@ impl PyMaterials {
         _py: Python,
         nuclide_json_map: Option<&pyo3::types::PyAny>,
     ) -> PyResult<()> {
-        // Extract Python data to Rust types  
+        // Extract Python data to Rust types
         let (dict_data, keyword_data) = if let Some(obj) = nuclide_json_map {
             if obj.is_instance_of::<pyo3::types::PyDict>() {
                 let d: &pyo3::types::PyDict = obj.downcast::<pyo3::types::PyDict>()?;
@@ -109,15 +109,16 @@ impl PyMaterials {
                 (None, Some(keyword))
             } else {
                 return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "nuclide_json_map must be a dict or a str keyword"
+                    "nuclide_json_map must be a dict or a str keyword",
                 ));
             }
         } else {
             (None, None)
         };
-        
+
         // Call pure Rust function
-    self.inner.load_nuclear_data_from_input(dict_data, keyword_data)
+        self.inner
+            .load_nuclear_data_from_input(dict_data, keyword_data)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 }
