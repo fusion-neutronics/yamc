@@ -6,7 +6,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyAny;
 
 // Use the PyMaterial definition from material_python.rs
-use crate::python::material_python::PyMaterial;
 
 #[pyclass(name = "Cell")]
 #[derive(Clone)]
@@ -36,8 +35,8 @@ impl PyCell {
     }
     #[new]
     #[pyo3(signature = (region, cell_id=0, name=None, fill=None))]
-    pub fn new(region: PyRegion, cell_id: u32, name: Option<String>, fill: Option<PyMaterial>) -> Self {
-        let material = fill.map(|m| m.internal.clone());
+    pub fn new(region: PyRegion, cell_id: u32, name: Option<String>, fill: Option<crate::python::material_python::PyMaterial>) -> Self {
+        let material = fill.map(|mat| std::sync::Arc::new(std::sync::Mutex::new(mat.internal.clone())));
         PyCell {
             inner: Cell::new(cell_id, region.region, name, material),
         }
@@ -52,11 +51,14 @@ impl PyCell {
     pub fn name(&self) -> Option<String> {
         self.inner.name.clone()
     }
-
     #[getter]
-    pub fn fill(&self) -> Option<PyMaterial> {
-        self.inner.material.clone().map(|m| PyMaterial { internal: m })
+    pub fn fill(&self) -> Option<crate::python::material_python::PyMaterial> {
+        self.inner.material.as_ref().map(|arc| {
+            let mat = arc.lock().unwrap().clone();
+            crate::python::material_python::PyMaterial { internal: mat }
+        })
     }
+
 
     pub fn contains(&self, x: f64, y: f64, z: f64) -> bool {
         self.inner.contains((x, y, z))

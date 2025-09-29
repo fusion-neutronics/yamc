@@ -6,17 +6,17 @@ impl Model {
         println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
-        // Ensure all nuclear data is loaded before transport
-        // Ensure all nuclear data is loaded before transport
-        for (i, material_arc) in self.materials.iter().enumerate() {
-            let mut material = material_arc.lock().unwrap();
-            // If you need to ensure nuclides are loaded, call here (if method exists)
-            // material.ensure_nuclides_loaded();
-            material.calculate_macroscopic_xs(&vec![1], true);
-            println!("Material [{}]: {:?}", i, material.name);
-            println!("  Nuclides: {:?}", material.nuclides.keys().collect::<Vec<_>>());
-            println!("  Macroscopic XS Neutron (MT=1): {:?}", material.macroscopic_xs_neutron.get(&1));
-            println!("  Macroscopic XS Neutron Total by Nuclide: {:?}", material.macroscopic_xs_neutron_total_by_nuclide);
+        for cell in &self.geometry.cells {
+            if let Some(material_arc) = &cell.material {
+                let mut material = material_arc.lock().unwrap();
+                // If you need to ensure nuclides are loaded, call here (if method exists)
+                // material.ensure_nuclides_loaded();
+                material.calculate_macroscopic_xs(&vec![1], true);
+                println!("Material [{}]: {:?}", cell.cell_id, material.name);
+                println!("  Nuclides: {:?}", material.nuclides.keys().collect::<Vec<_>>());
+                println!("  Macroscopic XS Neutron (MT=1): {:?}", material.macroscopic_xs_neutron.get(&1));
+                println!("  Macroscopic XS Neutron Total by Nuclide: {:?}", material.macroscopic_xs_neutron_total_by_nuclide);
+            }
         }
 
         let mut rng = rand::thread_rng();
@@ -119,7 +119,6 @@ use crate::settings::Settings;
 #[derive(Debug, Clone)]
 pub struct Model {
     pub geometry: Geometry,
-    pub materials: Vec<Arc<Mutex<crate::material::Material>>>,
     pub settings: Settings,
 }
 
@@ -164,7 +163,6 @@ mod tests {
             material: Some(material_arc.clone()),
         };
         let geometry = Geometry { cells: vec![cell] };
-        let materials = vec![material_arc];
         let source = Source {
             position: [0.0, 0.0, 0.0],
             direction: [0.0, 0.0, 1.0],
@@ -177,15 +175,15 @@ mod tests {
         };
         let model = Model {
             geometry,
-            materials,
             settings,
         };
-    assert_eq!(model.settings.particles, 100);
-    assert_eq!(model.settings.source.energy, 1e6);
+        assert_eq!(model.settings.particles, 100);
+        assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material
         assert_eq!(model.geometry.cells.len(), 1);
-        assert!(model.materials.len() > 0);
-        assert!(model.materials.get(0).unwrap().lock().unwrap().nuclides.contains_key("Li6"));
+        let cell_material = &model.geometry.cells[0].material;
+        assert!(cell_material.is_some());
+        assert!(cell_material.as_ref().unwrap().lock().unwrap().nuclides.contains_key("Li6"));
         // Run the model and ensure it executes without panicking
         model.run();
     }
