@@ -110,11 +110,15 @@ impl Material {
         energy: f64,
         rng: &mut R,
     ) -> Option<f64> {
-        let xs_vec = self.macroscopic_xs_neutron.get(&1)?;
-        let sigma_t =
-            crate::utilities::interpolate_linear(&self.unified_energy_grid_neutron, xs_vec, energy);
+        let xs_vec = self.macroscopic_xs_neutron.get(&1).unwrap_or_else(|| {
+            panic!("sample_distance_to_collision: macroscopic_xs_neutron[1] missing. Did you call calculate_macroscopic_xs?");
+        });
+        if self.unified_energy_grid_neutron.is_empty() || xs_vec.is_empty() {
+            panic!("sample_distance_to_collision: energy grid or cross section vector is empty. Did you call calculate_macroscopic_xs?");
+        }
+        let sigma_t = crate::utilities::interpolate_linear(&self.unified_energy_grid_neutron, xs_vec, energy);
         if sigma_t <= 0.0 {
-            return None;
+            panic!("sample_distance_to_collision: total cross section is zero or negative at energy {}. Check your nuclear data and energy grid.", energy);
         }
         let xi: f64 = rng.gen_range(0.0..1.0);
         Some(-xi.ln() / sigma_t)

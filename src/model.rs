@@ -6,9 +6,17 @@ impl Model {
         println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
-        let mut materials = self.materials.clone();
-        if let Err(e) = materials.ensure_nuclides_loaded() {
-            panic!("Failed to load nuclear data: {}", e);
+        // Ensure all nuclear data is loaded before transport
+        // Ensure all nuclear data is loaded before transport
+        for (i, material_arc) in self.materials.iter().enumerate() {
+            let mut material = material_arc.lock().unwrap();
+            // If you need to ensure nuclides are loaded, call here (if method exists)
+            // material.ensure_nuclides_loaded();
+            material.calculate_macroscopic_xs(&vec![1], true);
+            println!("Material [{}]: {:?}", i, material.name);
+            println!("  Nuclides: {:?}", material.nuclides.keys().collect::<Vec<_>>());
+            println!("  Macroscopic XS Neutron (MT=1): {:?}", material.macroscopic_xs_neutron.get(&1));
+            println!("  Macroscopic XS Neutron Total by Nuclide: {:?}", material.macroscopic_xs_neutron_total_by_nuclide);
         }
 
         let mut rng = rand::thread_rng();
@@ -31,7 +39,18 @@ impl Model {
 
                     // Get material for this cell
                     let material = match &cell.material {
-                        Some(mat) => mat,
+                        Some(mat_arc_mutex) => {
+                            let mat = mat_arc_mutex.lock().unwrap();
+                            // Diagnostic: print pointer and check macroscopic_xs_neutron
+                            println!("  [Transport] Material ptr: {:p}", &*mat);
+                            let has_xs = mat.macroscopic_xs_neutron.contains_key(&1);
+                            println!("  [Transport] macroscopic_xs_neutron[1] present? {}", has_xs);
+                            if !has_xs {
+                                println!("  [Transport] macroscopic_xs_neutron keys: {:?}", mat.macroscopic_xs_neutron.keys().collect::<Vec<_>>());
+                            }
+                            // Return the locked material for use
+                            mat
+                        },
                         None => {
                             println!("No material in cell {}", cell.cell_id);
                             particle.alive = false;
@@ -41,6 +60,7 @@ impl Model {
 
                     // Sample distance to collision
                     let dist_collision = material.sample_distance_to_collision(particle.energy, &mut rng).unwrap_or(f64::INFINITY);
+                    println!("Sampled distance to collision: {}", dist_collision);
 
                     // Find closest surface and distance
                     if let Some(surface_arc) = cell.closest_surface(particle.position, particle.direction) {
@@ -91,14 +111,15 @@ impl Model {
     }
 }
 use crate::geometry::Geometry;
-use crate::materials::Materials;
+// use crate::materials::Materials;
+use std::sync::{Arc, Mutex};
 use crate::source::Source;
 use crate::settings::Settings;
 
 #[derive(Debug, Clone)]
 pub struct Model {
     pub geometry: Geometry,
-    pub materials: Materials,
+    pub materials: Vec<Arc<Mutex<crate::material::Material>>>,
     pub settings: Settings,
 }
 
@@ -106,15 +127,13 @@ pub struct Model {
 mod tests {
     use super::*;
     use crate::geometry::Geometry;
-    use crate::materials::Materials;
     use crate::source::Source;
     use crate::settings::Settings;
-
     use crate::cell::Cell;
     use crate::region::{Region, HalfspaceType};
     use crate::surface::{Surface, SurfaceKind, BoundaryType};
     use crate::material::Material;
-    use std::sync::Arc;
+    // No duplicate import
 
     #[test]
     fn test_model_construction() {
@@ -130,23 +149,22 @@ mod tests {
             boundary_type: BoundaryType::Vacuum,
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-        // Material with Li6 nuclide
-        let mut material = Material::new();
-        material.add_nuclide("Li6", 1.0).unwrap();
+    // Material with Li6 nuclide
+    let mut material = Material::new();
+    material.set_density("g/cc", 1.0).unwrap(); // Add density to fix test
+    material.add_nuclide("Li6", 1.0).unwrap();
     let mut nuclide_json_map = std::collections::HashMap::new();
     nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+    material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        let material_arc = Arc::new(Mutex::new(material));
         let cell = Cell {
             cell_id: 1,
             name: Some("sphere_cell".to_string()),
             region,
-            material: Some(material.clone()),
+            material: Some(material_arc.clone()),
         };
         let geometry = Geometry { cells: vec![cell] };
-        let mut materials = Materials::new();
-        materials.append(material);
-        // Ensure nuclide data is loaded for the materials collection
-        materials.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        let materials = vec![material_arc];
         let source = Source {
             position: [0.0, 0.0, 0.0],
             direction: [0.0, 0.0, 1.0],
@@ -160,7 +178,6 @@ mod tests {
         let model = Model {
             geometry,
             materials,
-                // source, // Removed source from model construction
             settings,
         };
     assert_eq!(model.settings.particles, 100);
@@ -168,7 +185,7 @@ mod tests {
         // Check geometry and material
         assert_eq!(model.geometry.cells.len(), 1);
         assert!(model.materials.len() > 0);
-        assert!(model.materials.get(0).unwrap().nuclides.contains_key("Li6"));
+        assert!(model.materials.get(0).unwrap().lock().unwrap().nuclides.contains_key("Li6"));
         // Run the model and ensure it executes without panicking
         model.run();
     }
