@@ -1,3 +1,4 @@
+pub mod physics;
 pub mod bounding_box;
 pub mod cell;
 pub mod geometry;

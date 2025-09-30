@@ -67,18 +67,17 @@ mod tests {
     use super::*;
     use rand::SeedableRng;
     use rand::rngs::StdRng;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_rotate_angle_preserves_norm() {
-        let mut rng = StdRng::seed_from_u64(42);
-        let u_cm = Vector3::new(0.0, 0.0, 1.0);
-        let mu_cm = 0.5;
-        let v = rotate_angle(u_cm, mu_cm, &mut rng);
-        // Should be unit vector
-        assert_relative_eq!(v.norm(), 1.0, epsilon = 1e-12);
-        // z-component should be mu_cm
-        assert_relative_eq!(v.z, mu_cm, epsilon = 1e-12);
+    let mut rng = StdRng::seed_from_u64(42);
+    let u_cm = Vector3::new(0.0, 0.0, 1.0);
+    let mu_cm = 0.5;
+    let v = rotate_angle(u_cm, mu_cm, &mut rng);
+    // Should be unit vector
+    assert!((v.norm() - 1.0).abs() < 1e-12, "norm = {}", v.norm());
+    // z-component should be mu_cm
+    assert!((v.z - mu_cm).abs() < 1e-12, "z = {} mu_cm = {}", v.z, mu_cm);
     }
 
     #[test]
@@ -88,7 +87,8 @@ mod tests {
         let mut particle = Particle {
             energy: 2.0,
             direction: [0.0, 0.0, 1.0],
-            ..Default::default()
+            alive: true,
+            position: [0.0, 0.0, 0.0],
         };
         let awr = 1.0; // hydrogen
         elastic_scatter(&mut particle, awr, &mut rng);
@@ -96,6 +96,6 @@ mod tests {
         assert!(particle.energy > 0.0);
         // Direction should be unit vector
         let norm = (particle.direction[0].powi(2) + particle.direction[1].powi(2) + particle.direction[2].powi(2)).sqrt();
-        assert_relative_eq!(norm, 1.0, epsilon = 1e-12);
+        assert!((norm - 1.0).abs() < 1e-12, "norm = {}", norm);
     }
 }

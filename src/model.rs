@@ -11,7 +11,7 @@ impl Model {
         for cell in &self.geometry.cells {
             if let Some(material_arc) = &cell.material {
                 let mut material = material_arc.lock().unwrap();
-                material.ensure_nuclides_loaded();
+                let _ = material.ensure_nuclides_loaded();
                 material.calculate_macroscopic_xs(&vec![1], true);
             }
         }
@@ -109,7 +109,9 @@ impl Model {
                                     println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                     // Elastic scatter for MT=2
                                     if reaction.mt_number == 2 {
-                                        let awr = ATOMIC_WEIGHT_RATIO.get(&nuclide_name).copied().unwrap_or(1.0);
+                                        let awr = *ATOMIC_WEIGHT_RATIO
+                                            .get(nuclide_name.as_str())
+                                            .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                         elastic_scatter(&mut particle, awr, &mut rng);
                                         // Continue particle.alive = true for further transport
                                     } else {
