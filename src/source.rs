@@ -11,7 +11,6 @@ impl Source {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -23,10 +22,10 @@ mod tests {
             direction: [0.0, 0.0, 1.0],
             energy: 2e6,
         };
-    let p = s.sample();
-    assert_eq!(p.position, [1.0, 2.0, 3.0]);
-    assert_eq!(p.direction, [0.0, 0.0, 1.0]);
-    assert_eq!(p.energy, 2e6);
-    assert!(p.alive);
+        let p = s.sample();
+        assert_eq!(p.position, [1.0, 2.0, 3.0]);
+        assert_eq!(p.direction, [0.0, 0.0, 1.0]);
+        assert_eq!(p.energy, 2e6);
+        assert!(p.alive);
     }
 }

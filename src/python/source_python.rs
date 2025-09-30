@@ -1,5 +1,5 @@
-use pyo3::prelude::*;
 use crate::source::Source;
+use pyo3::prelude::*;
 
 #[pyclass(name = "Source")]
 #[derive(Clone)]
@@ -21,7 +21,9 @@ impl PySource {
     }
 
     pub fn sample(&self) -> crate::python::particle_python::PyParticle {
-        crate::python::particle_python::PyParticle { inner: self.inner.sample() }
+        crate::python::particle_python::PyParticle {
+            inner: self.inner.sample(),
+        }
     }
 
     #[getter]

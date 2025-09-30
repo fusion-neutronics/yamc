@@ -40,20 +40,6 @@ impl Model {
                     let material = match &cell.material {
                         Some(mat_arc_mutex) => {
                             let mat = mat_arc_mutex.lock().unwrap();
-                            // Diagnostic: print pointer and check macroscopic_xs_neutron
-                            println!("  [Transport] Material ptr: {:p}", &*mat);
-                            let has_xs = mat.macroscopic_xs_neutron.contains_key(&1);
-                            println!(
-                                "  [Transport] macroscopic_xs_neutron[1] present? {}",
-                                has_xs
-                            );
-                            if !has_xs {
-                                println!(
-                                    "  [Transport] macroscopic_xs_neutron keys: {:?}",
-                                    mat.macroscopic_xs_neutron.keys().collect::<Vec<_>>()
-                                );
-                            }
-                            // Return the locked material for use
                             mat
                         }
                         None => {
@@ -127,7 +113,7 @@ impl Model {
                                     );
                                 }
                             } else {
-                                println!("Nuclide {} not found in material data", nuclide_name);
+                                panic!("Nuclide {} not found in material data", nuclide_name);
                             }
                             particle.alive = false; // End after one collision for now
                         }

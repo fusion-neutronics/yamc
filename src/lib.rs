@@ -1,39 +1,39 @@
 pub mod bounding_box;
 pub mod cell;
 pub mod geometry;
-pub mod particle;
-pub mod source;
-pub mod settings;
-pub mod region;
-pub mod surface;
 pub mod model;
+pub mod particle;
+pub mod region;
+pub mod settings;
+pub mod source;
+pub mod surface;
 pub use bounding_box::*;
 pub use cell::*;
 pub use geometry::*;
 pub use region::*;
 pub use surface::*;
 #[cfg(feature = "wasm")]
+pub use wasm::config_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::data_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::element_wasm;
+#[cfg(feature = "wasm")]
 pub use wasm::material_wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::material_wasm::WasmMaterial;
 #[cfg(feature = "wasm")]
 pub use wasm::nuclide_wasm;
 #[cfg(feature = "wasm")]
 pub use wasm::reaction_wasm;
 #[cfg(feature = "wasm")]
-pub use wasm::config_wasm;
-#[cfg(feature = "wasm")]
-pub use wasm::element_wasm;
-#[cfg(feature = "wasm")]
-pub use wasm::data_wasm;
-#[cfg(feature = "wasm")]
-pub use wasm::material_wasm::WasmMaterial;
-#[cfg(feature = "wasm")]
 pub mod wasm {
     // pub mod config_wasm; // Commenting out to remove unused wasm
+    pub mod data_wasm;
     pub mod element_wasm;
     pub mod material_wasm;
     pub mod nuclide_wasm;
     pub mod reaction_wasm;
-    pub mod data_wasm;
 }
 mod data;
 // First, import any modules and re-export the types for Rust usage
@@ -42,14 +42,14 @@ mod element;
 mod material;
 mod nuclide;
 mod reaction;
-mod utilities;
 mod url_cache;
+mod utilities;
 
 pub use config::Config;
 pub use element::Element;
 pub use material::Material;
-pub use reaction::Reaction;
 pub use nuclide::Nuclide;
+pub use reaction::Reaction;
 pub use utilities::{interpolate_linear, interpolate_log_log};
 
 // Import PyO3 items conditionally
@@ -66,21 +66,21 @@ use pyo3::wrap_pyfunction;
 
 #[cfg(feature = "pyo3")]
 mod python {
-    pub mod config_python;
-    pub mod element_python;
-    pub mod nuclide_python;
-    pub mod reaction_python;
-    pub mod data_python;
     pub mod bounding_box_python;
     pub mod cell_python;
+    pub mod config_python;
+    pub mod data_python;
+    pub mod element_python;
     pub mod geometry_python;
-    pub mod region_python;
-    pub mod surface_python;
-    pub mod source_python;
-    pub mod settings_python;
-    pub mod model_python;
-    pub mod particle_python;
     pub mod material_python;
+    pub mod model_python;
+    pub mod nuclide_python;
+    pub mod particle_python;
+    pub mod reaction_python;
+    pub mod region_python;
+    pub mod settings_python;
+    pub mod source_python;
+    pub mod surface_python;
     // ...existing code...
 }
 #[cfg(feature = "wasm")]
@@ -96,6 +96,8 @@ pub fn wasm_start() {
 #[cfg(feature = "wasm")]
 pub use wasm::config_wasm::*;
 #[cfg(feature = "wasm")]
+pub use wasm::data_wasm::*;
+#[cfg(feature = "wasm")]
 pub use wasm::element_wasm::*;
 #[cfg(feature = "wasm")]
 pub use wasm::material_wasm::*;
@@ -103,8 +105,6 @@ pub use wasm::material_wasm::*;
 pub use wasm::nuclide_wasm::*;
 #[cfg(feature = "wasm")]
 pub use wasm::reaction_wasm::*;
-#[cfg(feature = "wasm")]
-pub use wasm::data_wasm::*;
 
 // If you have a main Python module entry point, update it to include PyMaterials:
 #[cfg(feature = "pyo3")]

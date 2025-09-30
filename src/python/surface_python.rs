@@ -1,6 +1,5 @@
 use crate::python::region_python;
 #[allow(non_local_definitions)]
-
 use pyo3::prelude::*;
 // ...existing code...
 
@@ -52,7 +51,11 @@ impl PySurface {
 
     /// Compute the distance to the surface from a point in a direction.
     /// Returns the distance as a float, or None if no intersection.
-    pub fn distance_to_surface(&self, point: (f64, f64, f64), direction: (f64, f64, f64)) -> Option<f64> {
+    pub fn distance_to_surface(
+        &self,
+        point: (f64, f64, f64),
+        direction: (f64, f64, f64),
+    ) -> Option<f64> {
         let point_arr = [point.0, point.1, point.2];
         let dir_arr = [direction.0, direction.1, direction.2];
         self.inner.distance_to_surface(point_arr, dir_arr)
@@ -129,11 +132,11 @@ impl PySurface {
     }
 
     fn __neg__(slf: PyRef<'_, Self>) -> PyResult<region_python::PyRegion> {
-    use crate::python::region_python::{PyRegion, PyRegionExpr};
+        use crate::python::region_python::{PyRegion, PyRegionExpr};
         let py = slf.py();
-    let py_surface: Py<crate::python::surface_python::PySurface> = slf.into_py(py).extract(py).unwrap();
-        let expr =
-    PyRegionExpr::Halfspace(PyHalfspace::new_below(py_surface));
+        let py_surface: Py<crate::python::surface_python::PySurface> =
+            slf.into_py(py).extract(py).unwrap();
+        let expr = PyRegionExpr::Halfspace(PyHalfspace::new_below(py_surface));
         let region = crate::region::Region {
             expr: expr.to_region_expr(),
         };
@@ -141,11 +144,11 @@ impl PySurface {
     }
 
     fn __pos__(slf: PyRef<'_, Self>) -> PyResult<region_python::PyRegion> {
-    use crate::python::region_python::{PyRegion, PyRegionExpr};
+        use crate::python::region_python::{PyRegion, PyRegionExpr};
         let py = slf.py();
-    let py_surface: Py<crate::python::surface_python::PySurface> = slf.into_py(py).extract(py).unwrap();
-        let expr =
-    PyRegionExpr::Halfspace(PyHalfspace::new_above(py_surface));
+        let py_surface: Py<crate::python::surface_python::PySurface> =
+            slf.into_py(py).extract(py).unwrap();
+        let expr = PyRegionExpr::Halfspace(PyHalfspace::new_above(py_surface));
         let region = crate::region::Region {
             expr: expr.to_region_expr(),
         };

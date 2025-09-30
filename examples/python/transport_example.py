@@ -1,6 +1,6 @@
 import materials_for_mc as mc
 
-mc.Config.set_cross_sections("tendl-21")
+# mc.Config.set_cross_sections("tendl-21")
 # Create sphere surface with vacuum boundary
 sphere = mc.Sphere(
     surface_id=1,
@@ -14,8 +14,8 @@ region = -sphere
 material = mc.Material()
 material.add_nuclide("Li6", 1.0)
 material.set_density("g/cm3", 5.5)
-material.read_nuclides_from_json("tendl-21")
-# material.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+# material.read_nuclides_from_json("tendl-21")
+material.read_nuclides_from_json({"Li6": "tests/Li6.json"})
 cell = mc.Cell(
     cell_id=1,
     name="sphere_cell",

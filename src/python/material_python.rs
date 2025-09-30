@@ -1,6 +1,6 @@
-use pyo3::prelude::*;
 use crate::material::Material;
 use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 use std::collections::HashMap;
 
 #[pyclass(name = "Material")]
@@ -199,15 +199,16 @@ impl PyMaterial {
                 (None, Some(keyword))
             } else {
                 return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "nuclide_json_map must be a dict or a str keyword"
+                    "nuclide_json_map must be a dict or a str keyword",
                 ));
             }
         } else {
             (None, None)
         };
-        
+
         // Call pure Rust function
-        self.internal.load_nuclear_data_from_input(dict_data, keyword_data)
+        self.internal
+            .load_nuclear_data_from_input(dict_data, keyword_data)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -283,9 +284,7 @@ impl PyMaterial {
             Some(v) => v,
             None => &default_mt,
         };
-        let (energy_grid, xs_dict_i32) = self
-            .internal
-            .calculate_macroscopic_xs(mt_vec, by_nuclide);
+        let (energy_grid, xs_dict_i32) = self.internal.calculate_macroscopic_xs(mt_vec, by_nuclide);
         (energy_grid, xs_dict_i32)
     }
 
@@ -366,7 +365,10 @@ impl PyMaterial {
     /// Returns:
     ///     Tuple[List[float], List[float]]: (cross_section_values, energy_grid)
     #[pyo3(text_signature = "(self, reaction)")]
-    fn macroscopic_cross_section(&mut self, reaction: &pyo3::PyAny) -> PyResult<(Vec<f64>, Vec<f64>)> {
+    fn macroscopic_cross_section(
+        &mut self,
+        reaction: &pyo3::PyAny,
+    ) -> PyResult<(Vec<f64>, Vec<f64>)> {
         // Handle both int and str inputs
         if let Ok(mt_number) = reaction.extract::<i32>() {
             // Integer MT number
@@ -376,7 +378,7 @@ impl PyMaterial {
             Ok(self.internal.macroscopic_cross_section(reaction_name))
         } else {
             Err(pyo3::exceptions::PyTypeError::new_err(
-                "reaction must be an integer MT number or a string reaction name"
+                "reaction must be an integer MT number or a string reaction name",
             ))
         }
     }
