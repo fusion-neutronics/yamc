@@ -1,6 +1,6 @@
-use rand::Rng;
 use crate::particle::Particle;
 use crate::surface::BoundaryType;
+use rand::Rng;
 impl Model {
     pub fn run(&self) {
         println!("Starting particle transport simulation...");
@@ -12,10 +12,6 @@ impl Model {
                 // If you need to ensure nuclides are loaded, call here (if method exists)
                 // material.ensure_nuclides_loaded();
                 material.calculate_macroscopic_xs(&vec![1], true);
-                println!("Material [{}]: {:?}", cell.cell_id, material.name);
-                println!("  Nuclides: {:?}", material.nuclides.keys().collect::<Vec<_>>());
-                println!("  Macroscopic XS Neutron (MT=1): {:?}", material.macroscopic_xs_neutron.get(&1));
-                println!("  Macroscopic XS Neutron Total by Nuclide: {:?}", material.macroscopic_xs_neutron_total_by_nuclide);
             }
         }
 
@@ -29,7 +25,11 @@ impl Model {
 
                 // Transport loop
                 while particle.alive {
-                    let cell_opt = self.geometry.find_cell((particle.position[0], particle.position[1], particle.position[2]));
+                    let cell_opt = self.geometry.find_cell((
+                        particle.position[0],
+                        particle.position[1],
+                        particle.position[2],
+                    ));
                     if cell_opt.is_none() {
                         println!("Particle leaked from geometry at {:?}", particle.position);
                         particle.alive = false;
@@ -44,13 +44,19 @@ impl Model {
                             // Diagnostic: print pointer and check macroscopic_xs_neutron
                             println!("  [Transport] Material ptr: {:p}", &*mat);
                             let has_xs = mat.macroscopic_xs_neutron.contains_key(&1);
-                            println!("  [Transport] macroscopic_xs_neutron[1] present? {}", has_xs);
+                            println!(
+                                "  [Transport] macroscopic_xs_neutron[1] present? {}",
+                                has_xs
+                            );
                             if !has_xs {
-                                println!("  [Transport] macroscopic_xs_neutron keys: {:?}", mat.macroscopic_xs_neutron.keys().collect::<Vec<_>>());
+                                println!(
+                                    "  [Transport] macroscopic_xs_neutron keys: {:?}",
+                                    mat.macroscopic_xs_neutron.keys().collect::<Vec<_>>()
+                                );
                             }
                             // Return the locked material for use
                             mat
-                        },
+                        }
                         None => {
                             println!("No material in cell {}", cell.cell_id);
                             particle.alive = false;
@@ -59,12 +65,25 @@ impl Model {
                     };
 
                     // Sample distance to collision
-                    let dist_collision = material.sample_distance_to_collision(particle.energy, &mut rng).unwrap_or(f64::INFINITY);
+                    let dist_collision = material
+                        .sample_distance_to_collision(particle.energy, &mut rng)
+                        .unwrap_or(f64::INFINITY);
                     println!("Sampled distance to collision: {}", dist_collision);
 
                     // Find closest surface and distance
-                    if let Some(surface_arc) = cell.closest_surface(particle.position, particle.direction) {
-                        let dist_surface = surface_arc.distance_to_surface([particle.position[0], particle.position[1], particle.position[2]], particle.direction).unwrap_or(f64::INFINITY);
+                    if let Some(surface_arc) =
+                        cell.closest_surface(particle.position, particle.direction)
+                    {
+                        let dist_surface = surface_arc
+                            .distance_to_surface(
+                                [
+                                    particle.position[0],
+                                    particle.position[1],
+                                    particle.position[2],
+                                ],
+                                particle.direction,
+                            )
+                            .unwrap_or(f64::INFINITY);
                         if dist_surface < dist_collision {
                             // Move to surface
                             for i in 0..3 {
@@ -72,11 +91,17 @@ impl Model {
                             }
                             // Check boundary type
                             if surface_arc.boundary_type == BoundaryType::Vacuum {
-                                println!("Particle leaked from geometry at {:?}", particle.position);
+                                println!(
+                                    "Particle leaked from geometry at {:?}",
+                                    particle.position
+                                );
                                 particle.alive = false;
                             } else {
                                 // For now, just kill the particle at any boundary
-                                println!("Particle hit non-vacuum boundary at {:?}", particle.position);
+                                println!(
+                                    "Particle hit non-vacuum boundary at {:?}",
+                                    particle.position
+                                );
                                 particle.alive = false;
                             }
                         } else {
@@ -85,14 +110,22 @@ impl Model {
                                 particle.position[i] += particle.direction[i] * dist_collision;
                             }
                             // Sample nuclide and reaction
-                            let nuclide_name = material.sample_interacting_nuclide(particle.energy, &mut rng);
+                            let nuclide_name =
+                                material.sample_interacting_nuclide(particle.energy, &mut rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
-                                let reaction = nuclide.sample_reaction(particle.energy, &material.temperature, &mut rng);
+                                let reaction = nuclide.sample_reaction(
+                                    particle.energy,
+                                    &material.temperature,
+                                    &mut rng,
+                                );
                                 if let Some(reaction) = reaction {
                                     println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                     // Here you would update particle state based on reaction type
                                 } else {
-                                    println!("No valid reaction found for nuclide {} at energy {}", nuclide_name, particle.energy);
+                                    println!(
+                                        "No valid reaction found for nuclide {} at energy {}",
+                                        nuclide_name, particle.energy
+                                    );
                                 }
                             } else {
                                 println!("Nuclide {} not found in material data", nuclide_name);
@@ -112,9 +145,9 @@ impl Model {
 }
 use crate::geometry::Geometry;
 // use crate::materials::Materials;
-use std::sync::{Arc, Mutex};
-use crate::source::Source;
 use crate::settings::Settings;
+use crate::source::Source;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -125,13 +158,13 @@ pub struct Model {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::Geometry;
-    use crate::source::Source;
-    use crate::settings::Settings;
     use crate::cell::Cell;
-    use crate::region::{Region, HalfspaceType};
-    use crate::surface::{Surface, SurfaceKind, BoundaryType};
+    use crate::geometry::Geometry;
     use crate::material::Material;
+    use crate::region::{HalfspaceType, Region};
+    use crate::settings::Settings;
+    use crate::source::Source;
+    use crate::surface::{BoundaryType, Surface, SurfaceKind};
     // No duplicate import
 
     #[test]
@@ -148,13 +181,13 @@ mod tests {
             boundary_type: BoundaryType::Vacuum,
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-    // Material with Li6 nuclide
-    let mut material = Material::new();
-    material.set_density("g/cc", 1.0).unwrap(); // Add density to fix test
-    material.add_nuclide("Li6", 1.0).unwrap();
-    let mut nuclide_json_map = std::collections::HashMap::new();
-    nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-    material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        // Material with Li6 nuclide
+        let mut material = Material::new();
+        material.set_density("g/cc", 1.0).unwrap(); // Add density to fix test
+        material.add_nuclide("Li6", 1.0).unwrap();
+        let mut nuclide_json_map = std::collections::HashMap::new();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
         let material_arc = Arc::new(Mutex::new(material));
         let cell = Cell {
             cell_id: 1,
@@ -173,17 +206,20 @@ mod tests {
             batches: 10,
             source: source.clone(),
         };
-        let model = Model {
-            geometry,
-            settings,
-        };
+        let model = Model { geometry, settings };
         assert_eq!(model.settings.particles, 100);
         assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material
         assert_eq!(model.geometry.cells.len(), 1);
         let cell_material = &model.geometry.cells[0].material;
         assert!(cell_material.is_some());
-        assert!(cell_material.as_ref().unwrap().lock().unwrap().nuclides.contains_key("Li6"));
+        assert!(cell_material
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .nuclides
+            .contains_key("Li6"));
         // Run the model and ensure it executes without panicking
         model.run();
     }
