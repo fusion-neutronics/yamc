@@ -1,6 +1,8 @@
 use crate::particle::Particle;
 use crate::surface::BoundaryType;
 use rand::Rng;
+use crate::physics::elastic_scatter;
+use crate::data::ATOMIC_WEIGHT_RATIO;
 impl Model {
     pub fn run(&self) {
         println!("Starting particle transport simulation...");
@@ -105,12 +107,22 @@ impl Model {
                                 );
                                 if let Some(reaction) = reaction {
                                     println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
-                                    // Here you would update particle state based on reaction type
+                                    // Elastic scatter for MT=2
+                                    if reaction.mt_number == 2 {
+                                        let awr = ATOMIC_WEIGHT_RATIO.get(&nuclide_name).copied().unwrap_or(1.0);
+                                        elastic_scatter(&mut particle, awr, &mut rng);
+                                        // Continue particle.alive = true for further transport
+                                    } else {
+                                        // Other reactions: kill particle for now
+                                        println!("Particle killed at {:?} due to reaction {}", particle.position, reaction.mt_number);
+                                        particle.alive = false;
+                                    }
                                 } else {
                                     println!(
                                         "No valid reaction found for nuclide {} at energy {}",
                                         nuclide_name, particle.energy
                                     );
+                                    particle.alive = false;
                                 }
                             } else {
                                 panic!("Nuclide {} not found in material data", nuclide_name);
