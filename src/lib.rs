@@ -28,7 +28,7 @@ pub use wasm::nuclide_wasm;
 pub use wasm::reaction_wasm;
 #[cfg(feature = "wasm")]
 pub mod wasm {
-    // pub mod config_wasm; // Commenting out to remove unused wasm
+    pub mod config_wasm;
     pub mod data_wasm;
     pub mod element_wasm;
     pub mod material_wasm;
