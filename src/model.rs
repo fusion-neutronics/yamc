@@ -9,8 +9,7 @@ impl Model {
         for cell in &self.geometry.cells {
             if let Some(material_arc) = &cell.material {
                 let mut material = material_arc.lock().unwrap();
-                // If you need to ensure nuclides are loaded, call here (if method exists)
-                // material.ensure_nuclides_loaded();
+                material.ensure_nuclides_loaded();
                 material.calculate_macroscopic_xs(&vec![1], true);
             }
         }

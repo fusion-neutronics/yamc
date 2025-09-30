@@ -96,7 +96,7 @@ impl Material {
 
         self.nuclides
             .insert(String::from(nuclide.as_ref()), fraction);
-        
+
         // Clear cached data since composition changed
         self.invalidate_xs_cache();
         Ok(())
@@ -116,7 +116,8 @@ impl Material {
         if self.unified_energy_grid_neutron.is_empty() || xs_vec.is_empty() {
             panic!("sample_distance_to_collision: energy grid or cross section vector is empty. Did you call calculate_macroscopic_xs?");
         }
-        let sigma_t = crate::utilities::interpolate_linear(&self.unified_energy_grid_neutron, xs_vec, energy);
+        let sigma_t =
+            crate::utilities::interpolate_linear(&self.unified_energy_grid_neutron, xs_vec, energy);
         if sigma_t <= 0.0 {
             panic!("sample_distance_to_collision: total cross section is zero or negative at energy {}. Check your nuclear data and energy grid.", energy);
         }
@@ -131,7 +132,7 @@ impl Material {
 
         self.density = Some(value);
         self.density_units = String::from(unit.as_ref());
-        
+
         // Clear cached data since density affects macroscopic cross sections
         self.invalidate_xs_cache();
         Ok(())
@@ -226,8 +227,6 @@ impl Material {
         Ok(())
     }
 
-
-
     /// Read nuclides from a keyword string that will be applied to all nuclides in this material
     pub fn read_nuclides_from_json_keyword(
         &mut self,
@@ -283,9 +282,7 @@ impl Material {
     }
 
     /// Read nuclides with no input - use defaults (for Python wrapper)
-    pub fn read_nuclides_from_none(
-        &mut self,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn read_nuclides_from_none(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let empty_map = HashMap::new();
         self.read_nuclides_from_json(&empty_map)
     }
@@ -304,7 +301,7 @@ impl Material {
     }
 
     /// Ensure all nuclides are loaded, using the global configuration if needed
-    fn ensure_nuclides_loaded(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn ensure_nuclides_loaded(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let nuclide_names: Vec<String> = self
             .nuclides
             .keys()
@@ -326,13 +323,13 @@ impl Material {
             use std::collections::HashSet;
             let mut temps = HashSet::new();
             temps.insert(self.temperature.clone());
-            
+
             // Build a temporary source map with the global default fallback
             let mut source_map = HashMap::new();
             if let Some(path) = config.get_cross_section(&nuclide_name) {
                 source_map.insert(nuclide_name.clone(), path);
             }
-            
+
             match get_or_load_nuclide(&nuclide_name, &source_map, Some(&temps)) {
                 Ok(nuclide) => {
                     self.nuclide_data.insert(nuclide_name.clone(), nuclide);
@@ -406,7 +403,8 @@ impl Material {
         let mut micro_xs: HashMap<String, HashMap<i32, Vec<f64>>> = HashMap::new();
         let temperature = &self.temperature;
         // Unified logic: iterate all reactions; if a filter is provided skip non-matching MTs.
-        let mt_set_opt: Option<std::collections::HashSet<i32>> = mt_filter.map(|v| v.iter().copied().collect());
+        let mt_set_opt: Option<std::collections::HashSet<i32>> =
+            mt_filter.map(|v| v.iter().copied().collect());
         for nuclide_name in self.nuclides.keys() {
             if let Some(nuclide_data) = self.nuclide_data.get(nuclide_name) {
                 let mut nuclide_reactions_map: HashMap<i32, Vec<f64>> = HashMap::new();
@@ -415,7 +413,9 @@ impl Material {
                         if let Some(energy_grid) = energy_map.get(temperature) {
                             for (&mt, reaction) in temp_reactions {
                                 if let Some(ref set) = mt_set_opt {
-                                    if !set.contains(&mt) { continue; }
+                                    if !set.contains(&mt) {
+                                        continue;
+                                    }
                                 }
                                 let threshold_idx = reaction.threshold_idx;
                                 if threshold_idx < energy_grid.len() {
@@ -578,19 +578,19 @@ impl Material {
         let reaction_id: crate::nuclide::ReactionIdentifier = reaction.into();
         let mt = match reaction_id {
             crate::nuclide::ReactionIdentifier::Mt(mt_num) => mt_num,
-            crate::nuclide::ReactionIdentifier::Name(name) => {
-                crate::data::REACTION_MT.get(name.as_str())
-                    .copied()
-                    .unwrap_or_else(|| panic!("Unknown reaction name '{}'", name))
-            }
+            crate::nuclide::ReactionIdentifier::Name(name) => crate::data::REACTION_MT
+                .get(name.as_str())
+                .copied()
+                .unwrap_or_else(|| panic!("Unknown reaction name '{}'", name)),
         };
 
         // Calculate macroscopic cross sections for this MT
         let mt_filter = vec![mt];
         let (energy_grid, xs_map) = self.calculate_macroscopic_xs(&mt_filter, false);
-        
+
         // Extract the cross section for the requested MT
-        let xs_values = xs_map.get(&mt)
+        let xs_values = xs_map
+            .get(&mt)
             .unwrap_or_else(|| panic!("No cross section data found for MT {}", mt))
             .clone();
 
@@ -845,49 +845,48 @@ impl Material {
     }
 }
 
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        #[test]
-        fn test_set_and_get_name() {
-            let mut mat = Material::new();
-            assert_eq!(mat.get_name(), None);
-            mat.set_name("TestMaterial");
-            assert_eq!(mat.get_name(), Some("TestMaterial"));
-            mat.set_name("AnotherName");
-            assert_eq!(mat.get_name(), Some("AnotherName"));
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_set_and_get_name() {
+        let mut mat = Material::new();
+        assert_eq!(mat.get_name(), None);
+        mat.set_name("TestMaterial");
+        assert_eq!(mat.get_name(), Some("TestMaterial"));
+        mat.set_name("AnotherName");
+        assert_eq!(mat.get_name(), Some("AnotherName"));
+    }
+    #[test]
+    fn test_sample_distance_to_collision() {
+        use rand::rngs::StdRng;
+        use rand::SeedableRng;
+        let mut material = Material::new();
+        // Set up a mock total cross section and energy grid
+        material.unified_energy_grid_neutron = vec![1.0, 10.0, 100.0];
+        material
+            .macroscopic_xs_neutron
+            .insert(1, vec![2.0, 2.0, 2.0]);
+        let mut rng = StdRng::seed_from_u64(42);
+        let energy = 5.0;
+        // Sample 200 times and check the average is close to expected mean
+        let mut samples = Vec::with_capacity(200);
+        for _ in 0..200 {
+            let distance = material.sample_distance_to_collision(energy, &mut rng);
+            assert!(distance.is_some());
+            samples.push(distance.unwrap());
         }
-        #[test]
-        fn test_sample_distance_to_collision() {
-            use rand::rngs::StdRng;
-            use rand::SeedableRng;
-            let mut material = Material::new();
-            // Set up a mock total cross section and energy grid
-            material.unified_energy_grid_neutron = vec![1.0, 10.0, 100.0];
-            material
-                .macroscopic_xs_neutron
-                .insert(1, vec![2.0, 2.0, 2.0]);
-            let mut rng = StdRng::seed_from_u64(42);
-            let energy = 5.0;
-            // Sample 200 times and check the average is close to expected mean
-            let mut samples = Vec::with_capacity(200);
-            for _ in 0..200 {
-                let distance = material.sample_distance_to_collision(energy, &mut rng);
-                assert!(distance.is_some());
-                samples.push(distance.unwrap());
-            }
-            // For sigma_t = 2.0, mean = 1/sigma_t = 0.5
-            let avg: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
-            let expected_mean = 0.5;
-            let tolerance = 0.05; // 10% tolerance
-            assert!(
-                (avg - expected_mean).abs() < tolerance,
-                "Average sampled distance incorrect: got {}, expected {}",
-                avg,
-                expected_mean
-            );
-        }
+        // For sigma_t = 2.0, mean = 1/sigma_t = 0.5
+        let avg: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let expected_mean = 0.5;
+        let tolerance = 0.05; // 10% tolerance
+        assert!(
+            (avg - expected_mean).abs() < tolerance,
+            "Average sampled distance incorrect: got {}, expected {}",
+            avg,
+            expected_mean
+        );
+    }
     #[allow(unused_imports)]
     use super::Material;
     #[test]
@@ -1452,7 +1451,7 @@ impl Material {
         material.add_nuclide("Li6", 0.5).unwrap();
         material.add_nuclide("Li7", 0.5).unwrap();
         material.set_density("g/cm3", 2.0).unwrap();
-        
+
         let mut nuclide_json_map = HashMap::new();
         nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
         nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
@@ -1464,27 +1463,47 @@ impl Material {
         let (xs1, energy1) = material.macroscopic_cross_section(1);
         assert!(!energy1.is_empty(), "Energy grid should not be empty");
         assert!(!xs1.is_empty(), "Cross section should not be empty");
-        assert_eq!(energy1.len(), xs1.len(), "Energy and cross section arrays should have same length");
+        assert_eq!(
+            energy1.len(),
+            xs1.len(),
+            "Energy and cross section arrays should have same length"
+        );
 
         // Test with string reaction name - same reaction
         let (xs2, energy2) = material.macroscopic_cross_section("(n,total)".to_string());
-        assert_eq!(energy1.len(), energy2.len(), "Energy grids should be same length");
+        assert_eq!(
+            energy1.len(),
+            energy2.len(),
+            "Energy grids should be same length"
+        );
         assert_eq!(xs1.len(), xs2.len(), "Cross sections should be same length");
-        
+
         // Values should be identical (or very close due to floating point)
         for (i, (&val1, &val2)) in xs1.iter().zip(xs2.iter()).enumerate() {
             assert!(
                 (val1 - val2).abs() < 1e-10,
                 "Cross section values should be identical at index {}: {} vs {}",
-                i, val1, val2
+                i,
+                val1,
+                val2
             );
         }
 
         // Test with gamma capture reaction
         let (xs3, energy3) = material.macroscopic_cross_section("(n,gamma)");
-        assert!(!energy3.is_empty(), "Energy grid should not be empty for (n,gamma)");
-        assert!(!xs3.is_empty(), "Cross section should not be empty for (n,gamma)");
-        assert_eq!(energy3.len(), xs3.len(), "Energy and cross section arrays should have same length for (n,gamma)");
+        assert!(
+            !energy3.is_empty(),
+            "Energy grid should not be empty for (n,gamma)"
+        );
+        assert!(
+            !xs3.is_empty(),
+            "Cross section should not be empty for (n,gamma)"
+        );
+        assert_eq!(
+            energy3.len(),
+            xs3.len(),
+            "Energy and cross section arrays should have same length for (n,gamma)"
+        );
     }
 
     #[test]
@@ -1906,11 +1925,17 @@ impl Material {
 
         // Pre-populate cache by calculating cross sections
         material.calculate_macroscopic_xs(&vec![1], false);
-        assert!(!material.macroscopic_xs_neutron.is_empty(), "Cache should be populated");
+        assert!(
+            !material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be populated"
+        );
 
         // Adding a nuclide should clear the cache
         material.add_nuclide("Li7", 0.5).unwrap();
-        assert!(material.macroscopic_xs_neutron.is_empty(), "Cache should be cleared after adding nuclide");
+        assert!(
+            material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be cleared after adding nuclide"
+        );
     }
 
     #[test]
@@ -1929,11 +1954,17 @@ impl Material {
 
         // Pre-populate cache
         material.calculate_macroscopic_xs(&vec![1], false);
-        assert!(!material.macroscopic_xs_neutron.is_empty(), "Cache should be populated");
+        assert!(
+            !material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be populated"
+        );
 
         // Changing density should clear the cache
         material.set_density("g/cm3", 2.0).unwrap();
-        assert!(material.macroscopic_xs_neutron.is_empty(), "Cache should be cleared after density change");
+        assert!(
+            material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be cleared after density change"
+        );
     }
 
     #[test]
@@ -1952,11 +1983,17 @@ impl Material {
 
         // Pre-populate cache
         material.calculate_macroscopic_xs(&vec![1], false);
-        assert!(!material.macroscopic_xs_neutron.is_empty(), "Cache should be populated");
+        assert!(
+            !material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be populated"
+        );
 
         // Changing temperature should clear the cache
         material.set_temperature("300");
-        assert!(material.macroscopic_xs_neutron.is_empty(), "Cache should be cleared after temperature change");
+        assert!(
+            material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be cleared after temperature change"
+        );
     }
 
     #[test]
@@ -1975,11 +2012,17 @@ impl Material {
 
         // Pre-populate cache
         material.calculate_macroscopic_xs(&vec![1], false);
-        assert!(!material.macroscopic_xs_neutron.is_empty(), "Cache should be populated");
+        assert!(
+            !material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be populated"
+        );
 
         // Loading nuclear data again should clear the cache (use same map since empty map would fail)
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
-        assert!(material.macroscopic_xs_neutron.is_empty(), "Cache should be cleared after loading nuclear data");
+        assert!(
+            material.macroscopic_xs_neutron.is_empty(),
+            "Cache should be cleared after loading nuclear data"
+        );
     }
 
     #[test]
@@ -2007,17 +2050,25 @@ impl Material {
 
         // Verify that calling with just MT 1 replaces cache with only MT 1
         material.calculate_macroscopic_xs(&vec![1], false);
-        assert_eq!(material.macroscopic_xs_neutron.len(), 1, "Cache should contain only MT 1 again");
-        
+        assert_eq!(
+            material.macroscopic_xs_neutron.len(),
+            1,
+            "Cache should contain only MT 1 again"
+        );
+
         // Verify that calling with all MTs gives us all MTs in cache
         material.calculate_macroscopic_xs(&vec![1, 2], false);
-        assert_eq!(material.macroscopic_xs_neutron.len(), 2, "Cache should contain MT 1 and 2 again");
+        assert_eq!(
+            material.macroscopic_xs_neutron.len(),
+            2,
+            "Cache should contain MT 1 and 2 again"
+        );
     }
 
     #[test]
     fn test_material_different_data_sources() {
         // Test that material loading respects different data sources
-        
+
         crate::nuclide::clear_nuclide_cache();
 
         // Material 1: Li6 from file
@@ -2041,17 +2092,27 @@ impl Material {
         let (xs_li7, _) = mat_li7.macroscopic_cross_section("(n,gamma)");
 
         // Should have different data (different nuclides)
-        let data_different = xs_li6.len() != xs_li7.len() || 
-                            xs_li6.iter().zip(&xs_li7).any(|(a, b)| (a - b).abs() > 1e-10);
-        
-        assert!(data_different, "Li6 and Li7 materials should have different cross sections");
-        println!("Material Li6: {} points, Li7: {} points", xs_li6.len(), xs_li7.len());
+        let data_different = xs_li6.len() != xs_li7.len()
+            || xs_li6
+                .iter()
+                .zip(&xs_li7)
+                .any(|(a, b)| (a - b).abs() > 1e-10);
+
+        assert!(
+            data_different,
+            "Li6 and Li7 materials should have different cross sections"
+        );
+        println!(
+            "Material Li6: {} points, Li7: {} points",
+            xs_li6.len(),
+            xs_li7.len()
+        );
     }
 
     #[test]
     fn test_material_file_and_keyword_sources() {
         // Test that materials can use both file paths and keywords
-        
+
         crate::nuclide::clear_nuclide_cache();
 
         // Material 1: Li6 from file
@@ -2074,18 +2135,27 @@ impl Material {
         let (xs_file, _) = mat_file.macroscopic_cross_section("(n,gamma)");
         let (xs_other, _) = mat_other.macroscopic_cross_section("(n,gamma)");
 
-        assert!(!xs_file.is_empty() && !xs_other.is_empty(), "Both materials should have cross section data");
-        
+        assert!(
+            !xs_file.is_empty() && !xs_other.is_empty(),
+            "Both materials should have cross section data"
+        );
+
         // Should be different since Li6 vs Li7
-        let data_different = xs_file.len() != xs_other.len() || 
-                            xs_file.iter().zip(&xs_other).any(|(a, b)| (a - b).abs() > 1e-10);
-        assert!(data_different, "Li6 file vs Li7 file should give different results");
+        let data_different = xs_file.len() != xs_other.len()
+            || xs_file
+                .iter()
+                .zip(&xs_other)
+                .any(|(a, b)| (a - b).abs() > 1e-10);
+        assert!(
+            data_different,
+            "Li6 file vs Li7 file should give different results"
+        );
     }
 
     #[test]
     fn test_material_cache_respects_data_source_boundaries() {
         // Test that material cache properly separates different data sources
-        
+
         crate::nuclide::clear_nuclide_cache();
 
         // Material 1: Li6 from file first time
@@ -2116,18 +2186,27 @@ impl Material {
         let (xs_li6_2, _) = mat_li6_2.macroscopic_cross_section("(n,gamma)");
 
         // Li6 materials should be identical (cache working)
-        assert_eq!(xs_li6_1, xs_li6_2, "Li6 materials should be identical (cache working)");
+        assert_eq!(
+            xs_li6_1, xs_li6_2,
+            "Li6 materials should be identical (cache working)"
+        );
 
         // Li6 vs Li7 should be different (different nuclides)
-        let li6_vs_li7_different = xs_li6_1.len() != xs_li7.len() || 
-                                  xs_li6_1.iter().zip(&xs_li7).any(|(a, b)| (a - b).abs() > 1e-10);
-        assert!(li6_vs_li7_different, "Li6 and Li7 materials should have different data");
+        let li6_vs_li7_different = xs_li6_1.len() != xs_li7.len()
+            || xs_li6_1
+                .iter()
+                .zip(&xs_li7)
+                .any(|(a, b)| (a - b).abs() > 1e-10);
+        assert!(
+            li6_vs_li7_different,
+            "Li6 and Li7 materials should have different data"
+        );
     }
 
     #[test]
     fn test_material_path_normalization_in_cache() {
         // Test that different path formats for same file use same cache entry
-        
+
         crate::nuclide::clear_nuclide_cache();
 
         // Material 1: relative path
@@ -2151,7 +2230,9 @@ impl Material {
         let (xs_rel, _) = mat_rel.macroscopic_cross_section("(n,gamma)");
         let (xs_abs, _) = mat_abs.macroscopic_cross_section("(n,gamma)");
 
-        assert_eq!(xs_rel, xs_abs, "Relative and absolute paths to same file should give identical results");
+        assert_eq!(
+            xs_rel, xs_abs,
+            "Relative and absolute paths to same file should give identical results"
+        );
     }
 } // close mod tests
-
