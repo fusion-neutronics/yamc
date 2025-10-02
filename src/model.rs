@@ -107,24 +107,44 @@ impl Model {
                                 );
                                 if let Some(reaction) = reaction {
                                     println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
-                                    // Elastic scatter for MT=2
-                                    if reaction.mt_number == 2 {
-                                        let awr = *ATOMIC_WEIGHT_RATIO
-                                            .get(nuclide_name.as_str())
-                                            .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-                                        elastic_scatter(&mut particle, awr, &mut rng);
-                                        // Continue particle.alive = true for further transport
-                                    } else {
-                                        // Other reactions: kill particle for now
-                                        println!("Particle killed at {:?} due to reaction {}", particle.position, reaction.mt_number);
-                                        particle.alive = false;
+                                    
+                                    match reaction.mt_number {
+                                        2 => {
+                                            // Elastic scattering
+                                            let awr = *ATOMIC_WEIGHT_RATIO
+                                                .get(nuclide_name.as_str())
+                                                .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                            elastic_scatter(&mut particle, awr, &mut rng);  // updates particles direction and energy
+                                            println!("Particle elastically scattered at {:?}", particle.position);
+                                            // Continue transport (particle.alive remains true)
+                                        }
+                                        18 => {
+                                            // Fission
+                                            println!("Particle caused fission at {:?}", particle.position);
+                                            // TODO: Sample number of fission neutrons and add to particle bank
+                                            particle.alive = false; // Kill original particle for now
+                                        }
+                                        101 => {
+                                            // Absorption (capture)
+                                            println!("Particle absorbed at {:?} (MT=101 absorption)", particle.position);
+                                            particle.alive = false;
+                                        }
+                                        3 => {
+                                            // Nonelastic scattering (inelastic + other)
+                                            println!("Particle underwent nonelastic scattering at {:?}", particle.position);
+                                            // TODO: Sample outgoing energy and angle from nuclear data
+                                            particle.alive = false; // Kill particle for now until inelastic implemented
+                                        }
+                                        _ => {
+                                            // Unknown reaction type - should never happen
+                                            panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
+                                        }
                                     }
                                 } else {
-                                    println!(
+                                    panic!(
                                         "No valid reaction found for nuclide {} at energy {}",
                                         nuclide_name, particle.energy
                                     );
-                                    particle.alive = false;
                                 }
                             } else {
                                 panic!("Nuclide {} not found in material data", nuclide_name);
