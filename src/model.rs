@@ -134,7 +134,6 @@ impl Model {
                                     101 => {
                                         // Absorption (capture)
                                         println!("Particle absorbed at {:?} (MT=101 absorption)", particle.position);
-                                        println!("particle killed as code not ready absorption reaction");
                                         particle.alive = false;
                                     }
                                     3 => {
@@ -158,13 +157,14 @@ impl Model {
                             } else {
                                 panic!("Nuclide {} not found in material data", nuclide_name);
                             }
-                            particle.alive = false; // End after one collision for now
 
                         }
                     } else {
-                        // No surface found, particle leaks
-                        println!("Particle leaked from geometry at {:?}", particle.position);
-                        particle.alive = false;
+                        // No surface found - serious geometry error
+                        panic!("No surface found for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {} - geometry definition error",
+                            particle.position[0], particle.position[1], particle.position[2],
+                            particle.direction[0], particle.direction[1], particle.direction[2],
+                            cell.cell_id);
                     }
                 }
             }
