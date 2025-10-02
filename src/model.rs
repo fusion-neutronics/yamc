@@ -32,29 +32,26 @@ impl Model {
                         particle.position[2],
                     ));
                     if cell_opt.is_none() {
-                        println!("Particle leaked from geometry at {:?}", particle.position);
-                        particle.alive = false;
-                        break;
+                        panic!("Particle location not found with in any cells at x={}, y={}, z={} - geometry definition error", 
+                               particle.position[0], particle.position[1], particle.position[2]);
                     }
                     let cell = cell_opt.unwrap();
 
-                    // Get material for this cell
-                    let material = match &cell.material {
+                    // Check if cell has material or is void
+                    let dist_collision = match &cell.material {
                         Some(mat_arc_mutex) => {
-                            let mat = mat_arc_mutex.lock().unwrap();
-                            mat
+                            let material = mat_arc_mutex.lock().unwrap();
+                            material
+                                .sample_distance_to_collision(particle.energy, &mut rng)
+                                .unwrap_or(f64::INFINITY)
                         }
                         None => {
-                            println!("No material in cell {}", cell.cell_id);
-                            particle.alive = false;
-                            break;
+                            // Void cell - no collisions possible
+                            println!("Particle streaming through void cell {}", cell.cell_id);
+                            f64::INFINITY
                         }
                     };
 
-                    // Sample distance to collision
-                    let dist_collision = material
-                        .sample_distance_to_collision(particle.energy, &mut rng)
-                        .unwrap_or(f64::INFINITY);
                     println!("Sampled distance to collision: {}", dist_collision);
 
                     // Find closest surface and distance
@@ -70,86 +67,99 @@ impl Model {
                                 ],
                                 particle.direction,
                             )
-                            .unwrap_or(f64::INFINITY);
+                            .unwrap_or_else(|| {
+                                panic!("Failed to calculate distance to surface for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {}",
+                                    particle.position[0], particle.position[1], particle.position[2],
+                                    particle.direction[0], particle.direction[1], particle.direction[2],
+                                    cell.cell_id);
+                            });
+                        
+                        println!("Distance to surface: {}", dist_surface);
+                        
                         if dist_surface < dist_collision {
-                            // Move to surface
-                            for i in 0..3 {
-                                particle.position[i] += particle.direction[i] * dist_surface;
-                            }
-                            // Check boundary type
+                            // Check boundary type before moving
                             if surface_arc.boundary_type == BoundaryType::Vacuum {
                                 println!(
-                                    "Particle leaked from geometry at {:?}",
+                                    "Particle will leak from geometry - killing at {:?}",
                                     particle.position
                                 );
                                 particle.alive = false;
                             } else {
-                                // For now, just kill the particle at any boundary
+                                // Move to surface for non-vacuum boundaries
+                                for i in 0..3 {
+                                    particle.position[i] += particle.direction[i] * dist_surface;
+                                }
                                 println!(
-                                    "Particle hit non-vacuum boundary at {:?}",
-                                    particle.position
+                                    "Particle moved to surface at {:?} in cell {}",
+                                    particle.position, cell.cell_id
                                 );
-                                particle.alive = false;
                             }
                         } else {
                             // Move to collision point
                             for i in 0..3 {
                                 particle.position[i] += particle.direction[i] * dist_collision;
                             }
+
+                            // We know we have material here because void cells always hit surfaces first
+                            let material = cell.material.as_ref().unwrap().lock().unwrap();
                             // Sample nuclide and reaction
                             let nuclide_name =
                                 material.sample_interacting_nuclide(particle.energy, &mut rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
-                                let reaction = nuclide.sample_reaction(
-                                    particle.energy,
-                                    &material.temperature,
-                                    &mut rng,
-                                );
-                                if let Some(reaction) = reaction {
-                                    println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
-                                    
-                                    match reaction.mt_number {
-                                        2 => {
-                                            // Elastic scattering
-                                            let awr = *ATOMIC_WEIGHT_RATIO
-                                                .get(nuclide_name.as_str())
-                                                .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-                                            elastic_scatter(&mut particle, awr, &mut rng);  // updates particles direction and energy
-                                            println!("Particle elastically scattered at {:?}", particle.position);
-                                            // Continue transport (particle.alive remains true)
-                                        }
-                                        18 => {
-                                            // Fission
-                                            println!("Particle caused fission at {:?}", particle.position);
-                                            // TODO: Sample number of fission neutrons and add to particle bank
-                                            particle.alive = false; // Kill original particle for now
-                                        }
-                                        101 => {
-                                            // Absorption (capture)
-                                            println!("Particle absorbed at {:?} (MT=101 absorption)", particle.position);
-                                            particle.alive = false;
-                                        }
-                                        3 => {
-                                            // Nonelastic scattering (inelastic + other)
-                                            println!("Particle underwent nonelastic scattering at {:?}", particle.position);
-                                            // TODO: Sample outgoing energy and angle from nuclear data
-                                            particle.alive = false; // Kill particle for now until inelastic implemented
-                                        }
-                                        _ => {
-                                            // Unknown reaction type - should never happen
-                                            panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
-                                        }
+                            let reaction = nuclide.sample_reaction(
+                                particle.energy,
+                                &material.temperature,
+                                &mut rng,
+                            );
+                            if let Some(reaction) = reaction {
+                                println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
+                                
+                                match reaction.mt_number {
+                                    2 => {
+                                        // Elastic scattering
+                                        let awr = *ATOMIC_WEIGHT_RATIO
+                                            .get(nuclide_name.as_str())
+                                            .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                        elastic_scatter(&mut particle, awr, &mut rng);  // updates particles direction and energy
+                                        println!("Particle elastically scattered at {:?}", particle.position);
+                                        // Continue transport (particle.alive remains true)
                                     }
-                                } else {
-                                    panic!(
-                                        "No valid reaction found for nuclide {} at energy {}",
-                                        nuclide_name, particle.energy
-                                    );
+                                    18 => {
+                                        // Fission
+                                        println!("Particle caused fission at {:?}", particle.position);
+                                        println!("particle killed as code not ready fission reaction");
+                                        // TODO: Sample number of fission neutrons and add to particle bank
+                                        particle.alive = false; // Kill original particle for now
+                                    }
+                                    101 => {
+                                        // Absorption (capture)
+                                        println!("Particle absorbed at {:?} (MT=101 absorption)", particle.position);
+                                        println!("particle killed as code not ready absorption reaction");
+                                        particle.alive = false;
+                                    }
+                                    3 => {
+                                        // Nonelastic scattering (inelastic + other)
+                                        println!("Particle underwent nonelastic scattering at {:?}", particle.position);
+                                        println!("particle killed as code not ready nonelastic reaction");
+                                        // TODO: Sample outgoing energy and angle from nuclear data
+                                        particle.alive = false; // Kill particle for now until inelastic implemented
+                                    }
+                                    _ => {
+                                        // Unknown reaction type - should never happen
+                                        panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
+                                    }
                                 }
+                            } else {
+                                panic!(
+                                    "No valid reaction found for nuclide {} at energy {}",
+                                    nuclide_name, particle.energy
+                                );
+                            }
                             } else {
                                 panic!("Nuclide {} not found in material data", nuclide_name);
                             }
                             particle.alive = false; // End after one collision for now
+
                         }
                     } else {
                         // No surface found, particle leaks
