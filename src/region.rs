@@ -3,18 +3,18 @@ use crate::surface::Surface;
 // ...existing code...
 use std::sync::Arc;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Region {
     pub expr: RegionExpr,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum HalfspaceType {
     Above(Arc<Surface>),
     Below(Arc<Surface>),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum RegionExpr {
     Halfspace(HalfspaceType),
     Union(Box<RegionExpr>, Box<RegionExpr>),
