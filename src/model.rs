@@ -1,3 +1,95 @@
+use rand::Rng;
+use crate::particle::Particle;
+use crate::surface::BoundaryType;
+impl Model {
+    pub fn run(&self) {
+        println!("Starting particle transport simulation...");
+
+        // Ensure all nuclear data is loaded before transport
+        let mut materials = self.materials.clone();
+        if let Err(e) = materials.ensure_nuclides_loaded() {
+            panic!("Failed to load nuclear data: {}", e);
+        }
+
+        let mut rng = rand::thread_rng();
+        for batch in 0..self.settings.batches {
+            println!("Batch {}", batch + 1);
+            for _ in 0..self.settings.particles {
+                // Sample a particle from the source via settings
+                let mut particle = self.settings.source.sample();
+                particle.alive = true;
+
+                // Transport loop
+                while particle.alive {
+                    let cell_opt = self.geometry.find_cell((particle.position[0], particle.position[1], particle.position[2]));
+                    if cell_opt.is_none() {
+                        println!("Particle leaked from geometry at {:?}", particle.position);
+                        particle.alive = false;
+                        break;
+                    }
+                    let cell = cell_opt.unwrap();
+
+                    // Get material for this cell
+                    let material = match &cell.material {
+                        Some(mat) => mat,
+                        None => {
+                            println!("No material in cell {}", cell.cell_id);
+                            particle.alive = false;
+                            break;
+                        }
+                    };
+
+                    // Sample distance to collision
+                    let dist_collision = material.sample_distance_to_collision(particle.energy, &mut rng).unwrap_or(f64::INFINITY);
+
+                    // Find closest surface and distance
+                    if let Some(surface_arc) = cell.closest_surface(particle.position, particle.direction) {
+                        let dist_surface = surface_arc.distance_to_surface([particle.position[0], particle.position[1], particle.position[2]], particle.direction).unwrap_or(f64::INFINITY);
+                        if dist_surface < dist_collision {
+                            // Move to surface
+                            for i in 0..3 {
+                                particle.position[i] += particle.direction[i] * dist_surface;
+                            }
+                            // Check boundary type
+                            if surface_arc.boundary_type == BoundaryType::Vacuum {
+                                println!("Particle leaked from geometry at {:?}", particle.position);
+                                particle.alive = false;
+                            } else {
+                                // For now, just kill the particle at any boundary
+                                println!("Particle hit non-vacuum boundary at {:?}", particle.position);
+                                particle.alive = false;
+                            }
+                        } else {
+                            // Move to collision point
+                            for i in 0..3 {
+                                particle.position[i] += particle.direction[i] * dist_collision;
+                            }
+                            // Sample nuclide and reaction
+                            let nuclide_name = material.sample_interacting_nuclide(particle.energy, &mut rng);
+                            if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
+                                let reaction = nuclide.sample_reaction(particle.energy, &material.temperature, &mut rng);
+                                if let Some(reaction) = reaction {
+                                    println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
+                                    // Here you would update particle state based on reaction type
+                                } else {
+                                    println!("No valid reaction found for nuclide {} at energy {}", nuclide_name, particle.energy);
+                                }
+                            } else {
+                                println!("Nuclide {} not found in material data", nuclide_name);
+                            }
+                            particle.alive = false; // End after one collision for now
+                        }
+                    } else {
+                        // No surface found, particle leaks
+                        println!("Particle leaked from geometry at {:?}", particle.position);
+                        particle.alive = false;
+                    }
+                }
+            }
+        }
+        println!("Simulation complete.");
+    }
+}
 use crate::geometry::Geometry;
 use crate::materials::Materials;
 use crate::source::Source;
@@ -7,7 +99,6 @@ use crate::settings::Settings;
 pub struct Model {
     pub geometry: Geometry,
     pub materials: Materials,
-    pub source: Source,
     pub settings: Settings,
 }
 
@@ -42,6 +133,9 @@ mod tests {
         // Material with Li6 nuclide
         let mut material = Material::new();
         material.add_nuclide("Li6", 1.0).unwrap();
+    let mut nuclide_json_map = std::collections::HashMap::new();
+    nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
         let cell = Cell {
             cell_id: 1,
             name: Some("sphere_cell".to_string()),
@@ -51,6 +145,8 @@ mod tests {
         let geometry = Geometry { cells: vec![cell] };
         let mut materials = Materials::new();
         materials.append(material);
+        // Ensure nuclide data is loaded for the materials collection
+        materials.read_nuclides_from_json(&nuclide_json_map).unwrap();
         let source = Source {
             position: [0.0, 0.0, 0.0],
             direction: [0.0, 0.0, 1.0],
@@ -64,14 +160,16 @@ mod tests {
         let model = Model {
             geometry,
             materials,
-            source,
+                // source, // Removed source from model construction
             settings,
         };
-        assert_eq!(model.settings.particles, 100);
-        assert_eq!(model.source.energy, 1e6);
+    assert_eq!(model.settings.particles, 100);
+    assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material
         assert_eq!(model.geometry.cells.len(), 1);
         assert!(model.materials.len() > 0);
         assert!(model.materials.get(0).unwrap().nuclides.contains_key("Li6"));
+        // Run the model and ensure it executes without panicking
+        model.run();
     }
 }

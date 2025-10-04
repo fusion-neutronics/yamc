@@ -14,12 +14,11 @@ pub struct PyModel {
 #[pymethods]
 impl PyModel {
     #[new]
-    pub fn new(geometry: PyGeometry, materials: PyMaterials, source: PySource, settings: PySettings) -> Self {
+    pub fn new(geometry: PyGeometry, materials: PyMaterials, settings: PySettings) -> Self {
         PyModel {
             inner: Model {
                 geometry: geometry.inner.clone(),
                 materials: materials.inner.clone(),
-                source: source.inner.clone(),
                 settings: settings.inner.clone(),
             },
         }
@@ -33,11 +32,11 @@ impl PyModel {
         PyMaterials { inner: self.inner.materials.clone() }
     }
     #[getter]
-    pub fn source(&self) -> PySource {
-        PySource { inner: self.inner.source.clone() }
-    }
-    #[getter]
     pub fn settings(&self) -> PySettings {
         PySettings { inner: self.inner.settings.clone() }
+    }
+
+    pub fn run(&self) {
+        self.inner.run();
     }
 }
