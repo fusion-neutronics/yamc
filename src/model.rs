@@ -98,9 +98,7 @@ impl Model {
                                 batch_leakage += 1; // Count this leakage
                             } else {
                                 // Move to surface for non-vacuum boundaries
-                                for i in 0..3 {
-                                    particle.position[i] += particle.direction[i] * dist_surface;
-                                }
+                                particle.move_by(dist_surface);
                                 println!(
                                     "Particle moved to surface at {:?} in cell {}",
                                     particle.position, cell.cell_id
@@ -108,9 +106,7 @@ impl Model {
                             }
                         } else {
                             // Move to collision point
-                            for i in 0..3 {
-                                particle.position[i] += particle.direction[i] * dist_collision;
-                            }
+                            particle.move_by(dist_collision);
 
                             // We know we have material here because void cells always hit surfaces first
                             let material = cell.material.as_ref().unwrap().lock().unwrap();
