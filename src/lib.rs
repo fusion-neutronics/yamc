@@ -1,3 +1,13 @@
+mod bounding_box;
+mod cell;
+mod geometry;
+pub mod region;
+pub mod surface;
+pub use bounding_box::*;
+pub use cell::*;
+pub use geometry::*;
+pub use region::*;
+pub use surface::*;
 #[cfg(feature = "wasm")]
 pub use wasm::material_wasm;
 #[cfg(feature = "wasm")]
@@ -61,6 +71,11 @@ mod python {
     pub mod nuclide_python;
     pub mod reaction_python;
     pub mod data_python;
+    pub mod bounding_box_python;
+    pub mod cell_python;
+    pub mod geometry_python;
+    pub mod region_python;
+    pub mod surface_python;
     pub use config_python::*;
     pub use element_python::*;
     pub use material_python::*;
@@ -68,6 +83,11 @@ mod python {
     pub use nuclide_python::*;
     pub use reaction_python::*;
     pub use data_python::*;
+    pub use bounding_box_python::*;
+    pub use cell_python::*;
+    pub use geometry_python::*;
+    pub use region_python::*;
+    pub use surface_python::*;
 }
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -103,21 +123,44 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     use crate::python::config_python;
     use crate::python::element_python;
     use crate::python::data_python;
+    use crate::python::surface_python;
+    use crate::python::cell_python;
+    use crate::python::region_python;
+    use crate::python::geometry_python;
+    use crate::python::bounding_box_python;
 
+    // Core materials API
     m.add_class::<material_python::PyMaterial>()?;
     m.add_class::<materials_python::PyMaterials>()?;
     m.add_class::<nuclide_python::PyNuclide>()?;
-    m.add_class::<reaction_python::PyReaction>()?; // Exposed as Reaction in Python
+    m.add_class::<reaction_python::PyReaction>()?;
     m.add_class::<config_python::PyConfig>()?;
     m.add_class::<element_python::PyElement>()?;
-    m.add_function(wrap_pyfunction!(
-        nuclide_python::py_read_nuclide_from_json,
-        m
-    )?)?;
+
+    // Geometry/CSG API
+    m.add_class::<cell_python::PyCell>()?;
+    m.add_class::<region_python::PyRegion>()?;
+    m.add_class::<region_python::PyHalfspace>()?;
+    m.add_class::<region_python::PyBoundingBox>()?;
+    m.add_class::<surface_python::PySurface>()?;
+    m.add_class::<surface_python::PyBoundaryType>()?;
+    m.add_class::<geometry_python::PyGeometry>()?;
+
+    // Functions for nuclide/data
+    m.add_function(wrap_pyfunction!(nuclide_python::py_read_nuclide_from_json, m)?)?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::natural_abundance, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::element_nuclides, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::element_names, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::atomic_masses, m)?)?;
+
+    // Surface constructors (OpenMC-style API)
+    m.add_function(wrap_pyfunction!(surface_python::XPlane, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::YPlane, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::ZPlane, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::Sphere, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::Cylinder, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::ZCylinder, m)?)?;
+    m.add_function(wrap_pyfunction!(surface_python::Plane, m)?)?;
     Ok(())
 }
