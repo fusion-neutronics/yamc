@@ -3,8 +3,9 @@ use crate::surface::BoundaryType;
 use rand::Rng;
 use crate::physics::elastic_scatter;
 use crate::data::ATOMIC_WEIGHT_RATIO;
+use crate::tally::{CountTally, create_tallies_from_specs};
 impl Model {
-    pub fn run(&self) {
+    pub fn run(&self) -> Vec<CountTally> {
         println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
@@ -16,9 +17,19 @@ impl Model {
             }
         }
 
+        // Initialize tallies from user specifications  
+        let mut tallies = create_tallies_from_specs(&self.tallies);
+
         let mut rng = rand::thread_rng();
         for batch in 0..self.settings.batches {
             println!("Batch {}", batch + 1);
+            
+            // Initialize leakage counter for this batch
+            let mut batch_leakage = 0u32;
+            
+            // Initialize user tally counters for this batch (excluding leakage)
+            let mut user_batch_counts: Vec<u32> = vec![0; tallies.len() - 1];
+            
             for _ in 0..self.settings.particles {
                 // Sample a particle from the source via settings
                 let mut particle = self.settings.source.sample();
@@ -84,6 +95,7 @@ impl Model {
                                     particle.position
                                 );
                                 particle.alive = false;
+                                batch_leakage += 1; // Count this leakage
                             } else {
                                 // Move to surface for non-vacuum boundaries
                                 for i in 0..3 {
@@ -113,6 +125,13 @@ impl Model {
                             );
                             if let Some(reaction) = reaction {
                                 println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
+                                
+                                // Score user tallies for this reaction
+                                for (i, tally_spec) in self.tallies.iter().enumerate() {
+                                    if tally_spec.score.contains(&reaction.mt_number) {
+                                        user_batch_counts[i] += 1;
+                                    }
+                                }
                                 
                                 match reaction.mt_number {
                                     2 => {
@@ -168,8 +187,18 @@ impl Model {
                     }
                 }
             }
+            
+            // Store batch leakage at end of each batch (first tally is always leakage)
+            tallies[0].add_batch(batch_leakage, self.settings.particles as u32);
+            
+            // Store user tally results for this batch (starting from index 1)
+            for (i, count) in user_batch_counts.iter().enumerate() {
+                tallies[i + 1].add_batch(*count, self.settings.particles as u32);
+            }
         }
+        
         println!("Simulation complete.");
+        tallies
     }
 }
 use crate::geometry::Geometry;
@@ -182,6 +211,7 @@ use std::sync::{Arc, Mutex};
 pub struct Model {
     pub geometry: Geometry,
     pub settings: Settings,
+    pub tallies: Vec<crate::tally::Tally>,
 }
 
 #[cfg(test)]
@@ -235,7 +265,17 @@ mod tests {
             batches: 10,
             source: source.clone(),
         };
-        let model = Model { geometry, settings };
+        
+        // Create a tally for absorption reactions with a custom name
+        let mut absorption_tally = crate::tally::Tally::new();
+        absorption_tally.score = vec![101]; // MT 101 = absorption
+        absorption_tally.name = Some("Absorption Tally".to_string());
+        
+        let model = Model { 
+            geometry, 
+            settings, 
+            tallies: vec![absorption_tally] 
+        };
         assert_eq!(model.settings.particles, 100);
         assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material
@@ -250,6 +290,26 @@ mod tests {
             .nuclides
             .contains_key("Li6"));
         // Run the model and ensure it executes without panicking
-        model.run();
+        let tallies = model.run();
+
+        // Verify we got the expected number of tallies (leakage + 1 user tally)
+        assert_eq!(tallies.len(), 2, "Expected 2 tallies: leakage + absorption");
+        
+        // Verify leakage tally (index 0)
+        assert_eq!(tallies[0].name, "Leakage");
+        assert_eq!(tallies[0].units, "particles");
+        assert_eq!(tallies[0].n_batches, 10);
+        
+        // Verify absorption tally (index 1) 
+        assert_eq!(tallies[1].name, "Absorption Tally");
+        assert_eq!(tallies[1].units, "events");
+        assert_eq!(tallies[1].n_batches, 10);
+        
+        println!("Test tally results:");
+        for (i, tally) in tallies.iter().enumerate() {
+            println!("Tally {}: {}", i, tally);
+        }
+        
+        println!("✓ Both leakage and absorption tallies verified successfully");
     }
 }

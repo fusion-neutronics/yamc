@@ -2,6 +2,8 @@ use crate::model::Model;
 use crate::python::geometry_python::PyGeometry;
 use crate::python::settings_python::PySettings;
 use crate::python::source_python::PySource;
+use crate::python::tally_python::{PyCountTally, PyTally};
+use crate::tally::Tally;
 use pyo3::prelude::*;
 
 #[pyclass(name = "Model")]
@@ -13,11 +15,19 @@ pub struct PyModel {
 #[pymethods]
 impl PyModel {
     #[new]
-    pub fn new(geometry: PyGeometry, settings: PySettings) -> Self {
+    #[pyo3(signature = (geometry, settings, tally=None))]
+    pub fn new(geometry: PyGeometry, settings: PySettings, tally: Option<Vec<PyTally>>) -> Self {
+        let tallies = if let Some(py_tallies) = tally {
+            py_tallies.into_iter().map(|py_tally| py_tally.inner).collect()
+        } else {
+            Vec::new()
+        };
+        
         PyModel {
             inner: Model {
                 geometry: geometry.inner.clone(),
                 settings: settings.inner.clone(),
+                tallies,
             },
         }
     }
@@ -35,7 +45,8 @@ impl PyModel {
         }
     }
 
-    pub fn run(&self) {
-        self.inner.run();
+    pub fn run(&self) -> Vec<PyCountTally> {
+        let tallies = self.inner.run();
+        tallies.into_iter().map(|t| t.into()).collect()
     }
 }

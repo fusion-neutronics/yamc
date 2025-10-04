@@ -1,4 +1,5 @@
 pub mod physics;
+pub mod tally;
 pub mod bounding_box;
 pub mod cell;
 pub mod geometry;
@@ -67,6 +68,7 @@ use pyo3::wrap_pyfunction;
 
 #[cfg(feature = "pyo3")]
 mod python {
+    pub mod tally_python;
     pub mod bounding_box_python;
     pub mod cell_python;
     pub mod config_python;
@@ -146,5 +148,8 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     use crate::python::source_python;
     m.add_class::<source_python::PySource>()?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
+
+    crate::python::tally_python::register_tally_classes(_py, m)?;
+
     Ok(())
 }
