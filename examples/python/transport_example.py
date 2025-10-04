@@ -26,5 +26,16 @@ geometry = mc.Geometry(cells=[cell])
 
 source = mc.Source([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6)
 settings = mc.Settings(particles=2, batches=1, source=source)
-model = mc.Model(geometry=geometry, settings=settings)
-model.run()
+
+
+tally1= mc.Tally()
+tally1.score=101
+tally1.name="absorption in whole model"
+tallies = [tally1]
+    
+
+model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
+leakage_tally, absorption_tally = model.run()
+
+print(leakage_tally)
+print(absorption_tally)

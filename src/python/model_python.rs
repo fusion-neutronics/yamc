@@ -2,6 +2,8 @@ use crate::model::Model;
 use crate::python::geometry_python::PyGeometry;
 use crate::python::settings_python::PySettings;
 use crate::python::source_python::PySource;
+use crate::python::tally_python::PyTally;
+use crate::tally::Tally;
 use pyo3::prelude::*;
 
 #[pyclass(name = "Model")]
@@ -13,11 +15,19 @@ pub struct PyModel {
 #[pymethods]
 impl PyModel {
     #[new]
-    pub fn new(geometry: PyGeometry, settings: PySettings) -> Self {
+    #[pyo3(signature = (geometry, settings, tallies=None))]
+    pub fn new(geometry: PyGeometry, settings: PySettings, tallies: Option<Vec<PyTally>>) -> Self {
+        let tallies = if let Some(py_tallies) = tallies {
+            py_tallies.into_iter().map(|py_tally| py_tally.inner).collect()
+        } else {
+            Vec::new()
+        };
+        
         PyModel {
             inner: Model {
                 geometry: geometry.inner.clone(),
                 settings: settings.inner.clone(),
+                tallies,
             },
         }
     }
@@ -34,8 +44,14 @@ impl PyModel {
             inner: self.inner.settings.clone(),
         }
     }
+    
+    #[getter]
+    pub fn tallies(&self) -> Vec<PyTally> {
+        self.inner.tallies.iter().map(|t| PyTally { inner: t.clone() }).collect()
+    }
 
-    pub fn run(&self) {
-        self.inner.run();
+    pub fn run(&self) -> Vec<PyTally> {
+        let tallies = self.inner.run();
+        tallies.into_iter().map(|t| t.into()).collect()
     }
 }
