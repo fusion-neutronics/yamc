@@ -11,7 +11,10 @@ pub struct PyBoundingBox {
 impl PyBoundingBox {
     #[new]
     pub fn new(lower_left: [f64; 3], upper_right: [f64; 3]) -> Self {
-        PyBoundingBox { lower_left, upper_right }
+        PyBoundingBox {
+            lower_left,
+            upper_right,
+        }
     }
 
     #[getter]
@@ -25,6 +28,9 @@ impl PyBoundingBox {
     }
 
     pub fn __repr__(&self) -> String {
-        format!("BoundingBox(lower_left={:?}, upper_right={:?})", self.lower_left, self.upper_right)
+        format!(
+            "BoundingBox(lower_left={:?}, upper_right={:?})",
+            self.lower_left, self.upper_right
+        )
     }
 }

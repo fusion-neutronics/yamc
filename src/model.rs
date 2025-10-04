@@ -1,14 +1,19 @@
-use rand::Rng;
 use crate::particle::Particle;
 use crate::surface::BoundaryType;
+use rand::Rng;
+use crate::physics::elastic_scatter;
+use crate::data::ATOMIC_WEIGHT_RATIO;
 impl Model {
     pub fn run(&self) {
         println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
-        let mut materials = self.materials.clone();
-        if let Err(e) = materials.ensure_nuclides_loaded() {
-            panic!("Failed to load nuclear data: {}", e);
+        for cell in &self.geometry.cells {
+            if let Some(material_arc) = &cell.material {
+                let mut material = material_arc.lock().unwrap();
+                let _ = material.ensure_nuclides_loaded();
+                material.calculate_macroscopic_xs(&vec![1], true);
+            }
         }
 
         let mut rng = rand::thread_rng();
@@ -21,7 +26,11 @@ impl Model {
 
                 // Transport loop
                 while particle.alive {
-                    let cell_opt = self.geometry.find_cell((particle.position[0], particle.position[1], particle.position[2]));
+                    let cell_opt = self.geometry.find_cell((
+                        particle.position[0],
+                        particle.position[1],
+                        particle.position[2],
+                    ));
                     if cell_opt.is_none() {
                         println!("Particle leaked from geometry at {:?}", particle.position);
                         particle.alive = false;
@@ -31,7 +40,10 @@ impl Model {
 
                     // Get material for this cell
                     let material = match &cell.material {
-                        Some(mat) => mat,
+                        Some(mat_arc_mutex) => {
+                            let mat = mat_arc_mutex.lock().unwrap();
+                            mat
+                        }
                         None => {
                             println!("No material in cell {}", cell.cell_id);
                             particle.alive = false;
@@ -40,11 +52,25 @@ impl Model {
                     };
 
                     // Sample distance to collision
-                    let dist_collision = material.sample_distance_to_collision(particle.energy, &mut rng).unwrap_or(f64::INFINITY);
+                    let dist_collision = material
+                        .sample_distance_to_collision(particle.energy, &mut rng)
+                        .unwrap_or(f64::INFINITY);
+                    println!("Sampled distance to collision: {}", dist_collision);
 
                     // Find closest surface and distance
-                    if let Some(surface_arc) = cell.closest_surface(particle.position, particle.direction) {
-                        let dist_surface = surface_arc.distance_to_surface([particle.position[0], particle.position[1], particle.position[2]], particle.direction).unwrap_or(f64::INFINITY);
+                    if let Some(surface_arc) =
+                        cell.closest_surface(particle.position, particle.direction)
+                    {
+                        let dist_surface = surface_arc
+                            .distance_to_surface(
+                                [
+                                    particle.position[0],
+                                    particle.position[1],
+                                    particle.position[2],
+                                ],
+                                particle.direction,
+                            )
+                            .unwrap_or(f64::INFINITY);
                         if dist_surface < dist_collision {
                             // Move to surface
                             for i in 0..3 {
@@ -52,11 +78,17 @@ impl Model {
                             }
                             // Check boundary type
                             if surface_arc.boundary_type == BoundaryType::Vacuum {
-                                println!("Particle leaked from geometry at {:?}", particle.position);
+                                println!(
+                                    "Particle leaked from geometry at {:?}",
+                                    particle.position
+                                );
                                 particle.alive = false;
                             } else {
                                 // For now, just kill the particle at any boundary
-                                println!("Particle hit non-vacuum boundary at {:?}", particle.position);
+                                println!(
+                                    "Particle hit non-vacuum boundary at {:?}",
+                                    particle.position
+                                );
                                 particle.alive = false;
                             }
                         } else {
@@ -65,17 +97,37 @@ impl Model {
                                 particle.position[i] += particle.direction[i] * dist_collision;
                             }
                             // Sample nuclide and reaction
-                            let nuclide_name = material.sample_interacting_nuclide(particle.energy, &mut rng);
+                            let nuclide_name =
+                                material.sample_interacting_nuclide(particle.energy, &mut rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
-                                let reaction = nuclide.sample_reaction(particle.energy, &material.temperature, &mut rng);
+                                let reaction = nuclide.sample_reaction(
+                                    particle.energy,
+                                    &material.temperature,
+                                    &mut rng,
+                                );
                                 if let Some(reaction) = reaction {
                                     println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
-                                    // Here you would update particle state based on reaction type
+                                    // Elastic scatter for MT=2
+                                    if reaction.mt_number == 2 {
+                                        let awr = *ATOMIC_WEIGHT_RATIO
+                                            .get(nuclide_name.as_str())
+                                            .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                        elastic_scatter(&mut particle, awr, &mut rng);
+                                        // Continue particle.alive = true for further transport
+                                    } else {
+                                        // Other reactions: kill particle for now
+                                        println!("Particle killed at {:?} due to reaction {}", particle.position, reaction.mt_number);
+                                        particle.alive = false;
+                                    }
                                 } else {
-                                    println!("No valid reaction found for nuclide {} at energy {}", nuclide_name, particle.energy);
+                                    println!(
+                                        "No valid reaction found for nuclide {} at energy {}",
+                                        nuclide_name, particle.energy
+                                    );
+                                    particle.alive = false;
                                 }
                             } else {
-                                println!("Nuclide {} not found in material data", nuclide_name);
+                                panic!("Nuclide {} not found in material data", nuclide_name);
                             }
                             particle.alive = false; // End after one collision for now
                         }
@@ -91,30 +143,28 @@ impl Model {
     }
 }
 use crate::geometry::Geometry;
-use crate::materials::Materials;
-use crate::source::Source;
+// use crate::materials::Materials;
 use crate::settings::Settings;
+use crate::source::Source;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct Model {
     pub geometry: Geometry,
-    pub materials: Materials,
     pub settings: Settings,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::Geometry;
-    use crate::materials::Materials;
-    use crate::source::Source;
-    use crate::settings::Settings;
-
     use crate::cell::Cell;
-    use crate::region::{Region, HalfspaceType};
-    use crate::surface::{Surface, SurfaceKind, BoundaryType};
+    use crate::geometry::Geometry;
     use crate::material::Material;
-    use std::sync::Arc;
+    use crate::region::{HalfspaceType, Region};
+    use crate::settings::Settings;
+    use crate::source::Source;
+    use crate::surface::{BoundaryType, Surface, SurfaceKind};
+    // No duplicate import
 
     #[test]
     fn test_model_construction() {
@@ -132,21 +182,19 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
         // Material with Li6 nuclide
         let mut material = Material::new();
+        material.set_density("g/cc", 1.0).unwrap(); // Add density to fix test
         material.add_nuclide("Li6", 1.0).unwrap();
-    let mut nuclide_json_map = std::collections::HashMap::new();
-    nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        let mut nuclide_json_map = std::collections::HashMap::new();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        let material_arc = Arc::new(Mutex::new(material));
         let cell = Cell {
             cell_id: 1,
             name: Some("sphere_cell".to_string()),
             region,
-            material: Some(material.clone()),
+            material: Some(material_arc.clone()),
         };
         let geometry = Geometry { cells: vec![cell] };
-        let mut materials = Materials::new();
-        materials.append(material);
-        // Ensure nuclide data is loaded for the materials collection
-        materials.read_nuclides_from_json(&nuclide_json_map).unwrap();
         let source = Source {
             position: [0.0, 0.0, 0.0],
             direction: [0.0, 0.0, 1.0],
@@ -157,18 +205,20 @@ mod tests {
             batches: 10,
             source: source.clone(),
         };
-        let model = Model {
-            geometry,
-            materials,
-                // source, // Removed source from model construction
-            settings,
-        };
-    assert_eq!(model.settings.particles, 100);
-    assert_eq!(model.settings.source.energy, 1e6);
+        let model = Model { geometry, settings };
+        assert_eq!(model.settings.particles, 100);
+        assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material
         assert_eq!(model.geometry.cells.len(), 1);
-        assert!(model.materials.len() > 0);
-        assert!(model.materials.get(0).unwrap().nuclides.contains_key("Li6"));
+        let cell_material = &model.geometry.cells[0].material;
+        assert!(cell_material.is_some());
+        assert!(cell_material
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .nuclides
+            .contains_key("Li6"));
         // Run the model and ensure it executes without panicking
         model.run();
     }

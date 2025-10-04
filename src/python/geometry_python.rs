@@ -22,15 +22,25 @@ impl PyGeometry {
             let pycell: PyCell = item?.extract()?;
             rust_cells.push(pycell.inner);
         }
-        Ok(PyGeometry { inner: geometry::Geometry { cells: rust_cells } })
+        Ok(PyGeometry {
+            inner: geometry::Geometry { cells: rust_cells },
+        })
     }
 
     pub fn find_cell(&self, x: f64, y: f64, z: f64) -> Option<PyCell> {
-        self.inner.find_cell((x, y, z)).cloned().map(|cell| PyCell { inner: cell })
+        self.inner
+            .find_cell((x, y, z))
+            .cloned()
+            .map(|cell| PyCell { inner: cell })
     }
 
     #[getter]
     pub fn cells(&self) -> Vec<PyCell> {
-        self.inner.cells.iter().cloned().map(|cell| PyCell { inner: cell }).collect()
+        self.inner
+            .cells
+            .iter()
+            .cloned()
+            .map(|cell| PyCell { inner: cell })
+            .collect()
     }
 }

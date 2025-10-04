@@ -122,9 +122,7 @@ impl WasmMaterial {
             None => vec![1],
         };
         let by_nuclide = by_nuclide.unwrap_or(false);
-        let (energy_grid, xs) = self
-            .inner
-            .calculate_macroscopic_xs(&mt_vec, by_nuclide);
+        let (energy_grid, xs) = self.inner.calculate_macroscopic_xs(&mt_vec, by_nuclide);
         let data = MacroscopicXsResult {
             energy_grid,
             cross_sections: xs,

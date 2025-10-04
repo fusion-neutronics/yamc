@@ -1,6 +1,6 @@
-use pyo3::prelude::*;
-use crate::settings::Settings;
 use crate::python::source_python::PySource;
+use crate::settings::Settings;
+use pyo3::prelude::*;
 
 #[pyclass(name = "Settings")]
 #[derive(Clone)]
@@ -30,7 +30,9 @@ impl PySettings {
     }
     #[getter]
     pub fn source(&self) -> PySource {
-        PySource { inner: self.inner.source.clone() }
+        PySource {
+            inner: self.inner.source.clone(),
+        }
     }
 
     #[setter]

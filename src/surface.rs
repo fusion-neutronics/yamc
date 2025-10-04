@@ -54,7 +54,6 @@ pub enum SurfaceKind {
 
 // Regular Rust implementation
 impl Surface {
-
     /// Compute the distance from a point along a direction to the surface.
     /// Returns Some(distance) if intersection exists and distance > 0, else None.
     pub fn distance_to_surface(&self, point: [f64; 3], direction: [f64; 3]) -> Option<f64> {
@@ -77,16 +76,18 @@ impl Surface {
             SurfaceKind::Sphere { x0, y0, z0, radius } => {
                 // Ray-sphere intersection: (p + t*v - c)·(p + t*v - c) = r^2
                 let oc = [point[0] - x0, point[1] - y0, point[2] - z0];
-                let a = direction[0]*direction[0] + direction[1]*direction[1] + direction[2]*direction[2];
-                let b = 2.0 * (oc[0]*direction[0] + oc[1]*direction[1] + oc[2]*direction[2]);
-                let c = oc[0]*oc[0] + oc[1]*oc[1] + oc[2]*oc[2] - radius*radius;
-                let disc = b*b - 4.0*a*c;
+                let a = direction[0] * direction[0]
+                    + direction[1] * direction[1]
+                    + direction[2] * direction[2];
+                let b = 2.0 * (oc[0] * direction[0] + oc[1] * direction[1] + oc[2] * direction[2]);
+                let c = oc[0] * oc[0] + oc[1] * oc[1] + oc[2] * oc[2] - radius * radius;
+                let disc = b * b - 4.0 * a * c;
                 if disc < 0.0 {
                     return None;
                 }
                 let sqrt_disc = disc.sqrt();
-                let t1 = (-b - sqrt_disc) / (2.0*a);
-                let t2 = (-b + sqrt_disc) / (2.0*a);
+                let t1 = (-b - sqrt_disc) / (2.0 * a);
+                let t2 = (-b + sqrt_disc) / (2.0 * a);
                 // Return the smallest positive t
                 if t1 > 1e-12 {
                     Some(t1)
@@ -96,7 +97,11 @@ impl Surface {
                     None
                 }
             }
-            SurfaceKind::Cylinder { axis, origin, radius } => {
+            SurfaceKind::Cylinder {
+                axis,
+                origin,
+                radius,
+            } => {
                 // Ray-cylinder intersection (infinite cylinder)
                 // Cylinder: ( (p-c) - ((p-c)·a)a )^2 = r^2
                 // Ray: p + t*v
@@ -105,22 +110,31 @@ impl Surface {
                 let c = origin;
                 let a_axis = axis;
                 // Compute d = v - (v·a)a
-                let v_dot_a = v[0]*a_axis[0] + v[1]*a_axis[1] + v[2]*a_axis[2];
-                let d = [v[0] - v_dot_a*a_axis[0], v[1] - v_dot_a*a_axis[1], v[2] - v_dot_a*a_axis[2]];
+                let v_dot_a = v[0] * a_axis[0] + v[1] * a_axis[1] + v[2] * a_axis[2];
+                let d = [
+                    v[0] - v_dot_a * a_axis[0],
+                    v[1] - v_dot_a * a_axis[1],
+                    v[2] - v_dot_a * a_axis[2],
+                ];
                 // Compute delta_p = p - c
                 let delta_p = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
-                let delta_p_dot_a = delta_p[0]*a_axis[0] + delta_p[1]*a_axis[1] + delta_p[2]*a_axis[2];
-                let m = [delta_p[0] - delta_p_dot_a*a_axis[0], delta_p[1] - delta_p_dot_a*a_axis[1], delta_p[2] - delta_p_dot_a*a_axis[2]];
-                let a_c = d[0]*d[0] + d[1]*d[1] + d[2]*d[2];
-                let b_c = 2.0 * (d[0]*m[0] + d[1]*m[1] + d[2]*m[2]);
-                let c_c = m[0]*m[0] + m[1]*m[1] + m[2]*m[2] - radius*radius;
-                let disc = b_c*b_c - 4.0*a_c*c_c;
+                let delta_p_dot_a =
+                    delta_p[0] * a_axis[0] + delta_p[1] * a_axis[1] + delta_p[2] * a_axis[2];
+                let m = [
+                    delta_p[0] - delta_p_dot_a * a_axis[0],
+                    delta_p[1] - delta_p_dot_a * a_axis[1],
+                    delta_p[2] - delta_p_dot_a * a_axis[2],
+                ];
+                let a_c = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+                let b_c = 2.0 * (d[0] * m[0] + d[1] * m[1] + d[2] * m[2]);
+                let c_c = m[0] * m[0] + m[1] * m[1] + m[2] * m[2] - radius * radius;
+                let disc = b_c * b_c - 4.0 * a_c * c_c;
                 if disc < 0.0 || a_c.abs() < 1e-12 {
                     return None;
                 }
                 let sqrt_disc = disc.sqrt();
-                let t1 = (-b_c - sqrt_disc) / (2.0*a_c);
-                let t2 = (-b_c + sqrt_disc) / (2.0*a_c);
+                let t1 = (-b_c - sqrt_disc) / (2.0 * a_c);
+                let t2 = (-b_c + sqrt_disc) / (2.0 * a_c);
                 if t1 > 1e-12 {
                     Some(t1)
                 } else if t2 > 1e-12 {

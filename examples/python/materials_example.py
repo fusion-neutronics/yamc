@@ -28,7 +28,3 @@ mat4 = m4mc.Material()
 mat4.add_nuclide('Be9', 1.0)
 mat4.set_density('g/cm3', 2.0)
 print(mat4)
-
-mats = m4mc.Materials([mat1, mat2, mat3, mat4])
-# Load using global Config fallback (no explicit dict passed)
-mats.read_nuclides_from_json({'Li6': 'tests/Fe56.json'})

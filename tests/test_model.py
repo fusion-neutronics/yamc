@@ -22,15 +22,10 @@ def test_model_construction():
         fill=material,
     )
     geometry = mc.Geometry(cells=[cell])
-    materials = mc.Materials()
-    materials.append(material)
     source = mc.Source([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6)
     settings = mc.Settings(particles=5, batches=2, source=source)
-    model = mc.Model(geometry, materials, settings)
+    model = mc.Model(geometry, settings)
     assert model.settings.particles == 5
     assert model.settings.source.energy == 1e6
     assert len(model.geometry.cells) == 1
-    assert model.materials.len() > 0
-    nuclides = [n[0] for n in model.materials.get(0).nuclides]
-    assert "Li6" in nuclides
     model.run()
