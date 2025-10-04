@@ -15,9 +15,9 @@ pub struct PyModel {
 #[pymethods]
 impl PyModel {
     #[new]
-    #[pyo3(signature = (geometry, settings, tally=None))]
-    pub fn new(geometry: PyGeometry, settings: PySettings, tally: Option<Vec<PyTally>>) -> Self {
-        let tallies = if let Some(py_tallies) = tally {
+    #[pyo3(signature = (geometry, settings, tallies=None))]
+    pub fn new(geometry: PyGeometry, settings: PySettings, tallies: Option<Vec<PyTally>>) -> Self {
+        let tallies = if let Some(py_tallies) = tallies {
             py_tallies.into_iter().map(|py_tally| py_tally.inner).collect()
         } else {
             Vec::new()
@@ -43,6 +43,11 @@ impl PyModel {
         PySettings {
             inner: self.inner.settings.clone(),
         }
+    }
+    
+    #[getter]
+    pub fn tallies(&self) -> Vec<PyTally> {
+        self.inner.tallies.iter().map(|t| PyTally { inner: t.clone() }).collect()
     }
 
     pub fn run(&self) -> Vec<PyTally> {

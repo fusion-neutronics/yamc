@@ -34,7 +34,7 @@ tally1.name="absorption in whole model"
 tallies = [tally1]
     
 
-model = mc.Model(geometry=geometry, settings=settings, tally=tallies)
+model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
 leakage_tally, absorption_tally = model.run()
 
 print(leakage_tally)
