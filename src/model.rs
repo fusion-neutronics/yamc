@@ -3,9 +3,9 @@ use crate::surface::BoundaryType;
 use rand::Rng;
 use crate::physics::elastic_scatter;
 use crate::data::ATOMIC_WEIGHT_RATIO;
-use crate::tally::{CountTally, create_tallies_from_specs};
+use crate::tally::{Tally, create_tallies_from_specs};
 impl Model {
-    pub fn run(&self) -> Vec<CountTally> {
+    pub fn run(&self) -> Vec<Tally> {
         println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
@@ -128,7 +128,7 @@ impl Model {
                                 
                                 // Score user tallies for this reaction
                                 for (i, tally_spec) in self.tallies.iter().enumerate() {
-                                    if tally_spec.score.contains(&reaction.mt_number) {
+                                    if tally_spec.score == reaction.mt_number {
                                         user_batch_counts[i] += 1;
                                     }
                                 }
@@ -296,12 +296,12 @@ mod tests {
         assert_eq!(tallies.len(), 2, "Expected 2 tallies: leakage + absorption");
         
         // Verify leakage tally (index 0)
-        assert_eq!(tallies[0].name, "Leakage");
+        assert_eq!(tallies[0].name, Some("Leakage".to_string()));
         assert_eq!(tallies[0].units, "particles");
         assert_eq!(tallies[0].n_batches, 10);
         
         // Verify absorption tally (index 1) 
-        assert_eq!(tallies[1].name, "Absorption Tally");
+        assert_eq!(tallies[1].name, Some("Absorption Tally".to_string()));
         assert_eq!(tallies[1].units, "events");
         assert_eq!(tallies[1].n_batches, 10);
         

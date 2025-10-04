@@ -2,7 +2,7 @@ use crate::model::Model;
 use crate::python::geometry_python::PyGeometry;
 use crate::python::settings_python::PySettings;
 use crate::python::source_python::PySource;
-use crate::python::tally_python::{PyCountTally, PyTally};
+use crate::python::tally_python::PyTally;
 use crate::tally::Tally;
 use pyo3::prelude::*;
 
@@ -45,7 +45,7 @@ impl PyModel {
         }
     }
 
-    pub fn run(&self) -> Vec<PyCountTally> {
+    pub fn run(&self) -> Vec<PyTally> {
         let tallies = self.inner.run();
         tallies.into_iter().map(|t| t.into()).collect()
     }
