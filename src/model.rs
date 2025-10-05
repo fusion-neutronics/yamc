@@ -97,11 +97,12 @@ impl Model {
                                 particle.alive = false;
                                 batch_leakage += 1; // Count this leakage
                             } else {
-                                // Move to surface for non-vacuum boundaries
-                                particle.move_by(dist_surface);
+                                // Move slightly past surface to avoid geometric ambiguity
+                                const SURFACE_TOLERANCE: f64 = 1e-8;
+                                particle.move_by(dist_surface + SURFACE_TOLERANCE);
                                 println!(
-                                    "Particle moved to surface at {:?} in cell {}",
-                                    particle.position, cell.cell_id
+                                    "Particle crossed surface to {:?} (moved {} + tolerance)",
+                                    particle.position, dist_surface
                                 );
                             }
                         } else {
