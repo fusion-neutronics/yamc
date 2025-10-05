@@ -2,6 +2,7 @@ pub mod physics;
 pub mod tally;
 pub mod bounding_box;
 pub mod cell;
+pub mod filters;
 pub mod geometry;
 pub mod model;
 pub mod particle;
@@ -74,6 +75,7 @@ mod python {
     pub mod config_python;
     pub mod data_python;
     pub mod element_python;
+    pub mod filters_python;
     pub mod geometry_python;
     pub mod material_python;
     pub mod model_python;
@@ -145,6 +147,8 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<cell_python::PyCell>()?;
     use crate::python::element_python;
     m.add_class::<element_python::PyElement>()?;
+    use crate::python::filters_python;
+    m.add_class::<filters_python::PyCellFilter>()?;
     use crate::python::source_python;
     m.add_class::<source_python::PySource>()?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;

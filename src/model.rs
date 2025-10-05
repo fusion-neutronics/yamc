@@ -97,11 +97,12 @@ impl Model {
                                 particle.alive = false;
                                 batch_leakage += 1; // Count this leakage
                             } else {
-                                // Move to surface for non-vacuum boundaries
-                                particle.move_by(dist_surface);
+                                // Move slightly past surface to avoid geometric ambiguity
+                                const SURFACE_TOLERANCE: f64 = 1e-8;
+                                particle.move_by(dist_surface + SURFACE_TOLERANCE);
                                 println!(
-                                    "Particle moved to surface at {:?} in cell {}",
-                                    particle.position, cell.cell_id
+                                    "Particle crossed surface to {:?} (moved {} + tolerance)",
+                                    particle.position, dist_surface
                                 );
                             }
                         } else {
@@ -121,13 +122,6 @@ impl Model {
                             );
                             if let Some(reaction) = reaction {
                                 println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
-                                
-                                // Score user tallies for this reaction
-                                for (i, tally_spec) in self.tallies.iter().enumerate() {
-                                    if tally_spec.score == reaction.mt_number {
-                                        user_batch_counts[i] += 1;
-                                    }
-                                }
                                 
                                 match reaction.mt_number {
                                     2 => {
@@ -163,6 +157,25 @@ impl Model {
                                         panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
                                     }
                                 }
+                                
+                                // Score user tallies for this reaction (after physics is processed)
+                                for (i, tally_spec) in self.tallies.iter().enumerate() {
+                                    if tally_spec.score == reaction.mt_number {
+                                        // Check if this event passes all cell filters for this tally
+                                        let passes_filters = if tally_spec.filters.is_empty() {
+                                            // No filters means score all events
+                                            true
+                                        } else {
+                                            // Check if any filter matches this cell
+                                            tally_spec.filters.iter().any(|filter| filter.matches(cell.cell_id))
+                                        };
+                                        
+                                        if passes_filters {
+                                            user_batch_counts[i] += 1;
+                                        }
+                                    }
+                                }
+
                             } else {
                                 panic!(
                                     "No valid reaction found for nuclide {} at energy {}",
