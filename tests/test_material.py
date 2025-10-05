@@ -38,6 +38,76 @@ def test_density_settings():
     assert material.density == 19.3
     assert material.density_units == 'g/cm3'
 
+def test_material_id_default():
+    """Test that new materials have default material_id of None"""
+    material = Material()
+    assert material.material_id is None, "Default material_id should be None"
+
+def test_material_id_set_and_get():
+    """Test setting and getting material_id"""
+    material = Material()
+    
+    # Test default value
+    assert material.material_id is None
+    
+    # Test setting material_id
+    material.material_id = 42
+    assert material.material_id == 42
+    
+    # Test setting different values
+    material.material_id = 999
+    assert material.material_id == 999
+    
+    # Test setting to 0 (should still be valid)
+    material.material_id = 0
+    assert material.material_id == 0
+
+def test_material_id_with_constructor():
+    """Test creating materials with specific IDs and verify independence"""
+    # Create material with default constructor
+    material1 = Material(material_id = 10, name="mat1")
+    assert material1.material_id == 10
+    
+    # Create another material
+    material2 = Material()
+    material2.material_id = 20
+    
+    # Verify they have different IDs
+    assert material1.material_id == 10
+    assert material2.material_id == 20
+    
+    # Modify one and ensure the other is unaffected
+    material1.material_id = 100
+    assert material1.material_id == 100
+    assert material2.material_id == 20, "Other material's ID should not change"
+
+def test_material_id_with_large_values():
+    """Test material_id with edge case values"""
+    material = Material(name="test")
+    
+    # Test with maximum u32 value (4294967295)
+    max_u32 = 4294967295
+    material.material_id = max_u32
+    assert material.material_id == max_u32
+    
+    # Test with 0
+    material.material_id = 0
+    assert material.material_id == 0
+
+def test_material_id_none_state():
+    """Test that material_id can be None and must be explicitly set"""
+    material = Material()
+    
+    # Verify it starts as None
+    assert material.material_id is None
+    
+    # Set it to a value
+    material.material_id = 42
+    assert material.material_id == 42
+    
+    # Note: We can't set it back to None through the Python interface
+    # since the setter expects a u32, but the getter can return None
+
 def test_get_nuclide_names():
     material = Material()
     

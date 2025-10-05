@@ -34,6 +34,8 @@ use std::sync::Arc;
 pub struct Material {
     /// Optional name of the material
     pub name: Option<String>,
+    /// Unique identifier for the material
+    pub material_id: Option<u32>,
     /// Composition of the material as a map of nuclide names to their atomic fractions
     pub nuclides: HashMap<String, f64>,
     /// Density of the material in g/cm³
@@ -60,11 +62,29 @@ impl Material {
     pub fn new() -> Self {
         Material {
             name: None,
+            material_id: None,
             nuclides: HashMap::new(),
             density: None,
             density_units: String::from("g/cm3"),
             volume: None,                     // Initialize volume as None
             temperature: String::from("294"), // Default temperature in K (room temperature)
+            nuclide_data: HashMap::new(),
+            macroscopic_xs_neutron: HashMap::new(),
+            unified_energy_grid_neutron: Vec::new(),
+            macroscopic_xs_neutron_total_by_nuclide: None,
+        }
+    }
+
+    /// Create a new material with a specific ID
+    pub fn with_id(material_id: u32) -> Self {
+        Material {
+            name: None,
+            material_id: Some(material_id),
+            nuclides: HashMap::new(),
+            density: None,
+            density_units: String::from("g/cm3"),
+            volume: None,
+            temperature: String::from("294"),
             nuclide_data: HashMap::new(),
             macroscopic_xs_neutron: HashMap::new(),
             unified_energy_grid_neutron: Vec::new(),
@@ -80,6 +100,16 @@ impl Material {
     /// Get the name of the material
     pub fn get_name(&self) -> Option<&str> {
         self.name.as_deref()
+    }
+
+    /// Set the material ID
+    pub fn set_material_id(&mut self, material_id: u32) {
+        self.material_id = Some(material_id);
+    }
+
+    /// Get the material ID
+    pub fn get_material_id(&self) -> Option<u32> {
+        self.material_id
     }
 
     /// Clear all cached cross section data
@@ -857,6 +887,69 @@ mod tests {
         mat.set_name("AnotherName");
         assert_eq!(mat.get_name(), Some("AnotherName"));
     }
+
+    #[test]
+    fn test_material_id_default() {
+        let mat = Material::new();
+        assert_eq!(mat.get_material_id(), None, "Default material_id should be None");
+        assert_eq!(mat.material_id, None, "Default material_id field should be None");
+    }
+
+    #[test]
+    fn test_set_and_get_material_id() {
+        let mut mat = Material::new();
+        
+        // Test default value
+        assert_eq!(mat.get_material_id(), None);
+        
+        // Test setting and getting material_id
+        mat.set_material_id(42);
+        assert_eq!(mat.get_material_id(), Some(42));
+        
+        // Test setting a different value
+        mat.set_material_id(999);
+        assert_eq!(mat.get_material_id(), Some(999));
+        
+        // Test setting to 0
+        mat.set_material_id(0);
+        assert_eq!(mat.get_material_id(), Some(0));
+    }
+
+    #[test]
+    fn test_material_with_id_constructor() {
+        // Test creating material with specific ID
+        let mat1 = Material::with_id(100);
+        assert_eq!(mat1.get_material_id(), Some(100));
+        assert_eq!(mat1.material_id, Some(100));
+        assert_eq!(mat1.get_name(), None, "with_id constructor should not set name");
+        
+        // Test creating material with ID 0
+        let mat2 = Material::with_id(0);
+        assert_eq!(mat2.get_material_id(), Some(0));
+        
+        // Test creating material with large ID
+        let mat3 = Material::with_id(u32::MAX);
+        assert_eq!(mat3.get_material_id(), Some(u32::MAX));
+    }
+
+    #[test]
+    fn test_material_id_independence() {
+        // Test that different materials have independent IDs
+        let mut mat1 = Material::new();
+        let mut mat2 = Material::with_id(50);
+        
+        mat1.set_material_id(10);
+        mat2.set_material_id(20);
+        
+        assert_eq!(mat1.get_material_id(), Some(10));
+        assert_eq!(mat2.get_material_id(), Some(20));
+        
+        // Ensure they don't affect each other
+        mat1.set_material_id(999);
+        assert_eq!(mat1.get_material_id(), Some(999));
+        assert_eq!(mat2.get_material_id(), Some(20), "Other material's ID should not change");
+    }
+
     #[test]
     fn test_sample_distance_to_collision() {
         use rand::rngs::StdRng;
