@@ -22,6 +22,19 @@ impl PyMaterial {
     fn set_name(&mut self, name: String) {
         self.internal.set_name(name);
     }
+
+    /// Get the material ID
+    #[getter]
+    fn material_id(&self) -> Option<u32> {
+        self.internal.get_material_id()
+    }
+
+    /// Set the material ID
+    #[setter]
+    fn set_material_id(&mut self, material_id: u32) {
+        self.internal.set_material_id(material_id);
+    }
+
     /// Sample a distance to the next neutron collision.
     ///
     /// Uses the macroscopic total cross section (calculating it first if missing)
@@ -43,18 +56,23 @@ impl PyMaterial {
         };
         self.internal.sample_distance_to_collision(energy, &mut rng)
     }
-    /// Create a new material, optionally with a name.
+    /// Create a new material, optionally with a name and/or material_id.
     ///
     /// Args:
     ///     name (Optional[str]): Name for the material.
+    ///     material_id (Optional[int]): ID for the material.
     ///
     /// Returns:
-    ///     Material: A new material with optional name.
+    ///     Material: A new material with optional name and ID.
     #[new]
-    fn new(name: Option<String>) -> Self {
+    #[pyo3(signature = (name = None, material_id = None))]
+    fn new(name: Option<String>, material_id: Option<u32>) -> Self {
         let mut internal = Material::new();
         if let Some(n) = name {
             internal.set_name(n);
+        }
+        if let Some(id) = material_id {
+            internal.set_material_id(id);
         }
         PyMaterial { internal }
     }
