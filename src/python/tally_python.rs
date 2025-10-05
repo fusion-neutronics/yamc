@@ -129,6 +129,12 @@ impl PyTally {
         }
         
         self.inner.filters = filter_objects;
+        
+        // Validate the tally configuration
+        if let Err(err) = self.inner.validate() {
+            return Err(pyo3::exceptions::PyValueError::new_err(err));
+        }
+        
         Ok(())
     }
     

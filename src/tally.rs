@@ -1,4 +1,5 @@
 use std::fmt;
+use std::collections::HashMap;
 use crate::filters::{CellFilter, MaterialFilter};
 
 /// Unified filter enum for tallies
@@ -6,6 +7,16 @@ use crate::filters::{CellFilter, MaterialFilter};
 pub enum Filter {
     Cell(CellFilter),
     Material(MaterialFilter),
+}
+
+impl Filter {
+    /// Get the type name of this filter for validation
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Filter::Cell(_) => "CellFilter",
+            Filter::Material(_) => "MaterialFilter",
+        }
+    }
 }
 
 /// Unified tally structure serving as both input specification and results container
@@ -66,6 +77,30 @@ impl Tally {
     /// Set the MT number to score
     pub fn set_score(&mut self, mt_number: i32) {
         self.score = mt_number;
+    }
+    
+    /// Validate that the tally configuration is valid
+    pub fn validate(&self) -> Result<(), String> {
+        // Check for duplicate filter types
+        let mut filter_type_counts: HashMap<&str, u32> = HashMap::new();
+        
+        for filter in &self.filters {
+            let type_name = filter.type_name();
+            *filter_type_counts.entry(type_name).or_insert(0) += 1;
+        }
+        
+        for (filter_type, count) in filter_type_counts {
+            if count > 1 {
+                return Err(format!(
+                    "Tally '{}' has {} filters of type {}. Multiple filters of the same type are not allowed as they create impossible conditions (particles cannot be in multiple cells or materials simultaneously).", 
+                    self.display_name(),
+                    count,
+                    filter_type
+                ));
+            }
+        }
+        
+        Ok(())
     }
 
     /// Add a batch result to the tally
@@ -152,6 +187,11 @@ pub fn create_tallies_from_specs(tally_specs: &[Tally]) -> Vec<Tally> {
         tally.id = spec.id;
         tally.score = spec.score;
         tally.filters = spec.filters.clone();
+        
+        // Validate the tally configuration
+        if let Err(err) = tally.validate() {
+            panic!("Invalid tally configuration: {}", err);
+        }
         
         tallies.push(tally);
     }

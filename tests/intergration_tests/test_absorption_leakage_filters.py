@@ -154,6 +154,8 @@ def test_absorption_leakage_filters():
     # Material 2 AND Cell 1 should be zero (Cell 1 contains Material 1, not Material 2)
     assert tally5_zero.mean == 0.0, f"Material 2 AND Cell 1 should be zero (no overlap), got: {tally5_zero.mean}"
     
+
+    
     print(f"✓ Integration test passed!")
     print(f"  - Absorption in cell 1: {tally1.mean:.4f}")
     print(f"  - Absorption in cell 2: {tally2.mean:.4f}")
@@ -168,5 +170,66 @@ def test_absorption_leakage_filters():
     print(f"    - Material 2 AND Cell 1: {tally5_zero.mean:.4f} (should be zero)")
 
 
+def test_duplicate_filter_error():
+    """
+    Test that adding multiple filters of the same type raises an error.
+    """
+    import pytest
+    
+    # Create minimal geometry
+    sphere = mc.Sphere(
+        surface_id=1,
+        x0=0.0, y0=0.0, z0=0.0, r=1.0,
+        boundary_type='Vacuum'
+    )
+    region = -sphere
+
+    # Create materials
+    material1 = mc.Material()
+    material1.material_id = 1
+    material1.add_nuclide("Li6", 1.0)
+    material1.set_density("g/cm3", 10.0)
+    material1.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+
+    material2 = mc.Material()
+    material2.material_id = 2
+    material2.add_nuclide("Be9", 1.0)
+    material2.set_density("g/cm3", 20.0)
+    material2.read_nuclides_from_json({"Be9": "tests/Be9.json"})
+
+    # Create cells
+    cell1 = mc.Cell(cell_id=1, name="cell1", region=region, fill=material1)
+    cell2 = mc.Cell(cell_id=2, name="cell2", region=region, fill=material2)
+    
+    geometry = mc.Geometry(cells=[cell1])
+    source = mc.Source(position=[0.0, 0.0, 0.0], direction=[0.0, 0.0, 1.0], energy=1e6)
+    settings = mc.Settings(particles=10, batches=1, source=source)
+
+    # Test 1: Multiple CellFilters should raise error
+    tally_bad_cell = mc.Tally()
+    tally_bad_cell.score = 101
+    tally_bad_cell.name = "bad tally with duplicate cell filters"
+    
+    cell_filter1 = mc.CellFilter(cell1)
+    cell_filter2 = mc.CellFilter(cell2)
+    
+    with pytest.raises(ValueError, match="Multiple filters of the same type are not allowed"):
+        tally_bad_cell.filters = [cell_filter1, cell_filter2]
+    
+    # Test 2: Multiple MaterialFilters should raise error
+    tally_bad_material = mc.Tally()
+    tally_bad_material.score = 101
+    tally_bad_material.name = "bad tally with duplicate material filters"
+    
+    material_filter1 = mc.MaterialFilter(material1)
+    material_filter2 = mc.MaterialFilter(material2)
+    
+    with pytest.raises(ValueError, match="Multiple filters of the same type are not allowed"):
+        tally_bad_material.filters = [material_filter1, material_filter2]
+    
+    print("✓ Duplicate filter error test passed!")
+
+
 if __name__ == "__main__":
     test_absorption_leakage_filters()
+    test_duplicate_filter_error()
