@@ -1,4 +1,5 @@
 use std::fmt;
+use crate::filters::CellFilter;
 
 /// Unified tally structure serving as both input specification and results container
 #[derive(Debug, Clone)]
@@ -7,7 +8,7 @@ pub struct Tally {
     pub id: Option<u32>,           // Optional tally ID
     pub name: Option<String>,      // Optional tally name  
     pub score: i32,               // MT number to score (e.g., 101 for absorption)
-    pub filters: Vec<String>,     // Future: energy, material, cell filters
+    pub filters: Vec<CellFilter>, // Cell filters for this tally
     
     // Results fields (populated during simulation)
     pub units: String,          // Units (e.g., "particles", "collisions", "reactions")  

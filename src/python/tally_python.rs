@@ -1,6 +1,8 @@
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 #[cfg(feature = "pyo3")]
+use pyo3::types::PyAny;
+#[cfg(feature = "pyo3")]
 use crate::tally::Tally;
 
 #[cfg(feature = "pyo3")]
@@ -83,6 +85,26 @@ impl PyTally {
     #[getter]
     pub fn batch_data(&self) -> Vec<u32> {
         self.inner.batch_data.clone()
+    }
+    
+    #[getter]
+    pub fn filters(&self) -> Vec<crate::python::filters_python::PyCellFilter> {
+        // Convert internal CellFilters back to Python CellFilter objects
+        self.inner.filters
+            .iter()
+            .map(|f| crate::python::filters_python::PyCellFilter {
+                internal: f.clone(),
+            })
+            .collect()
+    }
+    
+    #[setter]
+    pub fn set_filters(&mut self, filters: Vec<crate::python::filters_python::PyCellFilter>) {
+        // Store CellFilter objects directly
+        self.inner.filters = filters
+            .into_iter()
+            .map(|f| f.internal)
+            .collect();
     }
     
     pub fn total_count(&self) -> u32 {
