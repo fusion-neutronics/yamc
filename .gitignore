@@ -32,3 +32,4 @@ docs/build/
 wheelhouse/
 dist/
 docs/__pycache__/
+__pycache__/

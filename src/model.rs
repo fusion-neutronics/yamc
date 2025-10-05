@@ -122,13 +122,6 @@ impl Model {
                             if let Some(reaction) = reaction {
                                 println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                 
-                                // Score user tallies for this reaction
-                                for (i, tally_spec) in self.tallies.iter().enumerate() {
-                                    if tally_spec.score == reaction.mt_number {
-                                        user_batch_counts[i] += 1;
-                                    }
-                                }
-                                
                                 match reaction.mt_number {
                                     2 => {
                                         // Elastic scattering
@@ -163,6 +156,14 @@ impl Model {
                                         panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
                                     }
                                 }
+                                
+                                // Score user tallies for this reaction (after physics is processed)
+                                for (i, tally_spec) in self.tallies.iter().enumerate() {
+                                    if tally_spec.score == reaction.mt_number {
+                                        user_batch_counts[i] += 1;
+                                    }
+                                }
+
                             } else {
                                 panic!(
                                     "No valid reaction found for nuclide {} at energy {}",
