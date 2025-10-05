@@ -65,7 +65,7 @@ def test_material_id_set_and_get():
 def test_material_id_with_constructor():
     """Test creating materials with specific IDs and verify independence"""
     # Create material with default constructor
-    material1 = Material(material_id = 10)
+    material1 = Material(material_id = 10, name="mat1")
     assert material1.material_id == 10
     
     # Create another material
@@ -83,7 +83,7 @@ def test_material_id_with_constructor():
 
 def test_material_id_with_large_values():
     """Test material_id with edge case values"""
-    material = Material()
+    material = Material(name="test")
     
     # Test with maximum u32 value (4294967295)
     max_u32 = 4294967295
