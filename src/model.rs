@@ -111,6 +111,8 @@ impl Model {
 
                             // We know we have material here because void cells always hit surfaces first
                             let material = cell.material.as_ref().unwrap().lock().unwrap();
+                            // Store material_id for filter checking (to avoid double-locking later)
+                            let material_id = material.material_id;
                             // Sample nuclide and reaction
                             let nuclide_name =
                                 material.sample_interacting_nuclide(particle.energy, &mut rng);
@@ -161,13 +163,22 @@ impl Model {
                                 // Score user tallies for this reaction (after physics is processed)
                                 for (i, tally_spec) in self.tallies.iter().enumerate() {
                                     if tally_spec.score == reaction.mt_number {
-                                        // Check if this event passes all cell filters for this tally
+                                        // Check if this event passes all filters for this tally
                                         let passes_filters = if tally_spec.filters.is_empty() {
                                             // No filters means score all events
                                             true
                                         } else {
-                                            // Check if any filter matches this cell
-                                            tally_spec.filters.iter().any(|filter| filter.matches(cell.cell_id))
+                                            // Check if ALL filters match this event (intersection of filters)
+                                            tally_spec.filters.iter().all(|filter| match filter {
+                                                crate::tally::Filter::Cell(cell_filter) => {
+                                                    cell_filter.matches(cell.cell_id)
+                                                },
+                                                crate::tally::Filter::Material(material_filter) => {
+                                                    // Check if the cell's material matches this material filter
+                                                    // Use the stored material_id to avoid double-locking the mutex
+                                                    material_filter.matches(material_id)
+                                                }
+                                            })
                                         };
                                         
                                         if passes_filters {
