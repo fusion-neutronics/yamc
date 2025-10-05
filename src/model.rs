@@ -160,7 +160,18 @@ impl Model {
                                 // Score user tallies for this reaction (after physics is processed)
                                 for (i, tally_spec) in self.tallies.iter().enumerate() {
                                     if tally_spec.score == reaction.mt_number {
-                                        user_batch_counts[i] += 1;
+                                        // Check if this event passes all cell filters for this tally
+                                        let passes_filters = if tally_spec.filters.is_empty() {
+                                            // No filters means score all events
+                                            true
+                                        } else {
+                                            // Check if any filter matches this cell
+                                            tally_spec.filters.iter().any(|filter| filter.matches(cell.cell_id))
+                                        };
+                                        
+                                        if passes_filters {
+                                            user_batch_counts[i] += 1;
+                                        }
                                     }
                                 }
 

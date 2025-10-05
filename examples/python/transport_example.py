@@ -1,17 +1,17 @@
 import materials_for_mc as mc
 
 # mc.Config.set_cross_sections("tendl-21")
-# Create sphere surface with vacuum boundary
+# Create sphere surface with transmission boundary 
 sphere1 = mc.Sphere(
     surface_id=1,
     x0=0.0,
     y0=0.0,
     z0=0.0,
     r=1.0,
-    boundary_type='Vacuum',
+    boundary_type='transmission',
 )
 sphere2 = mc.Sphere(
-    surface_id=1,
+    surface_id=2,
     x0=0.0,
     y0=0.0,
     z0=0.0,
@@ -23,12 +23,12 @@ region2 = -sphere2 & +sphere1
 
 material1 = mc.Material()
 material1.add_nuclide("Li6", 1.0)
-material1.set_density("g/cm3", 5.5)
+material1.set_density("g/cm3", 20.0)  # Higher density for more absorption
 material1.read_nuclides_from_json({"Li6": "tests/Li6.json"})
 
 material2 = mc.Material()
 material2.add_nuclide("Be9", 1.0)
-material2.set_density("g/cm3", 2.0)
+material2.set_density("g/cm3", 10.0)  # Higher density for more absorption
 material2.read_nuclides_from_json({"Be9": "tests/Be9.json"})
 
 cell1 = mc.Cell(
@@ -38,9 +38,9 @@ cell1 = mc.Cell(
     fill=material1,
 )
 cell2 = mc.Cell(
-    cell_id=1,
-    name="sphere_cell",
-    region=region1,
+    cell_id=2,
+    name="annular_cell",
+    region=region2,
     fill=material2,
 )
 geometry = mc.Geometry(cells=[cell1, cell2])
@@ -67,3 +67,5 @@ leakage_tally, tally1, tally2 = model.run()
 # print(leakage_tally)
 print(tally1, end="\n\n")
 print(tally2)
+
+assert tally1.mean < tally2.mean
