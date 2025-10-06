@@ -108,7 +108,7 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
-        let cell = Cell::with_id(1, region, Some("cell1".to_string()), None);
+        let cell = Cell::new(Some(1), region, Some("cell1".to_string()), None);
         let geometry = Geometry::new(vec![cell.clone()]).expect("Failed to create geometry");
         // Point inside the sphere
         assert!(geometry.find_cell((0.0, 0.0, 0.0)).is_some());
@@ -129,8 +129,8 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         
         // Test duplicate cell IDs
-        let cell1 = Cell::with_id(1, region.clone(), Some("cell1".to_string()), None);
-        let cell2 = Cell::with_id(1, region.clone(), Some("cell2".to_string()), None);
+        let cell1 = Cell::new(Some(1), region.clone(), Some("cell1".to_string()), None);
+        let cell2 = Cell::new(Some(1), region.clone(), Some("cell2".to_string()), None);
         let result = Geometry::new(vec![cell1, cell2]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Duplicate cell_id 1"));
@@ -151,7 +151,7 @@ mod tests {
         // Test auto-generation of cell IDs (cell_id = None means auto-generate)
         let cell1 = Cell::new(None, region.clone(), Some("cell1".to_string()), None);
         let cell2 = Cell::new(None, region.clone(), Some("cell2".to_string()), None);
-        let cell3 = Cell::with_id(5, region.clone(), Some("cell3".to_string()), None);
+        let cell3 = Cell::new(Some(5), region.clone(), Some("cell3".to_string()), None);
         
         let geometry = Geometry::new(vec![cell1, cell2, cell3]).expect("Failed to create geometry");
         
@@ -181,7 +181,7 @@ mod tests {
         
         // Mix of auto-generated (None) and explicit IDs
         let cell1 = Cell::new(None, region.clone(), Some("auto1".to_string()), None);
-        let cell2 = Cell::with_id(3, region.clone(), Some("explicit".to_string()), None);
+        let cell2 = Cell::new(Some(3), region.clone(), Some("explicit".to_string()), None);
         let cell3 = Cell::new(None, region.clone(), Some("auto2".to_string()), None);
         
         let geometry = Geometry::new(vec![cell1, cell2, cell3]).expect("Failed to create geometry");

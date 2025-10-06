@@ -268,7 +268,7 @@ mod tests {
         nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
         let material_arc = Arc::new(Mutex::new(material));
-        let cell = Cell::with_id(1, region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
+        let cell = Cell::new(Some(1), region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
         let geometry = Geometry { cells: vec![cell] };
         let source = Source {
             position: [0.0, 0.0, 0.0],
