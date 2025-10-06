@@ -58,7 +58,7 @@ impl Model {
                         }
                         None => {
                             // Void cell - no collisions possible
-                            println!("Particle streaming through void cell {}", cell.cell_id);
+                            println!("Particle streaming through void cell {:?}", cell.cell_id);
                             f64::INFINITY
                         }
                     };
@@ -79,7 +79,7 @@ impl Model {
                                 particle.direction,
                             )
                             .unwrap_or_else(|| {
-                                panic!("Failed to calculate distance to surface for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {}",
+                                panic!("Failed to calculate distance to surface for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {:?}",
                                     particle.position[0], particle.position[1], particle.position[2],
                                     particle.direction[0], particle.direction[1], particle.direction[2],
                                     cell.cell_id);
@@ -123,7 +123,7 @@ impl Model {
                                 &mut rng,
                             );
                             if let Some(reaction) = reaction {
-                                println!("Particle collided in cell {} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
+                                println!("Particle collided in cell {:?} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                 
                                 match reaction.mt_number {
                                     2 => {
@@ -171,7 +171,7 @@ impl Model {
                                             // Check if ALL filters match this event (intersection of filters)
                                             tally_spec.filters.iter().all(|filter| match filter {
                                                 crate::tally::Filter::Cell(cell_filter) => {
-                                                    cell_filter.matches(cell.cell_id)
+                                                    cell.cell_id.map_or(false, |id| cell_filter.matches(id))
                                                 },
                                                 crate::tally::Filter::Material(material_filter) => {
                                                     // Check if the cell's material matches this material filter
@@ -200,7 +200,7 @@ impl Model {
                         }
                     } else {
                         // No surface found - serious geometry error
-                        panic!("No surface found for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {} - geometry definition error",
+                        panic!("No surface found for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {:?} - geometry definition error",
                             particle.position[0], particle.position[1], particle.position[2],
                             particle.direction[0], particle.direction[1], particle.direction[2],
                             cell.cell_id);
@@ -268,12 +268,7 @@ mod tests {
         nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
         let material_arc = Arc::new(Mutex::new(material));
-        let cell = Cell {
-            cell_id: 1,
-            name: Some("sphere_cell".to_string()),
-            region,
-            material: Some(material_arc.clone()),
-        };
+        let cell = Cell::new(Some(1), region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
         let geometry = Geometry { cells: vec![cell] };
         let source = Source {
             position: [0.0, 0.0, 0.0],

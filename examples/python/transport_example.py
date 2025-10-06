@@ -32,8 +32,8 @@ material2.set_density("g/cm3", 20.0)  # Higher density for more absorption
 material2.read_nuclides_from_json({"Be9": "tests/Be9.json"})
 
 cell1 = mc.Cell(
-    cell_id=1,
-    name="sphere_cell",
+    # cell_id=1,
+    # name="sphere_cell",
     region=region1,
     fill=material1,
 )

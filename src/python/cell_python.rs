@@ -46,10 +46,10 @@ impl PyCell {
         None
     }
     #[new]
-    #[pyo3(signature = (region, cell_id=0, name=None, fill=None))]
+    #[pyo3(signature = (region, cell_id=None, name=None, fill=None))]
     pub fn new(
         region: PyRegion,
-        cell_id: u32,
+        cell_id: Option<u32>,
         name: Option<String>,
         fill: Option<crate::python::material_python::PyMaterial>,
     ) -> Self {
@@ -61,8 +61,13 @@ impl PyCell {
     }
 
     #[getter]
-    pub fn cell_id(&self) -> u32 {
+    pub fn cell_id(&self) -> Option<u32> {
         self.inner.cell_id
+    }
+
+    #[setter]
+    pub fn set_cell_id(&mut self, cell_id: u32) {
+        self.inner.set_cell_id(cell_id);
     }
 
     #[getter]
