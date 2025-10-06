@@ -119,7 +119,7 @@ mod tests {
             boundary_type: BoundaryType::Vacuum,
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-        let cell = Cell::with_id(42, region, Some("test_cell".to_string()), None);
+        let cell = Cell::new(Some(42), region, Some("test_cell".to_string()), None);
 
         // Create filter from cell
         let filter = CellFilter::new(&cell);
@@ -155,7 +155,7 @@ mod tests {
         };
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere2)));
         
-        let cell = Cell::with_id(42, region1, Some("test_cell".to_string()), None);
+        let cell = Cell::new(Some(42), region1, Some("test_cell".to_string()), None);
 
         let filter = CellFilter::new(&cell);
         
@@ -167,7 +167,7 @@ mod tests {
         assert!(filter.matches_cell(&cell), "Filter should match the original cell");
         
         // Create another cell with different ID
-        let other_cell = Cell::with_id(99, region2, Some("other_cell".to_string()), None);
+        let other_cell = Cell::new(Some(99), region2, Some("other_cell".to_string()), None);
         
         assert!(!filter.matches_cell(&other_cell), "Filter should not match different cell");
     }
@@ -187,9 +187,9 @@ mod tests {
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
         
-        let cell1 = Cell::with_id(42, region.clone(), Some("test_cell".to_string()), None);
+        let cell1 = Cell::new(Some(42), region.clone(), Some("test_cell".to_string()), None);
         
-        let cell2 = Cell::with_id(42, region.clone(), Some("another_name".to_string()), None);
+        let cell2 = Cell::new(Some(42), region.clone(), Some("another_name".to_string()), None);
         
         let filter1 = CellFilter::new(&cell1);
         let filter2 = CellFilter::new(&cell2);
