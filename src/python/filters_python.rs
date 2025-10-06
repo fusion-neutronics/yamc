@@ -1,7 +1,7 @@
-use crate::filters::CellFilter;
-use crate::cell::Cell;
+use crate::filters::{CellFilter, MaterialFilter};
+use crate::python::cell_python::PyCell;
+use crate::python::material_python::PyMaterial;
 use pyo3::prelude::*;
-use pyo3::types::PyAny;
 
 #[pyclass(name = "CellFilter")]
 #[derive(Clone)]
@@ -37,8 +37,42 @@ impl PyCellFilter {
     fn __str__(&self) -> String {
         format!("CellFilter for cell {}", self.internal.cell_id)
     }
-
 }
 
-// Import the PyCell from the cell_python module
-use crate::python::cell_python::PyCell;
+#[pyclass(name = "MaterialFilter")]
+#[derive(Clone)]
+pub struct PyMaterialFilter {
+    pub internal: MaterialFilter,
+}
+
+#[pymethods]
+impl PyMaterialFilter {
+    /// Create a new MaterialFilter from a Material object
+    ///
+    /// Args:
+    ///     material (Material): The material object to create the filter from
+    ///
+    /// Returns:
+    ///     MaterialFilter: A new MaterialFilter that will match events in this material
+    #[new]
+    fn new(material: &PyMaterial) -> PyResult<Self> {
+        match std::panic::catch_unwind(|| MaterialFilter::new(&material.internal)) {
+            Ok(filter) => Ok(PyMaterialFilter {
+                internal: filter,
+            }),
+            Err(_) => Err(pyo3::exceptions::PyValueError::new_err(
+                "Cannot create MaterialFilter for material with no ID - assign a material_id first"
+            ))
+        }
+    }
+
+    /// String representation of the MaterialFilter
+    fn __repr__(&self) -> String {
+        format!("MaterialFilter(material_id={})", self.internal.material_id)
+    }
+
+    /// String representation of the MaterialFilter
+    fn __str__(&self) -> String {
+        format!("MaterialFilter for material {}", self.internal.material_id)
+    }
+}
