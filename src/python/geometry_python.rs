@@ -22,9 +22,9 @@ impl PyGeometry {
             let pycell: PyCell = item?.extract()?;
             rust_cells.push(pycell.inner);
         }
-        Ok(PyGeometry {
-            inner: geometry::Geometry { cells: rust_cells },
-        })
+        let geometry = geometry::Geometry::new(rust_cells)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        Ok(PyGeometry { inner: geometry })
     }
 
     pub fn find_cell(&self, x: f64, y: f64, z: f64) -> Option<PyCell> {

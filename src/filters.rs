@@ -16,10 +16,13 @@ impl CellFilter {
     /// 
     /// # Returns
     /// A new CellFilter that will match events in this cell
+    /// 
+    /// # Panics
+    /// Panics if the cell has no cell_id (None cells can't be filtered)
     pub fn new(cell: &Cell) -> Self {
-        Self {
-            cell_id: cell.cell_id,
-        }
+        let cell_id = cell.cell_id
+            .expect("Cannot create CellFilter for cell with no ID - assign a cell_id first");
+        Self { cell_id }
     }
     
     /// Check if this filter matches a given cell ID
@@ -41,7 +44,7 @@ impl CellFilter {
     /// # Returns
     /// `true` if the cell matches this filter
     pub fn matches_cell(&self, cell: &Cell) -> bool {
-        self.cell_id == cell.cell_id
+        cell.cell_id == Some(self.cell_id)
     }
 }
 
@@ -116,12 +119,7 @@ mod tests {
             boundary_type: BoundaryType::Vacuum,
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-        let cell = Cell {
-            cell_id: 42,
-            name: Some("test_cell".to_string()),
-            region,
-            material: None,
-        };
+        let cell = Cell::with_id(42, region, Some("test_cell".to_string()), None);
 
         // Create filter from cell
         let filter = CellFilter::new(&cell);
@@ -157,12 +155,7 @@ mod tests {
         };
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere2)));
         
-        let cell = Cell {
-            cell_id: 42,
-            name: Some("test_cell".to_string()),
-            region: region1,
-            material: None,
-        };
+        let cell = Cell::with_id(42, region1, Some("test_cell".to_string()), None);
 
         let filter = CellFilter::new(&cell);
         
@@ -174,12 +167,7 @@ mod tests {
         assert!(filter.matches_cell(&cell), "Filter should match the original cell");
         
         // Create another cell with different ID
-        let other_cell = Cell {
-            cell_id: 99,
-            name: Some("other_cell".to_string()),
-            region: region2,
-            material: None,
-        };
+        let other_cell = Cell::with_id(99, region2, Some("other_cell".to_string()), None);
         
         assert!(!filter.matches_cell(&other_cell), "Filter should not match different cell");
     }
@@ -199,19 +187,9 @@ mod tests {
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
         
-        let cell1 = Cell {
-            cell_id: 42,
-            name: Some("test_cell".to_string()),
-            region: region.clone(),
-            material: None,
-        };
+        let cell1 = Cell::with_id(42, region.clone(), Some("test_cell".to_string()), None);
         
-        let cell2 = Cell {
-            cell_id: 42,
-            name: Some("another_name".to_string()), // Different name, same ID
-            region: region.clone(),
-            material: None,
-        };
+        let cell2 = Cell::with_id(42, region.clone(), Some("another_name".to_string()), None);
         
         let filter1 = CellFilter::new(&cell1);
         let filter2 = CellFilter::new(&cell2);

@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 /// - A name for identification
 #[derive(Debug, Clone)]
 pub struct Cell {
-    pub cell_id: u32,
+    pub cell_id: Option<u32>,
     pub name: Option<String>,
     pub region: Region,
     pub material: Option<Arc<Mutex<Material>>>,
@@ -64,7 +64,7 @@ impl Cell {
     }
     /// Create a new cell with a region and optional material (fill)
     pub fn new(
-        cell_id: u32,
+        cell_id: Option<u32>,
         region: Region,
         name: Option<String>,
         material: Option<Arc<Mutex<Material>>>,
@@ -75,6 +75,31 @@ impl Cell {
             region,
             material,
         }
+    }
+
+    /// Create a new cell with a specific ID
+    pub fn with_id(
+        cell_id: u32,
+        region: Region,
+        name: Option<String>,
+        material: Option<Arc<Mutex<Material>>>,
+    ) -> Self {
+        Cell {
+            cell_id: Some(cell_id),
+            name,
+            region,
+            material,
+        }
+    }
+
+    /// Set the cell ID
+    pub fn set_cell_id(&mut self, cell_id: u32) {
+        self.cell_id = Some(cell_id);
+    }
+
+    /// Get the cell ID
+    pub fn get_cell_id(&self) -> Option<u32> {
+        self.cell_id
     }
 
     /// Check if a point is inside this cell's region
@@ -172,14 +197,14 @@ mod tests {
 
         let mat = Material::new();
         let mat_arc = Arc::new(Mutex::new(mat.clone()));
-        let cell = Cell::new(1, region, Some("filled".to_string()), Some(mat_arc.clone()));
+        let cell = Cell::with_id(1, region, Some("filled".to_string()), Some(mat_arc.clone()));
         assert!(cell.material().is_some());
         // The default Material::new() has an empty nuclides map
         let locked = cell.material().unwrap().lock().unwrap();
         assert_eq!(locked.nuclides.len(), 0);
 
         // Optional fill
-        let cell2 = Cell::new(2, cell.region.clone(), Some("empty".to_string()), None);
+        let cell2 = Cell::with_id(2, cell.region.clone(), Some("empty".to_string()), None);
         assert!(cell2.material().is_none());
     }
     #[test]
@@ -208,7 +233,7 @@ mod tests {
         let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2)));
         let region = region1.union(&region2);
-        let cell = Cell::new(100, region, Some("union".to_string()), None);
+        let cell = Cell::with_id(100, region, Some("union".to_string()), None);
         assert!(cell.contains((0.0, 0.0, 0.0))); // inside first sphere
         assert!(cell.contains((3.0, 0.0, 0.0))); // inside second sphere
         assert!(!cell.contains((6.0, 0.0, 0.0))); // outside both
@@ -240,7 +265,7 @@ mod tests {
         let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2)));
         let region = region1.intersection(&region2);
-        let cell = Cell::new(101, region, Some("intersection".to_string()), None);
+        let cell = Cell::with_id(101, region, Some("intersection".to_string()), None);
         assert!(cell.contains((0.0, 0.0, 0.0))); // inside both
         assert!(cell.contains((1.0, 0.0, 0.0))); // inside both
         assert!(!cell.contains((3.0, 0.0, 0.0))); // outside both
@@ -261,7 +286,7 @@ mod tests {
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let region_complement = region.complement();
-        let cell = Cell::new(102, region_complement, Some("complement".to_string()), None);
+        let cell = Cell::with_id(102, region_complement, Some("complement".to_string()), None);
         assert!(!cell.contains((0.0, 0.0, 0.0))); // inside original sphere
         assert!(cell.contains((3.0, 0.0, 0.0))); // outside original sphere
     }
@@ -305,7 +330,7 @@ mod tests {
             .intersection(&Region::new_from_halfspace(HalfspaceType::Below(Arc::new(
                 s3,
             ))));
-        let cell = Cell::new(42, region, Some("complex".to_string()), None);
+        let cell = Cell::with_id(42, region, Some("complex".to_string()), None);
         // Point inside all constraints
         assert!(cell.contains((0.0, 0.0, 0.0)));
         // Point outside s1 (x > 2.1)
@@ -334,7 +359,7 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-        let cell = Cell::new(1, region, None, None);
+        let cell = Cell::with_id(1, region, None, None);
         assert!(cell.contains((0.0, 0.0, 0.0)));
         assert!(!cell.contains((3.0, 0.0, 0.0)));
     }
@@ -365,12 +390,12 @@ mod tests {
         let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1.clone())));
         let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2.clone())));
         // Union
-        let union_cell = Cell::new(2, region1.clone().union(&region2.clone()), None, None);
+        let union_cell = Cell::with_id(2, region1.clone().union(&region2.clone()), None, None);
         assert!(union_cell.contains((0.0, 0.0, 0.0)));
         assert!(union_cell.contains((2.0, 0.0, 0.0)));
         assert!(!union_cell.contains((5.0, 0.0, 0.0)));
         // Intersection
-        let intersection_cell = Cell::new(
+        let intersection_cell = Cell::with_id(
             3,
             region1.clone().intersection(&region2.clone()),
             None,
@@ -379,7 +404,7 @@ mod tests {
         assert!(!intersection_cell.contains((0.0, 0.0, 0.0)));
         assert!(intersection_cell.contains((1.0, 0.0, 0.0)));
         // Complement
-        let complement_cell = Cell::new(4, region1.complement(), None, None);
+        let complement_cell = Cell::with_id(4, region1.complement(), None, None);
         assert!(!complement_cell.contains((0.0, 0.0, 0.0)));
         assert!(complement_cell.contains((5.0, 0.0, 0.0)));
     }
@@ -397,7 +422,105 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere)));
-        let cell = Cell::new(1, region, Some("fuel".to_string()), None);
+        let cell = Cell::with_id(1, region, Some("fuel".to_string()), None);
         assert_eq!(cell.name, Some("fuel".to_string()));
+    }
+
+    #[test]
+    fn test_cell_id_default() {
+        let s1 = Surface {
+            surface_id: 1,
+            kind: SurfaceKind::Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                radius: 2.0,
+            },
+            boundary_type: BoundaryType::default(),
+        };
+        let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
+        let cell = Cell::new(None, region, None, None);
+        assert_eq!(cell.get_cell_id(), None, "Default cell_id should be None");
+    }
+
+    #[test]
+    fn test_set_and_get_cell_id() {
+        let s1 = Surface {
+            surface_id: 1,
+            kind: SurfaceKind::Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                radius: 2.0,
+            },
+            boundary_type: BoundaryType::default(),
+        };
+        let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
+        
+        let mut cell = Cell::new(None, region, None, None);
+        
+        // Test default value
+        assert_eq!(cell.get_cell_id(), None);
+        
+        // Test setting and getting cell_id
+        cell.set_cell_id(42);
+        assert_eq!(cell.get_cell_id(), Some(42));
+        
+        // Test setting a different value
+        cell.set_cell_id(999);
+        assert_eq!(cell.get_cell_id(), Some(999));
+    }
+
+    #[test]
+    fn test_cell_with_id_constructor() {
+        let s1 = Surface {
+            surface_id: 1,
+            kind: SurfaceKind::Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                radius: 2.0,
+            },
+            boundary_type: BoundaryType::default(),
+        };
+        let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
+        
+        // Test creating cell with specific ID
+        let cell1 = Cell::with_id(100, region.clone(), None, None);
+        assert_eq!(cell1.get_cell_id(), Some(100));
+        
+        // Test creating cell with ID 0 (should be allowed since 0 can be a valid ID)
+        let cell2 = Cell::with_id(0, region.clone(), None, None);
+        assert_eq!(cell2.get_cell_id(), Some(0));
+    }
+
+    #[test]
+    fn test_cell_id_independence() {
+        let s1 = Surface {
+            surface_id: 1,
+            kind: SurfaceKind::Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                radius: 2.0,
+            },
+            boundary_type: BoundaryType::default(),
+        };
+        let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
+        
+        // Test that different cells have independent IDs
+        let mut cell1 = Cell::new(None, region.clone(), None, None);
+        let mut cell2 = Cell::with_id(50, region.clone(), None, None);
+        
+        cell1.set_cell_id(10);
+        cell2.set_cell_id(20);
+        
+        assert_eq!(cell1.get_cell_id(), Some(10));
+        assert_eq!(cell2.get_cell_id(), Some(20));
+        
+        // Ensure they don't affect each other
+        cell1.set_cell_id(999);
+        assert_eq!(cell1.get_cell_id(), Some(999));
+        assert_eq!(cell2.get_cell_id(), Some(20), "Other cell's ID should not change");
     }
 }
