@@ -217,8 +217,8 @@ mod tests {
         let mat1 = Arc::new(Mutex::new(Material::with_id(10)));
         let mat2 = Arc::new(Mutex::new(Material::with_id(10))); // Same ID - should fail
         
-        let cell1 = Cell::with_id(1, region.clone(), Some("cell1".to_string()), Some(mat1));
-        let cell2 = Cell::with_id(2, region.clone(), Some("cell2".to_string()), Some(mat2));
+        let cell1 = Cell::new(Some(1), region.clone(), Some("cell1".to_string()), Some(mat1));
+        let cell2 = Cell::new(Some(2), region.clone(), Some("cell2".to_string()), Some(mat2));
         
         let result = Geometry::new(vec![cell1, cell2]);
         assert!(result.is_err());
@@ -243,8 +243,8 @@ mod tests {
         let mat1 = Arc::new(Mutex::new(Material::new())); // material_id: None
         let mat2 = Arc::new(Mutex::new(Material::new())); // material_id: None
         
-        let cell1 = Cell::with_id(1, region.clone(), Some("cell1".to_string()), Some(mat1.clone()));
-        let cell2 = Cell::with_id(2, region.clone(), Some("cell2".to_string()), Some(mat2.clone()));
+        let cell1 = Cell::new(Some(1), region.clone(), Some("cell1".to_string()), Some(mat1.clone()));
+        let cell2 = Cell::new(Some(2), region.clone(), Some("cell2".to_string()), Some(mat2.clone()));
         
         let geometry = Geometry::new(vec![cell1, cell2]).expect("Failed to create geometry");
         
@@ -276,9 +276,9 @@ mod tests {
         let mat2 = Arc::new(Mutex::new(Material::with_id(5)));    // explicit ID = 5
         let mat3 = Arc::new(Mutex::new(Material::new()));        // auto-generate
         
-        let cell1 = Cell::with_id(1, region.clone(), Some("cell1".to_string()), Some(mat1.clone()));
-        let cell2 = Cell::with_id(2, region.clone(), Some("cell2".to_string()), Some(mat2.clone()));
-        let cell3 = Cell::with_id(3, region.clone(), Some("cell3".to_string()), Some(mat3.clone()));
+        let cell1 = Cell::new(Some(1), region.clone(), Some("cell1".to_string()), Some(mat1.clone()));
+        let cell2 = Cell::new(Some(2), region.clone(), Some("cell2".to_string()), Some(mat2.clone()));
+        let cell3 = Cell::new(Some(3), region.clone(), Some("cell3".to_string()), Some(mat3.clone()));
         
         let geometry = Geometry::new(vec![cell1, cell2, cell3]).expect("Failed to create geometry");
         
@@ -311,8 +311,8 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         
         // Cells without materials (void cells) should work fine
-        let cell1 = Cell::with_id(1, region.clone(), Some("void_cell1".to_string()), None);
-        let cell2 = Cell::with_id(2, region.clone(), Some("void_cell2".to_string()), None);
+        let cell1 = Cell::new(Some(1), region.clone(), Some("void_cell1".to_string()), None);
+        let cell2 = Cell::new(Some(2), region.clone(), Some("void_cell2".to_string()), None);
         
         let geometry = Geometry::new(vec![cell1, cell2]).expect("Failed to create geometry");
         assert_eq!(geometry.cells.len(), 2);
