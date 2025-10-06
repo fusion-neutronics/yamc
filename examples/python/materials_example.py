@@ -9,17 +9,17 @@ m4mc.Config.set_cross_sections({
     "Li7": "tests/Li7.json",
 })
 
-mat1 = m4mc.Material()
+mat1 = m4mc.Material(material_id=1, name='Test Material 1')
 mat1.add_nuclide('Li6', 0.5)
 mat1.set_density('g/cm3', 2.0)
 print(mat1)
 
-mat2 = m4mc.Material()
+mat2 = m4mc.Material(material_id=2)
 mat2.add_nuclide('Li7', 0.5)
 mat2.set_density('g/cm3', 2.0)
 print(mat2)
 
-mat3 = m4mc.Material()
+mat3 = m4mc.Material(name='Test Material 3')
 mat3.add_nuclide('Fe56', 1.0)
 mat3.set_density('g/cm3', 2.0)
 print(mat3)
