@@ -109,7 +109,7 @@ mod tests {
     fn test_cell_filter_creation() {
         // Create a simple cell for testing
         let sphere = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -132,7 +132,7 @@ mod tests {
     fn test_cell_filter_matching() {
         // Create surfaces and regions for testing
         let sphere1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -144,7 +144,7 @@ mod tests {
         let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(sphere1)));
         
         let sphere2 = Surface {
-            surface_id: 2,
+            surface_id: Some(2),
             kind: SurfaceKind::Sphere {
                 x0: 1.0,
                 y0: 1.0,
@@ -176,7 +176,7 @@ mod tests {
     fn test_cell_filter_equality() {
         // Create two identical cells
         let sphere = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
