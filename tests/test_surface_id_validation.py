@@ -48,11 +48,13 @@ def test_geometry_duplicate_surface_ids():
     surface1 = mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=1.0, surface_id=10)
     surface2 = mc.Sphere(x0=2.0, y0=0.0, z0=0.0, r=1.0, surface_id=10)  # Same ID
     
-    material = mc.Material(material_id=1)
+    # Use different materials to avoid duplicate material ID error
+    material1 = mc.Material(material_id=1)
+    material2 = mc.Material(material_id=2)
     
     # Create cells using these surfaces
-    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material, cell_id=1)
-    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material, cell_id=2)
+    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material1, cell_id=1)
+    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material2, cell_id=2)
     
     # Should raise error due to duplicate surface IDs
     with pytest.raises(ValueError, match="Duplicate surface_id 10 found"):
@@ -66,12 +68,15 @@ def test_geometry_mixed_surface_ids():
     surface2 = mc.Sphere(x0=2.0, y0=0.0, z0=0.0, r=1.0)  # Without ID
     surface3 = mc.Sphere(x0=4.0, y0=0.0, z0=0.0, r=1.0, surface_id=20)  # With ID
     
-    material = mc.Material(material_id=1)
+    # Use different materials to avoid duplicate material ID error
+    material1 = mc.Material(material_id=1)
+    material2 = mc.Material(material_id=2)
+    material3 = mc.Material(material_id=3)
     
     # Create cells
-    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material, cell_id=1)
-    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material, cell_id=2)
-    cell3 = mc.Cell(name='cell3', region=-surface3, fill=material, cell_id=3)
+    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material1, cell_id=1)
+    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material2, cell_id=2)
+    cell3 = mc.Cell(name='cell3', region=-surface3, fill=material3, cell_id=3)
     
     # Should work fine - no duplicates
     geometry = mc.Geometry(cells=[cell1, cell2, cell3])
@@ -84,11 +89,13 @@ def test_geometry_no_surface_ids():
     surface1 = mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=1.0)
     surface2 = mc.Sphere(x0=2.0, y0=0.0, z0=0.0, r=1.0)
     
-    material = mc.Material(material_id=1)
+    # Use different materials to avoid duplicate material ID error
+    material1 = mc.Material(material_id=1)
+    material2 = mc.Material(material_id=2)
     
     # Create cells
-    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material, cell_id=1)
-    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material, cell_id=2)
+    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material1, cell_id=1)
+    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material2, cell_id=2)
     
     # Should work fine - None IDs are allowed
     geometry = mc.Geometry(cells=[cell1, cell2])
@@ -102,12 +109,15 @@ def test_geometry_unique_surface_ids():
     surface2 = mc.Sphere(x0=2.0, y0=0.0, z0=0.0, r=1.0, surface_id=2)
     surface3 = mc.Sphere(x0=4.0, y0=0.0, z0=0.0, r=1.0, surface_id=3)
     
-    material = mc.Material(material_id=1)
+    # Use different materials to avoid duplicate material ID error
+    material1 = mc.Material(material_id=100)
+    material2 = mc.Material(material_id=200)
+    material3 = mc.Material(material_id=300)
     
     # Create cells
-    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material, cell_id=1)
-    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material, cell_id=2)
-    cell3 = mc.Cell(name='cell3', region=-surface3, fill=material, cell_id=3)
+    cell1 = mc.Cell(name='cell1', region=-surface1, fill=material1, cell_id=1)
+    cell2 = mc.Cell(name='cell2', region=-surface2, fill=material2, cell_id=2)
+    cell3 = mc.Cell(name='cell3', region=-surface3, fill=material3, cell_id=3)
     
     # Should work fine
     geometry = mc.Geometry(cells=[cell1, cell2, cell3])

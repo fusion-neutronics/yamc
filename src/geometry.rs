@@ -381,9 +381,9 @@ mod tests {
         use crate::region::{HalfspaceType, Region};
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
         
-        // Test surface without ID
+        // Test surface without ID - should be allowed (None IDs are valid)
         let s1 = Surface {
-            surface_id: None, // No ID - should fail
+            surface_id: None, // No ID - should be fine
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -392,8 +392,7 @@ mod tests {
         let cell = Cell::new(Some(1), region, Some("cell1".to_string()), None);
         
         let result = Geometry::new(vec![cell]);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Surface found with no ID"));
+        assert!(result.is_ok());
     }
 
     #[test]
