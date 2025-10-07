@@ -6,7 +6,7 @@ s2 = m4mc.XPlane(x0=-2.1, surface_id=6)
 s3 = m4mc.Sphere(x0=0, y0=0, z0=0, r=4.2, surface_id=1)
 # s3 = m4mc.Cylinder(x0=0, y0=0, z0=0, axis_x=0, axis_y=0, axis_z=1, r=1, surface_id=2)
 
-surfaces_dict = {s1.id: s1, s2.id: s2, s3.id: s3}
+surfaces_dict = {s1.surface_id: s1, s2.surface_id: s2, s3.surface_id: s3}
 
 region1 = -s1 & +s2 & -s3
 inside = region1.contains((0, 0, 0))
