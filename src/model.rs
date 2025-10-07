@@ -167,12 +167,12 @@ impl Model {
                                 let tally_mt = match reaction.mt_number {
                                     101 if self.needs_detailed_absorption => {
                                         // Sample specific absorption subreaction for tallying
-                                        material.sample_absorption_subreaction(&nuclide_name, particle.energy, &mut rng)
+                                        nuclide.sample_absorption_subreaction(particle.energy, &material.temperature, &mut rng)
                                             .unwrap_or(101) // Fall back to MT 101 if no specific subreaction
                                     }
                                     3 if self.needs_detailed_nonelastic => {
                                         // Sample specific nonelastic subreaction for tallying
-                                        material.sample_nonelastic_subreaction(&nuclide_name, particle.energy, &mut rng)
+                                        nuclide.sample_nonelastic_subreaction(particle.energy, &material.temperature, &mut rng)
                                             .unwrap_or(3) // Fall back to MT 3 if no specific subreaction
                                     }
                                     _ => reaction.mt_number, // Use the sampled MT as-is

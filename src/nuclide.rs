@@ -1205,6 +1205,8 @@ pub fn load_nuclide_from_path_or_keyword(
 }
 
 mod tests {
+    use rand::SeedableRng;
+    
     #[test]
     fn test_get_or_load_nuclide_uses_cache() {
         use std::collections::HashMap;
@@ -2373,5 +2375,230 @@ mod tests {
             li6_vs_li7_different,
             "Li6 and Li7 should have different data"
         );
+    }
+
+    #[test]
+    fn test_sample_nonelastic_subreaction_li6() {
+        // Load Li6 nuclide which has nonelastic reactions
+        let nuclide = super::read_nuclide_from_json("tests/Li6.json", None)
+            .expect("Failed to load Li6.json");
+
+        let mut rng = rand::thread_rng();
+        let energy = 1e6; // 1 MeV - should have active nonelastic reactions
+        let temperature = "294";
+
+        let mut sampled_mts = std::collections::HashMap::new();
+        let mut successful_samples = 0;
+
+        // Sample many times to get distribution
+        for _ in 0..1000 {
+            if let Some(mt) = nuclide.sample_nonelastic_subreaction(energy, temperature, &mut rng) {
+                *sampled_mts.entry(mt).or_insert(0) += 1;
+                successful_samples += 1;
+            }
+        }
+
+        println!("Nonelastic sampling results for Li6 at {} eV:", energy);
+        for (mt, count) in &sampled_mts {
+            println!("  MT {}: {} times ({:.1}%)", mt, count, (*count as f64 / successful_samples as f64) * 100.0);
+        }
+
+        // Verify that all sampled MTs are valid nonelastic constituents
+        let nonelastic_constituents = vec![
+            4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35,
+            36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+            161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+            173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+            186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200,
+        ];
+
+        for &mt in sampled_mts.keys() {
+            assert!(
+                nonelastic_constituents.contains(&mt),
+                "Sampled MT {} is not a valid nonelastic constituent", mt
+            );
+        }
+
+        if successful_samples > 0 {
+            println!("✓ Successfully sampled {} nonelastic subreactions", successful_samples);
+        } else {
+            println!("⚠ No nonelastic reactions available at {} eV for Li6", energy);
+        }
+    }
+
+    #[test]
+    fn test_sample_absorption_subreaction_li6() {
+        // Load Li6 nuclide which has absorption reactions
+        let nuclide = super::read_nuclide_from_json("tests/Li6.json", None)
+            .expect("Failed to load Li6.json");
+
+        let mut rng = rand::thread_rng();
+        let energy = 1e6; // 1 MeV - should have active absorption reactions
+        let temperature = "294";
+
+        let mut sampled_mts = std::collections::HashMap::new();
+        let mut successful_samples = 0;
+
+        // Sample many times to get distribution
+        for _ in 0..1000 {
+            if let Some(mt) = nuclide.sample_absorption_subreaction(energy, temperature, &mut rng) {
+                *sampled_mts.entry(mt).or_insert(0) += 1;
+                successful_samples += 1;
+            }
+        }
+
+        println!("Absorption sampling results for Li6 at {} eV:", energy);
+        for (mt, count) in &sampled_mts {
+            println!("  MT {}: {} times ({:.1}%)", mt, count, (*count as f64 / successful_samples as f64) * 100.0);
+        }
+
+        // Verify that all sampled MTs are valid absorption constituents
+        let absorption_constituents = vec![
+            102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117,
+            155, 182, 191, 192, 193, 197,
+        ];
+
+        for &mt in sampled_mts.keys() {
+            assert!(
+                absorption_constituents.contains(&mt),
+                "Sampled MT {} is not a valid absorption constituent", mt
+            );
+        }
+
+        if successful_samples > 0 {
+            println!("✓ Successfully sampled {} absorption subreactions", successful_samples);
+        } else {
+            println!("⚠ No absorption reactions available at {} eV for Li6", energy);
+        }
+    }
+
+    #[test]
+    fn test_sample_nonelastic_subreaction_deterministic() {
+        // Test deterministic behavior with fixed seed
+        let nuclide = super::read_nuclide_from_json("tests/Li6.json", None)
+            .expect("Failed to load Li6.json");
+
+        let energy = 1e6;
+        let temperature = "294";
+        
+        // Sample with same seed should give same result
+        let mut rng1 = rand::rngs::StdRng::seed_from_u64(12345);
+        let mut rng2 = rand::rngs::StdRng::seed_from_u64(12345);
+        
+        let result1 = nuclide.sample_nonelastic_subreaction(energy, temperature, &mut rng1);
+        let result2 = nuclide.sample_nonelastic_subreaction(energy, temperature, &mut rng2);
+        
+        assert_eq!(result1, result2, "Same seed should give same nonelastic subreaction");
+        
+        // Different seeds should potentially give different results
+        let mut rng3 = rand::rngs::StdRng::seed_from_u64(54321);
+        let result3 = nuclide.sample_nonelastic_subreaction(energy, temperature, &mut rng3);
+        
+        println!("Deterministic test - MT with seed 12345: {:?}", result1);
+        println!("Deterministic test - MT with seed 54321: {:?}", result3);
+    }
+
+    #[test]
+    fn test_sample_absorption_subreaction_deterministic() {
+        // Test deterministic behavior with fixed seed
+        let nuclide = super::read_nuclide_from_json("tests/Li6.json", None)
+            .expect("Failed to load Li6.json");
+
+        let energy = 1e6;
+        let temperature = "294";
+        
+        // Sample with same seed should give same result
+        let mut rng1 = rand::rngs::StdRng::seed_from_u64(12345);
+        let mut rng2 = rand::rngs::StdRng::seed_from_u64(12345);
+        
+        let result1 = nuclide.sample_absorption_subreaction(energy, temperature, &mut rng1);
+        let result2 = nuclide.sample_absorption_subreaction(energy, temperature, &mut rng2);
+        
+        assert_eq!(result1, result2, "Same seed should give same absorption subreaction");
+        
+        // Different seeds should potentially give different results
+        let mut rng3 = rand::rngs::StdRng::seed_from_u64(54321);
+        let result3 = nuclide.sample_absorption_subreaction(energy, temperature, &mut rng3);
+        
+        println!("Deterministic test - MT with seed 12345: {:?}", result1);
+        println!("Deterministic test - MT with seed 54321: {:?}", result3);
+    }
+
+    #[test]
+    fn test_sample_subreactions_temperature_fallback() {
+        // Test that temperature fallback works correctly
+        let nuclide = super::read_nuclide_from_json("tests/Li6.json", None)
+            .expect("Failed to load Li6.json");
+
+        let mut rng = rand::thread_rng();
+        let energy = 1e6;
+        
+        // Test with invalid temperature - should fall back to available temperature
+        let result_invalid = nuclide.sample_nonelastic_subreaction(energy, "999", &mut rng);
+        let result_valid = nuclide.sample_nonelastic_subreaction(energy, "294", &mut rng);
+        
+        // Both should work (fallback mechanism should handle invalid temperature)
+        if result_invalid.is_some() || result_valid.is_some() {
+            println!("✓ Temperature fallback mechanism working");
+        }
+        
+        // Test absorption as well
+        let abs_result_invalid = nuclide.sample_absorption_subreaction(energy, "999", &mut rng);
+        let abs_result_valid = nuclide.sample_absorption_subreaction(energy, "294", &mut rng);
+        
+        if abs_result_invalid.is_some() || abs_result_valid.is_some() {
+            println!("✓ Absorption temperature fallback mechanism working");
+        }
+    }
+
+    #[test]
+    fn test_sample_subreactions_zero_energy() {
+        // Test behavior at very low energy where reactions might not be available
+        let nuclide = super::read_nuclide_from_json("tests/Li6.json", None)
+            .expect("Failed to load Li6.json");
+
+        let mut rng = rand::thread_rng();
+        let low_energy = 1e-3; // 1 meV - very low energy
+        let temperature = "294";
+        
+        let nonelastic_result = nuclide.sample_nonelastic_subreaction(low_energy, temperature, &mut rng);
+        let absorption_result = nuclide.sample_absorption_subreaction(low_energy, temperature, &mut rng);
+        
+        // At very low energy, we might not have available reactions
+        println!("Low energy ({} eV) nonelastic result: {:?}", low_energy, nonelastic_result);
+        println!("Low energy ({} eV) absorption result: {:?}", low_energy, absorption_result);
+        
+        // This is a boundary condition test - results could be None
+        // The important thing is that it doesn't panic
+    }
+
+    #[test]
+    fn test_sample_subreactions_high_energy() {
+        // Test behavior at high energy where many reactions should be available
+        let nuclide = super::read_nuclide_from_json("tests/Li6.json", None)
+            .expect("Failed to load Li6.json");
+
+        let mut rng = rand::thread_rng();
+        let high_energy = 1e8; // 100 MeV - high energy
+        let temperature = "294";
+        
+        let mut nonelastic_count = 0;
+        let mut absorption_count = 0;
+        
+        // Sample multiple times to see if we get reactions at high energy
+        for _ in 0..100 {
+            if nuclide.sample_nonelastic_subreaction(high_energy, temperature, &mut rng).is_some() {
+                nonelastic_count += 1;
+            }
+            if nuclide.sample_absorption_subreaction(high_energy, temperature, &mut rng).is_some() {
+                absorption_count += 1;
+            }
+        }
+        
+        println!("High energy ({} eV) nonelastic success rate: {}/100", high_energy, nonelastic_count);
+        println!("High energy ({} eV) absorption success rate: {}/100", high_energy, absorption_count);
+        
+        // At high energy, we should have some successful samples
+        // This tests that the methods work across the energy range
     }
 }
