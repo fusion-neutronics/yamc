@@ -216,7 +216,7 @@ fn test_sphere_bb_moved_on_z_axis() {
     use crate::surface::Surface;
     use std::sync::Arc;
     // Sphere centered at (0, 0, 1) with radius 3
-    let s2 = Surface::new_sphere(0.0, 0.0, 1.0, 3.0, 1, None);
+    let s2 = Surface::new_sphere(0.0, 0.0, 1.0, 3.0, Some(1), None);
     let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2)));
     let bbox = region2.bounding_box();
     assert_eq!(bbox.lower_left, [-3.0, -3.0, -2.0]);
@@ -229,11 +229,11 @@ fn test_sphere_with_xplanes() {
     use crate::surface::Surface;
     use std::sync::Arc;
     // XPlane at x=2.1
-    let s1 = Surface::x_plane(2.1, 5, None);
+    let s1 = Surface::x_plane(2.1, Some(5), None);
     // XPlane at x=-2.1
-    let s2 = Surface::x_plane(-2.1, 6, None);
+    let s2 = Surface::x_plane(-2.1, Some(6), None);
     // Sphere at (0,0,0) with radius 4.2
-    let s3 = Surface::new_sphere(0.0, 0.0, 0.0, 4.2, 1, None);
+    let s3 = Surface::new_sphere(0.0, 0.0, 0.0, 4.2, Some(1), None);
     // Region: x <= 2.1 & x >= -2.1 & inside sphere
     let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1.clone())))
         .intersection(&Region::new_from_halfspace(HalfspaceType::Above(Arc::new(
@@ -255,7 +255,7 @@ mod tests {
     fn test_region_contains() {
         // Create two surfaces
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Plane {
                 a: 0.0,
                 b: 0.0,
@@ -265,7 +265,7 @@ mod tests {
             boundary_type: crate::surface::BoundaryType::default(),
         };
         let s2 = Surface {
-            surface_id: 2,
+            surface_id: Some(2),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -300,7 +300,7 @@ mod tests {
     fn test_sphere_bounding_box() {
         // Sphere of radius 2 at (0,0,0)
         let s = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -321,7 +321,7 @@ mod tests {
     fn test_box_and_sphere_bounding_box() {
         // XPlanes at x=2.1 and x=-2.1, sphere at origin with radius 4.2
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Plane {
                 a: 1.0,
                 b: 0.0,
@@ -331,7 +331,7 @@ mod tests {
             boundary_type: crate::surface::BoundaryType::default(),
         };
         let s2 = Surface {
-            surface_id: 2,
+            surface_id: Some(2),
             kind: SurfaceKind::Plane {
                 a: 1.0,
                 b: 0.0,
@@ -341,7 +341,7 @@ mod tests {
             boundary_type: crate::surface::BoundaryType::default(),
         };
         let s3 = Surface {
-            surface_id: 3,
+            surface_id: Some(3),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -371,7 +371,7 @@ mod tests {
     fn test_zplane_bounding_box() {
         // ZPlane at z=3.5
         let s = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Plane {
                 a: 0.0,
                 b: 0.0,
@@ -397,7 +397,7 @@ mod tests {
     fn test_xplane_bounding_box() {
         // XPlane at x=1.5
         let s = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Plane {
                 a: 1.0,
                 b: 0.0,
@@ -423,7 +423,7 @@ mod tests {
     fn test_yplane_bounding_box() {
         // YPlane at y=-2.0
         let s = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Plane {
                 a: 0.0,
                 b: 1.0,
@@ -449,7 +449,7 @@ mod tests {
     fn test_zcylinder_bounding_box() {
         // Z-cylinder at (1, 2) with radius 3
         let s = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Cylinder {
                 axis: [0.0, 0.0, 1.0],
                 origin: [1.0, 2.0, 0.0],

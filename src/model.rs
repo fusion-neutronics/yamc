@@ -250,7 +250,7 @@ mod tests {
     fn test_model_construction() {
         // Sphere surface with vacuum boundary
         let sphere = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,

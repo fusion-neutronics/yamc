@@ -1,5 +1,6 @@
 use crate::cell::Cell;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 /// Geometry is a collection of cells for Monte Carlo transport
 
@@ -77,6 +78,33 @@ impl Geometry {
                 next_material_id += 1;
             }
         }
+
+        // Collect unique surfaces used in the geometry using Arc pointer addresses
+        let mut unique_surface_ptrs = HashSet::new();
+        let mut unique_surfaces = Vec::new();
+        
+        for cell in &cells {
+            let surfaces = cell.region.surfaces_with_sense();
+            for (surface, _sense) in surfaces {
+                let ptr = Arc::as_ptr(&surface);
+                if unique_surface_ptrs.insert(ptr) {
+                    unique_surfaces.push(surface);
+                }
+            }
+        }
+
+        // Validate surface IDs - surfaces with IDs must be unique
+        let mut used_surface_ids = HashSet::new();
+
+        for surface in &unique_surfaces {
+            if let Some(id) = surface.surface_id {
+                if used_surface_ids.contains(&id) {
+                    return Err(format!("Duplicate surface_id {} found. All surface IDs must be unique.", id));
+                }
+                used_surface_ids.insert(id);
+            }
+            // Surfaces with None ID are allowed - they don't need validation
+        }
         
         Ok(Geometry { cells })
     }
@@ -98,7 +126,7 @@ mod tests {
     #[test]
     fn test_find_cell() {
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -122,7 +150,7 @@ mod tests {
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
         
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -142,7 +170,7 @@ mod tests {
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
         
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -173,7 +201,7 @@ mod tests {
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
         
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -207,7 +235,7 @@ mod tests {
         use std::sync::{Arc, Mutex};
         
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -233,7 +261,7 @@ mod tests {
         use std::sync::{Arc, Mutex};
         
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -265,7 +293,7 @@ mod tests {
         use std::sync::{Arc, Mutex};
         
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -304,7 +332,7 @@ mod tests {
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
         
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
             boundary_type: BoundaryType::default(),
         };
@@ -313,6 +341,82 @@ mod tests {
         // Cells without materials (void cells) should work fine
         let cell1 = Cell::new(Some(1), region.clone(), Some("void_cell1".to_string()), None);
         let cell2 = Cell::new(Some(2), region.clone(), Some("void_cell2".to_string()), None);
+        
+        let geometry = Geometry::new(vec![cell1, cell2]).expect("Failed to create geometry");
+        assert_eq!(geometry.cells.len(), 2);
+        assert_eq!(geometry.cells[0].get_cell_id(), Some(1));
+        assert_eq!(geometry.cells[1].get_cell_id(), Some(2));
+    }
+
+    #[test]
+    fn test_surface_id_validation() {
+        use crate::region::{HalfspaceType, Region};
+        use crate::surface::{BoundaryType, Surface, SurfaceKind};
+        
+        // Test duplicate surface IDs
+        let s1 = Surface {
+            surface_id: Some(10),
+            kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
+            boundary_type: BoundaryType::default(),
+        };
+        let s2 = Surface {
+            surface_id: Some(10), // Same ID - should fail
+            kind: SurfaceKind::Sphere { x0: 2.0, y0: 0.0, z0: 0.0, radius: 1.0 },
+            boundary_type: BoundaryType::default(),
+        };
+        
+        let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
+        let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2)));
+        
+        let cell1 = Cell::new(Some(1), region1, Some("cell1".to_string()), None);
+        let cell2 = Cell::new(Some(2), region2, Some("cell2".to_string()), None);
+        
+        let result = Geometry::new(vec![cell1, cell2]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Duplicate surface_id 10 found"));
+    }
+
+    #[test]
+    fn test_surface_without_id_validation() {
+        use crate::region::{HalfspaceType, Region};
+        use crate::surface::{BoundaryType, Surface, SurfaceKind};
+        
+        // Test surface without ID - should be allowed (None IDs are valid)
+        let s1 = Surface {
+            surface_id: None, // No ID - should be fine
+            kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
+            boundary_type: BoundaryType::default(),
+        };
+        
+        let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
+        let cell = Cell::new(Some(1), region, Some("cell1".to_string()), None);
+        
+        let result = Geometry::new(vec![cell]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_valid_surface_ids() {
+        use crate::region::{HalfspaceType, Region};
+        use crate::surface::{BoundaryType, Surface, SurfaceKind};
+        
+        // Test valid unique surface IDs
+        let s1 = Surface {
+            surface_id: Some(1),
+            kind: SurfaceKind::Sphere { x0: 0.0, y0: 0.0, z0: 0.0, radius: 1.0 },
+            boundary_type: BoundaryType::default(),
+        };
+        let s2 = Surface {
+            surface_id: Some(2),
+            kind: SurfaceKind::Sphere { x0: 2.0, y0: 0.0, z0: 0.0, radius: 1.0 },
+            boundary_type: BoundaryType::default(),
+        };
+        
+        let region1 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
+        let region2 = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s2)));
+        
+        let cell1 = Cell::new(Some(1), region1, Some("cell1".to_string()), None);
+        let cell2 = Cell::new(Some(2), region2, Some("cell2".to_string()), None);
         
         let geometry = Geometry::new(vec![cell1, cell2]).expect("Failed to create geometry");
         assert_eq!(geometry.cells.len(), 2);

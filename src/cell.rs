@@ -105,7 +105,7 @@ mod tests {
 
         #[test]
         fn test_sphere_distance() {
-            let sphere = Surface::new_sphere(0.0, 0.0, 0.0, 1.0, 1, None);
+            let sphere = Surface::new_sphere(0.0, 0.0, 0.0, 1.0, Some(1), None);
             // From (2,0,0) toward center
             let d = sphere.distance_to_surface([2.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
             assert!((d.unwrap() - 1.0).abs() < 1e-10);
@@ -123,7 +123,7 @@ mod tests {
         #[test]
         fn test_cylinder_distance() {
             // Z-cylinder at (0,0), r=1
-            let cyl = Surface::z_cylinder(0.0, 0.0, 1.0, 1, None);
+            let cyl = Surface::z_cylinder(0.0, 0.0, 1.0, Some(1), None);
             // From (2,0,0) toward center
             let d = cyl.distance_to_surface([2.0, 0.0, 0.0], [-1.0, 0.0, 0.0]);
             assert!((d.unwrap() - 1.0).abs() < 1e-10);
@@ -143,7 +143,7 @@ mod tests {
 
         #[test]
         fn test_xplane_distance() {
-            let plane = Surface::x_plane(5.0, 1, None);
+            let plane = Surface::x_plane(5.0, Some(1), None);
             // From (0,0,0) in +x direction
             let d = plane.distance_to_surface([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
             assert_eq!(d, Some(5.0));
@@ -169,7 +169,7 @@ mod tests {
         use std::sync::Arc;
 
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -196,7 +196,7 @@ mod tests {
     fn test_cell_union_region() {
         // Union of two spheres
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -206,7 +206,7 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let s2 = Surface {
-            surface_id: 2,
+            surface_id: Some(2),
             kind: SurfaceKind::Sphere {
                 x0: 3.0,
                 y0: 0.0,
@@ -228,7 +228,7 @@ mod tests {
     fn test_cell_intersection_region() {
         // Intersection of two spheres
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -238,7 +238,7 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let s2 = Surface {
-            surface_id: 2,
+            surface_id: Some(2),
             kind: SurfaceKind::Sphere {
                 x0: 1.0,
                 y0: 0.0,
@@ -260,7 +260,7 @@ mod tests {
     fn test_cell_complement_region() {
         // Complement of a sphere
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -279,7 +279,7 @@ mod tests {
     fn test_cell_complex_region() {
         // s1: x = 2.1, s2: x = -2.1, s3: sphere at origin, r=4.2
         let s1 = Surface {
-            surface_id: 5,
+            surface_id: Some(5),
             kind: SurfaceKind::Plane {
                 a: 1.0,
                 b: 0.0,
@@ -289,7 +289,7 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let s2 = Surface {
-            surface_id: 6,
+            surface_id: Some(6),
             kind: SurfaceKind::Plane {
                 a: 1.0,
                 b: 0.0,
@@ -299,7 +299,7 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let s3 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -334,7 +334,7 @@ mod tests {
     fn test_cell_contains_simple() {
         // Sphere of radius 2 at (0,0,0)
         let sphere = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -353,7 +353,7 @@ mod tests {
     fn test_cell_union_intersection_complement() {
         // Two spheres
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -363,7 +363,7 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let s2 = Surface {
-            surface_id: 2,
+            surface_id: Some(2),
             kind: SurfaceKind::Sphere {
                 x0: 2.0,
                 y0: 0.0,
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_cell_naming() {
         let sphere = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -414,7 +414,7 @@ mod tests {
     #[test]
     fn test_cell_id_default() {
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -431,7 +431,7 @@ mod tests {
     #[test]
     fn test_set_and_get_cell_id() {
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -459,7 +459,7 @@ mod tests {
     #[test]
     fn test_cell_new_with_specific_id() {
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,
@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn test_cell_id_independence() {
         let s1 = Surface {
-            surface_id: 1,
+            surface_id: Some(1),
             kind: SurfaceKind::Sphere {
                 x0: 0.0,
                 y0: 0.0,

@@ -2,11 +2,10 @@ impl PyRegionExpr {
     pub fn to_region_expr(&self) -> crate::region::RegionExpr {
         match self {
             PyRegionExpr::Halfspace(hs) => {
-                // Convert PyHalfspace to HalfspaceType
+                // Convert PyHalfspace to HalfspaceType using the existing Arc
                 Python::with_gil(|py| {
                     let surface = hs.surface.as_ref(py);
-                    let rust_surface = surface.borrow().inner.clone();
-                    let arc_surface = std::sync::Arc::new(rust_surface);
+                    let arc_surface = surface.borrow().inner.clone(); // This now clones the Arc, not the Surface
                     if hs.is_above {
                         crate::region::RegionExpr::Halfspace(crate::region::HalfspaceType::Above(
                             arc_surface,

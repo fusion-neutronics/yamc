@@ -103,12 +103,12 @@ fn main() {
 
     println!("Creating cube surfaces...");
     // Cube from x=0..1, y=0..1, z=0..1
-    let sx0 = Arc::new(Surface::x_plane(0.0, 1, None));
-    let sx1 = Arc::new(Surface::x_plane(1.0, 2, None));
-    let sy0 = Arc::new(Surface::y_plane(0.0, 3, None));
-    let sy1 = Arc::new(Surface::y_plane(1.0, 4, None));
-    let sz0 = Arc::new(Surface::z_plane(0.0, 5, None));
-    let sz1 = Arc::new(Surface::z_plane(1.0, 6, None));
+    let sx0 = Arc::new(Surface::x_plane(0.0, Some(1), None));
+    let sx1 = Arc::new(Surface::x_plane(1.0, Some(2), None));
+    let sy0 = Arc::new(Surface::y_plane(0.0, Some(3), None));
+    let sy1 = Arc::new(Surface::y_plane(1.0, Some(4), None));
+    let sz0 = Arc::new(Surface::z_plane(0.0, Some(5), None));
+    let sz1 = Arc::new(Surface::z_plane(1.0, Some(6), None));
 
     // Cube region: intersection of all halfspaces
     let cube = Region::new_from_halfspace(HalfspaceType::Above(sx0.clone()))
@@ -122,7 +122,7 @@ fn main() {
     println!("Cube bounding box: {:?}", cube_bb);
 
     println!("Creating sphere surface...");
-    let sphere = Arc::new(Surface::new_sphere(0.5, 0.5, 0.5, 0.4, 7, None));
+    let sphere = Arc::new(Surface::new_sphere(0.5, 0.5, 0.5, 0.4, Some(7), None));
     let sphere_region = Region::new_from_halfspace(HalfspaceType::Below(sphere.clone()));
     println!("Sphere region created.");
     let sphere_bb = sphere_region.bounding_box();

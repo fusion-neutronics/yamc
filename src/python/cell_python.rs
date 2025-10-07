@@ -37,7 +37,7 @@ impl PyCell {
             if let Some(dist) = surf_arc.distance_to_surface(point_arr, dir_arr) {
                 return Some((
                     crate::python::surface_python::PySurface {
-                        inner: (*surf_arc).clone(),
+                        inner: surf_arc.clone(),
                     },
                     dist,
                 ));
