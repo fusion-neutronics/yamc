@@ -4,7 +4,7 @@
 
 # Materials for MC
 
-Materials For MC is a package for accessing nuclear cross section data
+Materials For MC is a package for accessing nuclear cross section data and performing neutron transport through constructive solid geometry.
 
 See the 👉 **[documentation](https://fusion-neutronics.github.io/materials_for_mc/)** 👈 for installation and API usage details.
 
