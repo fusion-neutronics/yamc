@@ -35,6 +35,13 @@ jobs:
           cd examples/rust
           cargo build --verbose
           cargo run
+          
+      - name: Test ARM cross-compilation
+        run: |
+          rustup target add aarch64-unknown-linux-gnu
+          rustup target add arm-unknown-linux-gnueabihf
+          cargo check --target aarch64-unknown-linux-gnu
+          cargo check --target arm-unknown-linux-gnueabihf
 
   publish:
     name: Publish to crates.io
