@@ -5,6 +5,44 @@ use crate::physics::elastic_scatter;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::tally::{Tally, create_tallies_from_specs};
 impl Model {
+    /// Create a new Model with pre-computed optimization flags
+    pub fn new(
+        geometry: Geometry,
+        settings: Settings,
+        tallies: Vec<crate::tally::Tally>,
+    ) -> Self {
+        // Check if any tallies require detailed absorption sampling
+        let needs_detailed_absorption = tallies.iter().any(|t| {
+            // MT 101 is absorption, but we need detailed sampling for its constituents
+            let absorption_constituents = [
+                102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117,
+                155, 182, 191, 192, 193, 197,
+            ];
+            absorption_constituents.contains(&t.score)
+        });
+
+        // Check if any tallies require detailed nonelastic sampling
+        let needs_detailed_nonelastic = tallies.iter().any(|t| {
+            // MT 3 is nonelastic, but we need detailed sampling for its constituents
+            let nonelastic_constituents = [
+                4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35,
+                36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+                161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+                173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+                186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200,
+            ];
+            nonelastic_constituents.contains(&t.score)
+        });
+
+        Model {
+            geometry,
+            settings,
+            tallies,
+            needs_detailed_absorption,
+            needs_detailed_nonelastic,
+        }
+    }
+
     pub fn run(&self) -> Vec<Tally> {
         println!("Starting particle transport simulation...");
 
@@ -125,6 +163,21 @@ impl Model {
                             if let Some(reaction) = reaction {
                                 println!("Particle collided in cell {:?} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                 
+                                // Determine the specific MT for tallying (use detailed sampling if needed)
+                                let tally_mt = match reaction.mt_number {
+                                    101 if self.needs_detailed_absorption => {
+                                        // Sample specific absorption subreaction for tallying
+                                        material.sample_absorption_subreaction(&nuclide_name, particle.energy, &mut rng)
+                                            .unwrap_or(101) // Fall back to MT 101 if no specific subreaction
+                                    }
+                                    3 if self.needs_detailed_nonelastic => {
+                                        // Sample specific nonelastic subreaction for tallying
+                                        material.sample_nonelastic_subreaction(&nuclide_name, particle.energy, &mut rng)
+                                            .unwrap_or(3) // Fall back to MT 3 if no specific subreaction
+                                    }
+                                    _ => reaction.mt_number, // Use the sampled MT as-is
+                                };
+
                                 match reaction.mt_number {
                                     2 => {
                                         // Elastic scattering
@@ -144,12 +197,12 @@ impl Model {
                                     }
                                     101 => {
                                         // Absorption (capture)
-                                        println!("Particle absorbed at {:?} (MT=101 absorption)", particle.position);
+                                        println!("Particle absorbed at {:?} (MT={} specific subreaction)", particle.position, tally_mt);
                                         particle.alive = false;
                                     }
                                     3 => {
                                         // Nonelastic scattering (inelastic + other)
-                                        println!("Particle underwent nonelastic scattering at {:?}", particle.position);
+                                        println!("Particle underwent nonelastic scattering at {:?} (MT={} specific subreaction)", particle.position, tally_mt);
                                         println!("particle killed as code not ready nonelastic reaction");
                                         // TODO: Sample outgoing energy and angle from nuclear data
                                         particle.alive = false; // Kill particle for now until inelastic implemented
@@ -162,7 +215,7 @@ impl Model {
                                 
                                 // Score user tallies for this reaction (after physics is processed)
                                 for (i, tally_spec) in self.tallies.iter().enumerate() {
-                                    if tally_spec.score == reaction.mt_number {
+                                    if tally_spec.score == tally_mt {
                                         // Check if this event passes all filters for this tally
                                         let passes_filters = if tally_spec.filters.is_empty() {
                                             // No filters means score all events
@@ -232,6 +285,9 @@ pub struct Model {
     pub geometry: Geometry,
     pub settings: Settings,
     pub tallies: Vec<crate::tally::Tally>,
+    // Pre-computed flags for performance optimization
+    needs_detailed_absorption: bool,
+    needs_detailed_nonelastic: bool,
 }
 
 #[cfg(test)]
@@ -286,11 +342,7 @@ mod tests {
         absorption_tally.score = 101; // MT 101 = absorption
         absorption_tally.name = Some("Absorption Tally".to_string());
         
-        let model = Model { 
-            geometry, 
-            settings, 
-            tallies: vec![absorption_tally] 
-        };
+        let model = Model::new(geometry, settings, vec![absorption_tally]);
         assert_eq!(model.settings.particles, 100);
         assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material

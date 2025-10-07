@@ -172,6 +172,145 @@ impl Nuclide {
         // Non-elastic selection as fallback
         temp_reactions.get(&nonelastic_mt)
     }
+
+    /// Sample a specific nonelastic subreaction at a given energy and temperature
+    /// This function determines which of the constituent reactions (MT 4, 5, 11, etc.) 
+    /// that make up the nonelastic cross section (MT 3) should occur.
+    /// 
+    /// # Arguments
+    /// * `energy` - Neutron energy in eV
+    /// * `temperature` - Temperature string (e.g., "294")
+    /// * `rng` - Random number generator
+    /// 
+    /// # Returns
+    /// * `Some(mt_number)` - The MT number of the sampled subreaction
+    /// * `None` - If no subreaction could be sampled (zero total cross section)
+    pub fn sample_nonelastic_subreaction<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> Option<i32> {
+        // Get temperature reactions, with fallback logic
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((_, r)) = self.reactions.iter().next() {
+            r
+        } else {
+            return None;
+        };
+
+        // Define the nonelastic constituent reactions based on sum rules
+        // MT 3 (nonelastic) = MT 4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35,
+        //                     36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+        //                     161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+        //                     173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+        //                     186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200
+        let nonelastic_constituents = vec![
+            4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35,
+            36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+            161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+            173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+            186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200,
+        ];
+
+        // Build list of available reactions with their cross sections
+        let mut available_reactions = Vec::new();
+        let mut total_xs = 0.0;
+
+        for &mt in &nonelastic_constituents {
+            if let Some(reaction) = temp_reactions.get(&mt) {
+                if let Some(xs) = reaction.cross_section_at(energy) {
+                    if xs > 0.0 {
+                        available_reactions.push((mt, xs));
+                        total_xs += xs;
+                    }
+                }
+            }
+        }
+
+        // If no reactions available, return None
+        if available_reactions.is_empty() || total_xs <= 0.0 {
+            return None;
+        }
+
+        // Sample based on cross section probabilities
+        let xi = rng.gen_range(0.0..total_xs);
+        let mut accum = 0.0;
+        
+        for (mt, xs) in available_reactions {
+            accum += xs;
+            if xi < accum {
+                return Some(mt);
+            }
+        }
+
+        // Fallback (should not reach here due to numerical precision)
+        None
+    }
+
+    /// Sample a specific absorption subreaction at a given energy and temperature
+    /// This function determines which of the constituent reactions that make up 
+    /// the absorption cross section (MT 101) should occur.
+    /// 
+    /// # Arguments
+    /// * `energy` - Neutron energy in eV
+    /// * `temperature` - Temperature string (e.g., "294")
+    /// * `rng` - Random number generator
+    /// 
+    /// # Returns
+    /// * `Some(mt_number)` - The MT number of the sampled subreaction
+    /// * `None` - If no absorption reactions are available
+    pub fn sample_absorption_subreaction<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> Option<i32> {
+        let temp_reactions = self.reactions.get(temperature)?;
+
+        // MT numbers that constitute absorption (MT 101)
+        let absorption_constituents = vec![
+            102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117,
+            155, 182, 191, 192, 193, 197,
+        ];
+
+        let mut available_reactions = Vec::new();
+        let mut total_xs = 0.0;
+
+        for &mt in &absorption_constituents {
+            if let Some(reaction) = temp_reactions.get(&mt) {
+                if let Some(xs) = reaction.cross_section_at(energy) {
+                    if xs > 0.0 {
+                        available_reactions.push((mt, xs));
+                        total_xs += xs;
+                    }
+                }
+            }
+        }
+
+        // If no reactions available, return None
+        if available_reactions.is_empty() || total_xs <= 0.0 {
+            return None;
+        }
+
+        // Sample based on cross section probabilities
+        let xi = rng.gen_range(0.0..total_xs);
+        let mut accum = 0.0;
+        
+        for (mt, xs) in available_reactions {
+            accum += xs;
+            if xi < accum {
+                return Some(mt);
+            }
+        }
+
+        // Fallback (should not reach here due to numerical precision)
+        None
+    }
+
     /// Get the energy grid for a specific temperature
     pub fn energy_grid(&self, temperature: &str) -> Option<&Vec<f64>> {
         self.energy
