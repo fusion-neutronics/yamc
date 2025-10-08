@@ -215,7 +215,18 @@ impl Model {
                                 
                                 // Score user tallies for this reaction (after physics is processed)
                                 for (i, tally_spec) in self.tallies.iter().enumerate() {
-                                    if tally_spec.score == tally_mt {
+                                    let should_score = if tally_spec.score == tally_mt {
+                                        // Direct match with the specific MT (detailed or general)
+                                        true
+                                    } else if tally_spec.score == reaction.mt_number && tally_mt != reaction.mt_number {
+                                        // Also score the general reaction when detailed sampling occurred
+                                        // (e.g., score MT 101 when detailed MT 105 was sampled)
+                                        true
+                                    } else {
+                                        false
+                                    };
+                                    
+                                    if should_score {
                                         // Check if this event passes all filters for this tally
                                         let passes_filters = if tally_spec.filters.is_empty() {
                                             // No filters means score all events
