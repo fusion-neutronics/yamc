@@ -24,11 +24,7 @@ impl PyModel {
         };
         
         PyModel {
-            inner: Model {
-                geometry: geometry.inner.clone(),
-                settings: settings.inner.clone(),
-                tallies,
-            },
+            inner: Model::new(geometry.inner.clone(), settings.inner.clone(), tallies),
         }
     }
     #[getter]

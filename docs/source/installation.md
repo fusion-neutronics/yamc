@@ -1,6 +1,6 @@
 # Installation
 
-materials_for_mc can be installed and used on Linux, Windows, and macOS.
+materials_for_mc can be installed and used on Linux, Windows, and MacOS including ARM and X86 processorts.
 
 ## Python Installation
 
