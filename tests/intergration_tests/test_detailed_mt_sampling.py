@@ -43,10 +43,10 @@ def test_detailed_mt_sampling():
 
     # Create tallies for detailed MT numbers
     
-    # Tally 1: MT 203 (n,Xp) - an absorption subreaction constituent 
-    tally_mt203 = mc.Tally()
-    tally_mt203.score = 203  # This should trigger detailed absorption sampling
-    tally_mt203.name = "MT 203 (n,Xp) reactions"
+    # Tally 1: MT 105 (n,t) - an absorption subreaction constituent 
+    tally_mt105 = mc.Tally()
+    tally_mt105.score = 105  # This should trigger detailed absorption sampling
+    tally_mt105.name = "MT 105 (n,t) reactions"
 
     # Tally 2: MT 24 (n,2na) - a nonelastic subreaction constituent
     tally_mt24 = mc.Tally()
@@ -68,7 +68,7 @@ def test_detailed_mt_sampling():
     tally_mt204.score = 204  # (n,Xd) - another absorption constituent
     tally_mt204.name = "MT 204 (n,Xd) reactions"
 
-    tallies = [tally_mt203, tally_mt24, tally_absorption, tally_nonelastic, tally_mt204]
+    tallies = [tally_mt105, tally_mt24, tally_absorption, tally_nonelastic, tally_mt204]
 
     # Run simulation
     model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
@@ -76,7 +76,7 @@ def test_detailed_mt_sampling():
     
     # Extract results (skip leakage tally at index 0)
     leakage_tally = results[0]
-    tally_mt203_result = results[1]
+    tally_mt105_result = results[1]
     tally_mt24_result = results[2]
     tally_absorption_result = results[3]
     tally_nonelastic_result = results[4]
@@ -85,7 +85,7 @@ def test_detailed_mt_sampling():
     # Integration test assertions
     
     # Test 1: Detailed MT tallies should be non-negative
-    assert tally_mt203_result.mean >= 0.0, "MT 203 tally should be non-negative"
+    assert tally_mt105_result.mean >= 0.0, "MT 105 tally should be non-negative"
     assert tally_mt24_result.mean >= 0.0, "MT 24 tally should be non-negative"
     assert tally_mt204_result.mean >= 0.0, "MT 204 tally should be non-negative"
     
@@ -101,15 +101,15 @@ def test_detailed_mt_sampling():
     
     # Test 3: Detailed MT tallies should be subsets of their general counterparts
     # Note: Due to statistical fluctuations with finite sampling, we use <= instead of strict <
-    assert tally_mt203_result.mean <= tally_absorption_result.mean + 1e-10, \
-        f"MT 203 ({tally_mt203_result.mean}) should be <= total absorption ({tally_absorption_result.mean})"
+    assert tally_mt105_result.mean <= tally_absorption_result.mean + 1e-10, \
+        f"MT 105 ({tally_mt105_result.mean}) should be <= total absorption ({tally_absorption_result.mean})"
     assert tally_mt204_result.mean <= tally_absorption_result.mean + 1e-10, \
         f"MT 204 ({tally_mt204_result.mean}) should be <= total absorption ({tally_absorption_result.mean})"
     assert tally_mt24_result.mean <= tally_nonelastic_result.mean + 1e-10, \
         f"MT 24 ({tally_mt24_result.mean}) should be <= total nonelastic ({tally_nonelastic_result.mean})"
     
     # Test 4: Physical reasonableness - at least some reactions should occur
-    total_specific_reactions = (tally_mt203_result.mean + tally_mt24_result.mean + 
+    total_specific_reactions = (tally_mt105_result.mean + tally_mt24_result.mean + 
                                tally_mt204_result.mean)
     assert total_specific_reactions >= 0.0, "Total specific reactions should be non-negative"
     
@@ -129,7 +129,7 @@ def test_detailed_mt_sampling():
     
     print(f"✓ Detailed MT sampling test passed!")
     print(f"  Detailed absorption reactions:")
-    print(f"    - MT 203 (n,Xp): {tally_mt203_result.mean:.6f}")
+    print(f"    - MT 105 (n,t): {tally_mt105_result.mean:.6f}")
     print(f"    - MT 204 (n,Xd): {tally_mt204_result.mean:.6f}")
     print(f"    - Total absorption (MT 101): {tally_absorption_result.mean:.6f}")
     print(f"  Detailed nonelastic reactions:")
