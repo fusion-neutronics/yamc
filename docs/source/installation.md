@@ -1,6 +1,6 @@
 # Installation
 
-materials_for_mc can be installed and used on Linux, Windows, and MacOS including ARM and X86 processorts.
+materials_for_mc can be installed and used on Linux, Windows, and MacOS including ARM and X86 processors.
 
 ## Python Installation
 
@@ -24,3 +24,4 @@ Then run:
 ```bash
 cargo build
 ```
+
