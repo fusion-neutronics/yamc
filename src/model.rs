@@ -1,9 +1,23 @@
 use crate::particle::Particle;
 use crate::surface::BoundaryType;
 use rand::Rng;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use crate::physics::elastic_scatter;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::tally::{Tally, create_tallies_from_specs};
+use crate::geometry::Geometry;
+use crate::settings::Settings;
+use crate::source::Source;
+use std::sync::{Arc, Mutex};
+
+#[derive(Debug, Clone)]
+pub struct Model {
+    pub geometry: Geometry,
+    pub settings: Settings,
+    pub tallies: Vec<crate::tally::Tally>,
+}
+
 impl Model {
     pub fn run(&self) -> Vec<Tally> {
         println!("Starting particle transport simulation...");
@@ -20,7 +34,7 @@ impl Model {
         // Initialize tallies from user specifications  
         let mut tallies = create_tallies_from_specs(&self.tallies);
 
-        let mut rng = rand::thread_rng();
+        let mut rng = StdRng::from_entropy();
         for batch in 0..self.settings.batches {
             println!("Batch {}", batch + 1);
             
@@ -113,56 +127,138 @@ impl Model {
                             let material = cell.material.as_ref().unwrap().lock().unwrap();
                             // Store material_id for filter checking (to avoid double-locking later)
                             let material_id = material.material_id;
-                            // Sample nuclide and reaction
+                            // OpenMC fixed source collision sequence (simplified - no survival biasing)
+                            
+                            // 1. Sample collision nuclide
                             let nuclide_name =
                                 material.sample_interacting_nuclide(particle.energy, &mut rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
-                            let reaction = nuclide.sample_reaction(
-                                particle.energy,
-                                &material.temperature,
-                                &mut rng,
-                            );
-                            if let Some(reaction) = reaction {
-                                println!("Particle collided in cell {:?} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
+                                println!("Particle collided in cell {:?} at {:?} with nuclide {}", cell.cell_id, particle.position, nuclide_name);
                                 
-                                match reaction.mt_number {
+                                // Use temperature string directly for nuclide reaction lookup
+                                let temperature_str = &material.temperature;
+                                
+                                // Track the actual MT that occurred for tallying
+                                let mut event_mt = 0;
+                                
+                                // 2. OpenMC-style collision sequence - sample specific MT reactions
+                                // Get the reaction data for this temperature
+                                let temp_reactions = if let Some(reactions) = nuclide.reactions.get(temperature_str) {
+                                    reactions
+                                } else if let Some(reactions) = nuclide.reactions.get(&format!("{}K", temperature_str)) {
+                                    reactions
+                                } else {
+                                    panic!("Temperature {} not found in nuclide {} reaction data", temperature_str, nuclide_name);
+                                };
+                                
+                                // Helper function to get cross section for a specific MT
+                                let get_xs = |mt: i32| -> f64 {
+                                    temp_reactions.get(&mt)
+                                        .and_then(|reaction| reaction.cross_section_at(particle.energy))
+                                        .unwrap_or(0.0)
+                                };
+                                
+                                // Get cross sections for OpenMC collision sequence
+                                let total_xs = get_xs(1);
+                                if total_xs <= 0.0 {
+                                    panic!("Zero total cross section for nuclide {} at energy {} eV", nuclide_name, particle.energy);
+                                }
+                                
+                                // Sample which reaction occurs based on cross section ratios
+                                let xi = rng.gen::<f64>() * total_xs;
+                                let mut accum = 0.0;
+                                let mut event_mt = 0;
+                                
+                                // Try all available reactions in order of MT number
+                                let mut sorted_mts: Vec<i32> = temp_reactions.keys().cloned().collect();
+                                sorted_mts.sort();
+                                
+                                for &mt in &sorted_mts {
+                                    if mt == 1 { continue; } // Skip total cross section
+                                    
+                                    let xs = get_xs(mt);
+                                    if xs > 0.0 {
+                                        accum += xs;
+                                        if xi < accum {
+                                            event_mt = mt;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if event_mt == 0 {
+                                    panic!("Failed to sample reaction for nuclide {} at energy {} eV", nuclide_name, particle.energy);
+                                }
+                                
+                                println!("Sampled reaction MT {} for nuclide {} at energy {} eV", event_mt, nuclide_name, particle.energy);
+                                
+                                // Handle the specific sampled MT reaction
+                                match event_mt {
                                     2 => {
                                         // Elastic scattering
                                         let awr = *ATOMIC_WEIGHT_RATIO
                                             .get(nuclide_name.as_str())
                                             .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-                                        elastic_scatter(&mut particle, awr, &mut rng);  // updates particles direction and energy
-                                        println!("Particle elastically scattered at {:?}", particle.position);
-                                        // Continue transport (particle.alive remains true)
+                                        elastic_scatter(&mut particle, awr, &mut rng);
+                                        println!("Particle elastically scattered at {:?} (MT=2)", particle.position);
                                     }
-                                    18 => {
-                                        // Fission
-                                        println!("Particle caused fission at {:?}", particle.position);
-                                        println!("particle killed as code not ready fission reaction");
-                                        // TODO: Sample number of fission neutrons and add to particle bank
-                                        particle.alive = false; // Kill original particle for now
-                                    }
-                                    101 => {
-                                        // Absorption (capture)
-                                        println!("Particle absorbed at {:?} (MT=101 absorption)", particle.position);
+                                    16..=21 | 38 => {
+                                        // Fission reactions - in fixed source mode, kill particle
+                                        println!("Particle caused fission at {:?} (MT={})", particle.position, event_mt);
                                         particle.alive = false;
                                     }
-                                    3 => {
-                                        // Nonelastic scattering (inelastic + other)
-                                        println!("Particle underwent nonelastic scattering at {:?}", particle.position);
-                                        println!("particle killed as code not ready nonelastic reaction");
+                                    51..=91 => {
+                                        // Inelastic scattering levels
+                                        println!("Particle underwent inelastic scattering at {:?} (MT={})", particle.position, event_mt);
+                                        println!("Particle killed as code not ready for inelastic reaction");
                                         // TODO: Sample outgoing energy and angle from nuclear data
-                                        particle.alive = false; // Kill particle for now until inelastic implemented
+                                        particle.alive = false;
+                                    }
+                                    102..=117 | 600..=849 => {
+                                        // Absorption reactions - kill particle
+                                        println!("Particle absorbed at {:?} (MT={})", particle.position, event_mt);
+                                        particle.alive = false;
                                     }
                                     _ => {
-                                        // Unknown reaction type - should never happen
-                                        panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
+                                        // Other reactions - for now kill particle to be conservative
+                                        println!("Particle underwent reaction MT={} at {:?} - killing particle", event_mt, particle.position);
+                                        particle.alive = false;
                                     }
                                 }
                                 
-                                // Score user tallies for this reaction (after physics is processed)
+                                // Score user tallies for this event (after physics is processed)
                                 for (i, tally_spec) in self.tallies.iter().enumerate() {
-                                    if tally_spec.score == reaction.mt_number {
+                                    // Check if this event should be scored for this tally
+                                    let should_score = if tally_spec.score == event_mt {
+                                        // Direct match with the specific MT that occurred
+                                        true
+                                    } else if tally_spec.score == 18 && [19, 20, 21, 38].contains(&event_mt) {
+                                        // Score MT 18 (total fission) when specific fission reaction occurred
+                                        true
+                                    } else if tally_spec.score == 101 && [102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117].contains(&event_mt) {
+                                        // Score MT 101 (absorption) when specific absorption subreaction occurred
+                                        true
+                                    } else if tally_spec.score == 101 && (600..=849).contains(&event_mt) {
+                                        // Score MT 101 (absorption) when level excitation absorption occurred
+                                        true
+                                    } else if tally_spec.score == 4 && (51..=91).contains(&event_mt) {
+                                        // Score MT 4 (inelastic) when specific inelastic level occurred
+                                        true
+                                    } else if tally_spec.score == 3 {
+                                        // Score MT 3 (nonelastic) based on official ENDF sum rules
+                                        // MT 3 = 4-5, 11, 16-37, 41-42, 44-45, 51-91, 152-154, 156-181, 183-190, 194-196, 198-200
+                                        // Note: MT 27 (absorption) is included via range 16-37 and includes MT 18+101
+                                        let is_nonelastic = match event_mt {
+                                            4..=5 | 11 | 16..=37 | 41..=42 | 44..=45 | 51..=91 |
+                                            152..=154 | 156..=181 | 183..=190 | 194..=196 | 198..=200 => true,
+                                            _ => false,
+                                        };
+                                        is_nonelastic
+                                    } else {
+                                        false
+                                    };
+                                    
+                                    if should_score {
                                         // Check if this event passes all filters for this tally
                                         let passes_filters = if tally_spec.filters.is_empty() {
                                             // No filters means score all events
@@ -187,12 +283,6 @@ impl Model {
                                     }
                                 }
 
-                            } else {
-                                panic!(
-                                    "No valid reaction found for nuclide {} at energy {}",
-                                    nuclide_name, particle.energy
-                                );
-                            }
                             } else {
                                 panic!("Nuclide {} not found in material data", nuclide_name);
                             }
@@ -220,18 +310,6 @@ impl Model {
         println!("Simulation complete.");
         tallies
     }
-}
-use crate::geometry::Geometry;
-// use crate::materials::Materials;
-use crate::settings::Settings;
-use crate::source::Source;
-use std::sync::{Arc, Mutex};
-
-#[derive(Debug, Clone)]
-pub struct Model {
-    pub geometry: Geometry,
-    pub settings: Settings,
-    pub tallies: Vec<crate::tally::Tally>,
 }
 
 #[cfg(test)]
