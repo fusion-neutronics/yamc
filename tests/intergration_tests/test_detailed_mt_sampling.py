@@ -16,7 +16,7 @@ def test_detailed_mt_sampling():
         x0=0.0,
         y0=0.0,
         z0=0.0,
-        r=20.0,
+        r=100.0,
         boundary_type='Vacuum',
     )
     region = -sphere
@@ -149,7 +149,7 @@ def test_detailed_sampling_activation():
     # Create minimal geometry
     sphere = mc.Sphere(
         surface_id=1,
-        x0=0.0, y0=0.0, z0=0.0, r=1.0,
+        x0=0.0, y0=0.0, z0=0.0, r=100.0,
         boundary_type='Vacuum'
     )
     region = -sphere
