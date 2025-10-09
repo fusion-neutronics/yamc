@@ -1,20 +1,20 @@
-use crate::source::Source;
+use crate::source::IndependentSource;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Source")]
+#[pyclass(name = "IndependentSource")]
 #[derive(Clone)]
-pub struct PySource {
-    pub inner: Source,
+pub struct PyIndependentSource {
+    pub inner: IndependentSource,
 }
 
 #[pymethods]
-impl PySource {
+impl PyIndependentSource {
     #[new]
-    pub fn new(position: [f64; 3], direction: [f64; 3], energy: f64) -> Self {
-        PySource {
-            inner: Source {
-                position,
-                direction,
+    pub fn new(space: [f64; 3], angle: [f64; 3], energy: f64) -> Self {
+        PyIndependentSource {
+            inner: IndependentSource {
+                space,
+                angle,
                 energy,
             },
         }
@@ -27,12 +27,12 @@ impl PySource {
     }
 
     #[getter]
-    pub fn position(&self) -> [f64; 3] {
-        self.inner.position
+    pub fn space(&self) -> [f64; 3] {
+        self.inner.space
     }
     #[getter]
-    pub fn direction(&self) -> [f64; 3] {
-        self.inner.direction
+    pub fn angle(&self) -> [f64; 3] {
+        self.inner.angle
     }
     #[getter]
     pub fn energy(&self) -> f64 {

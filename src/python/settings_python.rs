@@ -1,4 +1,4 @@
-use crate::python::source_python::PySource;
+use crate::python::source_python::PyIndependentSource;
 use crate::settings::Settings;
 use pyo3::prelude::*;
 
@@ -11,7 +11,7 @@ pub struct PySettings {
 #[pymethods]
 impl PySettings {
     #[new]
-    pub fn new(particles: usize, batches: usize, source: PySource) -> Self {
+    pub fn new(particles: usize, batches: usize, source: PyIndependentSource) -> Self {
         PySettings {
             inner: Settings {
                 particles,
@@ -29,14 +29,14 @@ impl PySettings {
         self.inner.batches
     }
     #[getter]
-    pub fn source(&self) -> PySource {
-        PySource {
+    pub fn source(&self) -> PyIndependentSource {
+        PyIndependentSource {
             inner: self.inner.source.clone(),
         }
     }
 
     #[setter]
-    pub fn set_source(&mut self, value: PySource) {
+    pub fn set_source(&mut self, value: PyIndependentSource) {
         self.inner.source = value.inner.clone();
     }
 }

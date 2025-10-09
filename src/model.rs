@@ -224,7 +224,7 @@ impl Model {
 use crate::geometry::Geometry;
 // use crate::materials::Materials;
 use crate::settings::Settings;
-use crate::source::Source;
+use crate::source::IndependentSource;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
@@ -242,7 +242,7 @@ mod tests {
     use crate::material::Material;
     use crate::region::{HalfspaceType, Region};
     use crate::settings::Settings;
-    use crate::source::Source;
+    use crate::source::IndependentSource;
     use crate::surface::{BoundaryType, Surface, SurfaceKind};
     // No duplicate import
 
@@ -270,9 +270,9 @@ mod tests {
         let material_arc = Arc::new(Mutex::new(material));
         let cell = Cell::new(Some(1), region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
         let geometry = Geometry { cells: vec![cell] };
-        let source = Source {
-            position: [0.0, 0.0, 0.0],
-            direction: [0.0, 0.0, 1.0],
+        let source = IndependentSource {
+            space: [0.0, 0.0, 0.0],
+            angle: [0.0, 0.0, 1.0],
             energy: 1e6,
         };
         let settings = Settings {

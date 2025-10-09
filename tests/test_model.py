@@ -22,7 +22,7 @@ def test_model_construction():
         fill=material,
     )
     geometry = mc.Geometry(cells=[cell])
-    source = mc.Source([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6)
+    source = mc.IndependentSource([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6)
     settings = mc.Settings(particles=5, batches=2, source=source)
     model = mc.Model(geometry, settings)
     assert model.settings.particles == 5

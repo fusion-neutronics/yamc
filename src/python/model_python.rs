@@ -1,7 +1,6 @@
 use crate::model::Model;
 use crate::python::geometry_python::PyGeometry;
 use crate::python::settings_python::PySettings;
-use crate::python::source_python::PySource;
 use crate::python::tally_python::PyTally;
 use crate::tally::Tally;
 use pyo3::prelude::*;
