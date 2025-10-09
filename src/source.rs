@@ -1,11 +1,11 @@
 #[derive(Debug, Clone)]
-pub struct Source {
+pub struct IndependentSource {
     pub position: [f64; 3],
     pub direction: [f64; 3],
     pub energy: f64,
 }
 
-impl Source {
+impl IndependentSource {
     pub fn sample(&self) -> crate::particle::Particle {
         crate::particle::Particle::new(self.position, self.direction, self.energy)
     }
@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_source_construction() {
-        let s = Source {
+        let s = IndependentSource {
             position: [1.0, 2.0, 3.0],
             direction: [0.0, 0.0, 1.0],
             energy: 2e6,

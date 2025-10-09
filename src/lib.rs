@@ -151,7 +151,7 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<filters_python::PyCellFilter>()?;
     m.add_class::<filters_python::PyMaterialFilter>()?;
     use crate::python::source_python;
-    m.add_class::<source_python::PySource>()?;
+    m.add_class::<source_python::PyIndependentSource>()?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
 
     crate::python::tally_python::register_tally_classes(_py, m)?;

@@ -1,20 +1,20 @@
-use crate::source::Source;
+use crate::source::IndependentSource;
 
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub particles: usize,
     pub batches: usize,
-    pub source: Source,
+    pub source: IndependentSource,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::Source;
+    use crate::source::IndependentSource;
 
     #[test]
     fn test_settings_construction() {
-        let src = Source {
+        let src = IndependentSource {
             position: [0.0, 0.0, 0.0],
             direction: [0.0, 1.0, 0.0],
             energy: 1e5,
@@ -31,7 +31,7 @@ mod tests {
 
     #[test]
     fn test_settings_source_assignment() {
-        let src = Source {
+        let src = IndependentSource {
             position: [1.0, 1.0, 1.0],
             direction: [0.0, 0.0, 1.0],
             energy: 1e6,
