@@ -271,8 +271,8 @@ mod tests {
         let cell = Cell::new(Some(1), region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
         let geometry = Geometry { cells: vec![cell] };
         let source = IndependentSource {
-            position: [0.0, 0.0, 0.0],
-            direction: [0.0, 0.0, 1.0],
+            space: [0.0, 0.0, 0.0],
+            angle: [0.0, 0.0, 1.0],
             energy: 1e6,
         };
         let settings = Settings {

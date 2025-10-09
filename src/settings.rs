@@ -15,8 +15,8 @@ mod tests {
     #[test]
     fn test_settings_construction() {
         let src = IndependentSource {
-            position: [0.0, 0.0, 0.0],
-            direction: [0.0, 1.0, 0.0],
+            space: [0.0, 0.0, 0.0],
+            angle: [0.0, 1.0, 0.0],
             energy: 1e5,
         };
         let settings = Settings {
@@ -26,14 +26,14 @@ mod tests {
         };
         assert_eq!(settings.particles, 100);
         assert_eq!(settings.batches, 10);
-        assert_eq!(settings.source.position, [0.0, 0.0, 0.0]);
+        assert_eq!(settings.source.space, [0.0, 0.0, 0.0]);
     }
 
     #[test]
     fn test_settings_source_assignment() {
         let src = IndependentSource {
-            position: [1.0, 1.0, 1.0],
-            direction: [0.0, 0.0, 1.0],
+            space: [1.0, 1.0, 1.0],
+            angle: [0.0, 0.0, 1.0],
             energy: 1e6,
         };
         let mut settings = Settings {
@@ -42,6 +42,6 @@ mod tests {
             source: src.clone(),
         };
         settings.source = src.clone();
-        assert_eq!(settings.source.position, [1.0, 1.0, 1.0]);
+        assert_eq!(settings.source.space, [1.0, 1.0, 1.0]);
     }
 }
