@@ -3,6 +3,10 @@ name = "example_use"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "openmc_style_source"
+path = "src/openmc_style_source.rs"
+
 [dependencies]
 materials_for_mc = { path = "../../", features = ["download"] }
 rand = "0.8"

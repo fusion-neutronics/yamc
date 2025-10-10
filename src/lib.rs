@@ -9,6 +9,7 @@ pub mod particle;
 pub mod region;
 pub mod settings;
 pub mod source;
+pub mod stats;
 pub mod surface;
 pub use bounding_box::*;
 pub use cell::*;
@@ -85,6 +86,7 @@ mod python {
     pub mod region_python;
     pub mod settings_python;
     pub mod source_python;
+    pub mod stats_python;
     pub mod surface_python;
     // ...existing code...
 }
@@ -152,6 +154,8 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<filters_python::PyMaterialFilter>()?;
     use crate::python::source_python;
     m.add_class::<source_python::PyIndependentSource>()?;
+    use crate::python::stats_python;
+    stats_python::register_stats_module(_py, m)?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
 
     crate::python::tally_python::register_tally_classes(_py, m)?;
