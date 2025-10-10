@@ -272,7 +272,7 @@ mod tests {
         let geometry = Geometry { cells: vec![cell] };
         let source = IndependentSource {
             space: [0.0, 0.0, 0.0],
-            angle: [0.0, 0.0, 1.0],
+            angle: crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0),
             energy: 1e6,
         };
         let settings = Settings {

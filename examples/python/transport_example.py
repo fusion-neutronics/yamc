@@ -45,7 +45,7 @@ cell2 = mc.Cell(
 )
 geometry = mc.Geometry(cells=[cell1, cell2])
 
-source = mc.IndependentSource(position=[0.0, 0.0, 0.0], direction=[0.0, 0.0, 1.0], energy=1e6)
+source = mc.IndependentSource()  # defaults to 14.06MeV energy, space = 0,0,0 direction = isotropic
 settings = mc.Settings(particles=100, batches=10, source=source)
 
 filter1 = mc.CellFilter(cell1)

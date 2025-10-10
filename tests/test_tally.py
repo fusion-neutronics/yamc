@@ -113,7 +113,7 @@ class TestTallySimulation:
         geometry = mc.Geometry(cells=[cell])
         
         # Create source and settings
-        source = mc.IndependentSource([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6)
+        source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Monodirectional(reference_uvw=[0.0, 0.0, 1.0]), energy=1e6)
         settings = mc.Settings(particles=100, batches=5, source=source)
         
         return geometry, settings
@@ -271,7 +271,7 @@ class TestTallyIntegration:
         geometry = mc.Geometry(cells=[cell])
         
         # Create source and settings
-        source = mc.IndependentSource([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6)
+        source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Monodirectional([0.0,0.0,1.0]), energy=1e6)
         settings = mc.Settings(particles=10, batches=1, source=source)
         
         # Create tally
