@@ -1,58 +1,61 @@
 use rand::Rng;
 
-/// Trait for statistical distributions that can be sampled for 3D direction vectors
-pub trait AngularDistribution: std::fmt::Debug + Send + Sync {
-    fn sample(&self) -> [f64; 3];
-    fn clone_box(&self) -> Box<dyn AngularDistribution>;
-    fn type_name(&self) -> &'static str;
-    fn as_any(&self) -> &dyn std::any::Any;
+/// Angular distribution types - simplified enum approach
+#[derive(Debug, Clone)]
+pub enum AngularDistribution {
+    Isotropic,
+    Monodirectional { reference_uvw: [f64; 3] },
 }
 
-impl Clone for Box<dyn AngularDistribution> {
-    fn clone(&self) -> Self {
-        self.clone_box()
+impl AngularDistribution {
+    /// Create a new monodirectional distribution
+    pub fn new_monodirectional(u: f64, v: f64, w: f64) -> Self {
+        // Normalize the direction vector
+        let mag = (u * u + v * v + w * w).sqrt();
+        if mag == 0.0 {
+            panic!("Direction vector cannot be zero");
+        }
+        Self::Monodirectional {
+            reference_uvw: [u / mag, v / mag, w / mag],
+        }
+    }
+
+    /// Sample a direction from this distribution
+    pub fn sample(&self) -> [f64; 3] {
+        match self {
+            AngularDistribution::Isotropic => {
+                // Sample isotropic direction using OpenMC's method
+                let mut rng = rand::thread_rng();
+                let xi1: f64 = rng.gen();
+                let xi2: f64 = rng.gen();
+                
+                // Convert to spherical coordinates
+                let mu = 2.0 * xi1 - 1.0; // cosine of polar angle
+                let phi = 2.0 * std::f64::consts::PI * xi2; // azimuthal angle
+                
+                // Convert to Cartesian coordinates
+                let sqrt_one_minus_mu2 = (1.0 - mu * mu).sqrt();
+                let cos_phi = phi.cos();
+                let sin_phi = phi.sin();
+                
+                [sqrt_one_minus_mu2 * cos_phi, sqrt_one_minus_mu2 * sin_phi, mu]
+            }
+            AngularDistribution::Monodirectional { reference_uvw } => *reference_uvw,
+        }
     }
 }
 
-/// Isotropic distribution (uniform on sphere)
+// Legacy structs for backward compatibility - these just wrap the enum
 #[derive(Debug, Clone)]
 pub struct Isotropic;
 
-impl AngularDistribution for Isotropic {
-    fn sample(&self) -> [f64; 3] {
-        // Sample isotropic direction using OpenMC's method
-        let mut rng = rand::thread_rng();
-        // Generate uniform random numbers
-        let xi1: f64 = rng.gen();
-        let xi2: f64 = rng.gen();
-        
-        // Convert to spherical coordinates
-        let mu = 2.0 * xi1 - 1.0; // cosine of polar angle
-        let phi = 2.0 * std::f64::consts::PI * xi2; // azimuthal angle
-        
-        // Convert to Cartesian coordinates
-        let sin_theta = (1.0 - mu * mu).sqrt();
-        [
-            sin_theta * phi.cos(),
-            sin_theta * phi.sin(),
-            mu,
-        ]
-    }
-    
-    fn clone_box(&self) -> Box<dyn AngularDistribution> {
-        Box::new(self.clone())
-    }
-
-    fn type_name(&self) -> &'static str {
-        "Isotropic"
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
+impl Isotropic {
+    pub fn sample(&self) -> [f64; 3] {
+        AngularDistribution::Isotropic.sample()
     }
 }
 
-/// Monodirectional distribution (fixed direction)
+// Legacy structs for backward compatibility - these just wrap the enum
 #[derive(Debug, Clone)]
 pub struct Monodirectional {
     pub reference_uvw: [f64; 3],
@@ -69,23 +72,9 @@ impl Monodirectional {
             reference_uvw: [u / mag, v / mag, w / mag],
         }
     }
-}
-
-impl AngularDistribution for Monodirectional {
-    fn sample(&self) -> [f64; 3] {
-        self.reference_uvw
-    }
     
-    fn clone_box(&self) -> Box<dyn AngularDistribution> {
-        Box::new(self.clone())
-    }
-
-    fn type_name(&self) -> &'static str {
-        "Monodirectional"
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
+    pub fn sample(&self) -> [f64; 3] {
+        self.reference_uvw
     }
 }
 
@@ -161,12 +150,12 @@ mod tests {
     }
 
     #[test]
-    fn test_trait_object_safety() {
-        // Test that we can use trait objects (Box<dyn AngularDistribution>)
-        let iso: Box<dyn AngularDistribution> = Box::new(Isotropic);
-        let mono: Box<dyn AngularDistribution> = Box::new(Monodirectional::new(0.0, 0.0, 1.0));
+    fn test_enum_functionality() {
+        // Test that we can use the enum directly
+        let iso = AngularDistribution::Isotropic;
+        let mono = AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
         
-        // Should be able to call sample through trait objects
+        // Should be able to call sample on enum variants
         let iso_sample = iso.sample();
         let mono_sample = mono.sample();
         
@@ -189,8 +178,8 @@ mod tests {
         assert_send::<Monodirectional>();
         assert_sync::<Monodirectional>();
         
-        // Test with trait objects too
-        assert_send::<Box<dyn AngularDistribution>>();
-        assert_sync::<Box<dyn AngularDistribution>>();
+        // Test with the main enum too
+        assert_send::<AngularDistribution>();
+        assert_sync::<AngularDistribution>();
     }
 }

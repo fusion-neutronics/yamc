@@ -1,6 +1,38 @@
 use crate::source::IndependentSource;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
+use crate::python::stats_python::{PyIsotropic, PyMonodirectional};
+use crate::stats::{AngularDistribution, Isotropic, Monodirectional};
+
+impl<'source> FromPyObject<'source> for AngularDistribution {
+    fn extract(ob: &'source PyAny) -> PyResult<Self> {
+        if let Ok(mono) = ob.extract::<PyMonodirectional>() {
+            Ok(AngularDistribution::Monodirectional { 
+                reference_uvw: mono.inner.reference_uvw 
+            })
+        } else if let Ok(_iso) = ob.extract::<PyIsotropic>() {
+            Ok(AngularDistribution::Isotropic)
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "Expected PyIsotropic or PyMonodirectional"
+            ))
+        }
+    }
+}
+
+impl IntoPy<PyObject> for AngularDistribution {
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        match self {
+            AngularDistribution::Isotropic => {
+                PyIsotropic { inner: Isotropic }.into_py(py)
+            },
+            AngularDistribution::Monodirectional { reference_uvw } => {
+                let mono = Monodirectional { reference_uvw };
+                PyMonodirectional { inner: mono }.into_py(py)
+            }
+        }
+    }
+}
 
 #[pyclass(name = "IndependentSource")]
 #[derive(Clone)]
@@ -15,13 +47,13 @@ impl PyIndependentSource {
     pub fn new(
         space: Option<[f64; 3]>,
         energy: Option<f64>, 
-        angle: Option<&PyAny>
+        angle: Option<AngularDistribution>
     ) -> PyResult<Self> {
         let mut instance = Self { inner: IndependentSource::new() };
         
         if let Some(val) = space { instance.set_space(val); }
         if let Some(val) = energy { instance.set_energy(val); }
-        if let Some(val) = angle { instance.set_angle(val)?; }
+        if let Some(val) = angle { instance.set_angle_direct(val); }
         
         Ok(instance)
     }
@@ -53,45 +85,18 @@ impl PyIndependentSource {
     }
 
     #[getter]
-    pub fn angle(&self) -> PyObject {
-        Python::with_gil(|py| self.convert_angle_to_python(py))
+    pub fn angle(&self) -> AngularDistribution {
+        self.inner.angle.clone()
     }
-    
-    fn convert_angle_to_python(&self, py: Python) -> PyObject {
-        use crate::python::stats_python::{PyIsotropic, PyMonodirectional};
-        use crate::stats::{Isotropic, Monodirectional};
-        use std::any::Any;
-        
-        let angle_ref = self.inner.angle.as_ref();
-        
-        match (
-            angle_ref.as_any().downcast_ref::<Isotropic>(),
-            angle_ref.as_any().downcast_ref::<Monodirectional>()
-        ) {
-            (Some(iso), _) => PyIsotropic { inner: iso.clone() }.into_py(py),
-            (_, Some(mono)) => PyMonodirectional { inner: mono.clone() }.into_py(py),
-            _ => format!("AngularDistribution(type={})", angle_ref.type_name()).to_object(py)
-        }
+
+    fn set_angle_direct(&mut self, angle: AngularDistribution) {
+        self.inner.angle = angle;
     }
 
     #[setter(angle)]
     pub fn set_angle(&mut self, angle: &PyAny) -> PyResult<()> {
-        use crate::python::stats_python::{PyIsotropic, PyMonodirectional};
-        
-        // Try to extract as Monodirectional first
-        if let Ok(mono) = angle.extract::<PyMonodirectional>() {
-            self.inner.angle = Box::new(mono.inner.clone());
-        } 
-        // Try to extract as Isotropic
-        else if let Ok(iso) = angle.extract::<PyIsotropic>() {
-            self.inner.angle = Box::new(iso.inner.clone());
-        }
-        // If neither, return error
-        else {
-            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "angle must be an Isotropic or Monodirectional distribution"
-            ));
-        }
+        let typed_angle = angle.extract::<AngularDistribution>()?;
+        self.set_angle_direct(typed_angle);
         Ok(())
     }
 

@@ -14,10 +14,9 @@ mod tests {
 
     #[test]
     fn test_settings_construction() {
-        use crate::stats::Monodirectional;
         let src = IndependentSource {
             space: [0.0, 0.0, 0.0],
-            angle: Box::new(Monodirectional::new(0.0, 1.0, 0.0)),
+            angle: crate::stats::AngularDistribution::new_monodirectional(0.0, 1.0, 0.0),
             energy: 1e5,
         };
         let settings = Settings {
@@ -32,10 +31,9 @@ mod tests {
 
     #[test]
     fn test_settings_source_assignment() {
-        use crate::stats::Monodirectional;
         let src = IndependentSource {
             space: [1.0, 1.0, 1.0],
-            angle: Box::new(Monodirectional::new(0.0, 0.0, 1.0)),
+            angle: crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0),
             energy: 1e6,
         };
         let mut settings = Settings {

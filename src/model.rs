@@ -270,10 +270,9 @@ mod tests {
         let material_arc = Arc::new(Mutex::new(material));
         let cell = Cell::new(Some(1), region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
         let geometry = Geometry { cells: vec![cell] };
-        use crate::stats::Monodirectional;
         let source = IndependentSource {
             space: [0.0, 0.0, 0.0],
-            angle: Box::new(Monodirectional::new(0.0, 0.0, 1.0)),
+            angle: crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0),
             energy: 1e6,
         };
         let settings = Settings {

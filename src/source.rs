@@ -1,7 +1,7 @@
 #[derive(Debug, Clone)]
 pub struct IndependentSource {
     pub space: [f64; 3],
-    pub angle: Box<dyn crate::stats::AngularDistribution>,
+    pub angle: crate::stats::AngularDistribution,
     pub energy: f64,
 }
 
@@ -12,10 +12,9 @@ impl IndependentSource {
     }
     
     pub fn new() -> Self {
-        use crate::stats::Isotropic;
         Self {
             space: [0.0, 0.0, 0.0],
-            angle: Box::new(Isotropic),
+            angle: crate::stats::AngularDistribution::Isotropic,
             energy: 14.06e6,
         }
     }
@@ -27,11 +26,9 @@ mod tests {
 
     #[test]
     fn test_source_construction() {
-        use crate::stats::{Monodirectional, Isotropic};
-        
         let mut s = IndependentSource::new();
         s.space = [1.0, 2.0, 3.0];
-        s.angle = Box::new(Monodirectional::new(0.0, 0.0, 1.0));
+        s.angle = crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
         s.energy = 2e6;
         
         let p = s.sample();
@@ -90,22 +87,20 @@ mod tests {
 
     #[test]
     fn test_source_angle_switching() {
-        use crate::stats::{Monodirectional, Isotropic};
-        
         let mut s = IndependentSource::new();
         
         // Start with monodirectional
-        s.angle = Box::new(Monodirectional::new(1.0, 0.0, 0.0));
+        s.angle = crate::stats::AngularDistribution::new_monodirectional(1.0, 0.0, 0.0);
         let p1 = s.sample();
         assert_eq!(p1.direction, [1.0, 0.0, 0.0]);
         
         // Switch to different monodirectional
-        s.angle = Box::new(Monodirectional::new(0.0, 1.0, 0.0));
+        s.angle = crate::stats::AngularDistribution::new_monodirectional(0.0, 1.0, 0.0);
         let p2 = s.sample();
         assert_eq!(p2.direction, [0.0, 1.0, 0.0]);
         
         // Switch to isotropic
-        s.angle = Box::new(Isotropic);
+        s.angle = crate::stats::AngularDistribution::Isotropic;
         let p3 = s.sample();
         let p4 = s.sample();
         
@@ -121,12 +116,10 @@ mod tests {
 
     #[test]
     fn test_source_consistency() {
-        use crate::stats::Monodirectional;
-        
         let mut s = IndependentSource::new();
         s.space = [1.0, 2.0, 3.0];
         s.energy = 5e6;
-        s.angle = Box::new(Monodirectional::new(0.0, 0.0, 1.0));
+        s.angle = crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
         
         // Multiple samples should be consistent for monodirectional
         for _ in 0..10 {
