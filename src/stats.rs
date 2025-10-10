@@ -20,6 +20,11 @@ impl AngularDistribution {
         }
     }
 
+    /// Create a new isotropic distribution
+    pub fn new_isotropic() -> Self {
+        Self::Isotropic
+    }
+
     /// Sample a direction from this distribution
     pub fn sample(&self) -> [f64; 3] {
         match self {
