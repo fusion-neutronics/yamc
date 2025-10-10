@@ -45,46 +45,13 @@ impl AngularDistribution {
     }
 }
 
-// Legacy structs for backward compatibility - these just wrap the enum
-#[derive(Debug, Clone)]
-pub struct Isotropic;
-
-impl Isotropic {
-    pub fn sample(&self) -> [f64; 3] {
-        AngularDistribution::Isotropic.sample()
-    }
-}
-
-// Legacy structs for backward compatibility - these just wrap the enum
-#[derive(Debug, Clone)]
-pub struct Monodirectional {
-    pub reference_uvw: [f64; 3],
-}
-
-impl Monodirectional {
-    pub fn new(u: f64, v: f64, w: f64) -> Self {
-        // Normalize the direction vector
-        let mag = (u * u + v * v + w * w).sqrt();
-        if mag == 0.0 {
-            panic!("Direction vector cannot be zero");
-        }
-        Self {
-            reference_uvw: [u / mag, v / mag, w / mag],
-        }
-    }
-    
-    pub fn sample(&self) -> [f64; 3] {
-        self.reference_uvw
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_monodirectional_distribution() {
-        let mono = Monodirectional::new(0.0, 0.0, 1.0);
+        let mono = AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
         let sample = mono.sample();
         assert_eq!(sample, [0.0, 0.0, 1.0]);
     }
@@ -100,7 +67,7 @@ mod tests {
         ];
 
         for &direction in &test_directions {
-            let mono = Monodirectional::new(direction[0], direction[1], direction[2]);
+            let mono = AngularDistribution::new_monodirectional(direction[0], direction[1], direction[2]);
             let sample = mono.sample();
             assert_eq!(sample, direction);
         }
@@ -108,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_monodirectional_consistency() {
-        let mono = Monodirectional::new(1.0, 0.0, 0.0);
+        let mono = AngularDistribution::new_monodirectional(1.0, 0.0, 0.0);
         
         // Should return the same direction consistently
         for _ in 0..100 {
@@ -119,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_isotropic_distribution() {
-        let iso = Isotropic;
+        let iso = AngularDistribution::Isotropic;
         let sample = iso.sample();
         
         // Check that the vector is normalized
@@ -129,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_isotropic_randomness() {
-        let iso = Isotropic;
+        let iso = AngularDistribution::Isotropic;
         
         // Sample many directions and check they're all normalized and vary
         let mut samples = Vec::new();
@@ -169,16 +136,10 @@ mod tests {
 
     #[test]
     fn test_send_sync_bounds() {
-        // Test that our distributions implement Send + Sync for threading
+        // Test that our distribution enum implements Send + Sync for threading
         fn assert_send<T: Send>() {}
         fn assert_sync<T: Sync>() {}
         
-        assert_send::<Isotropic>();
-        assert_sync::<Isotropic>();
-        assert_send::<Monodirectional>();
-        assert_sync::<Monodirectional>();
-        
-        // Test with the main enum too
         assert_send::<AngularDistribution>();
         assert_sync::<AngularDistribution>();
     }
