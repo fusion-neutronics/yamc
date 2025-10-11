@@ -147,10 +147,10 @@ impl Model {
                                         println!("Particle absorbed at {:?} (MT=101 absorption)", particle.position);
                                         particle.alive = false;
                                     }
-                                    3 => {
-                                        // Nonelastic scattering (inelastic + other)
-                                        println!("Particle underwent nonelastic scattering at {:?}", particle.position);
-                                        println!("particle killed as code not ready nonelastic reaction");
+                                    4 => {
+                                        // Inelastic scattering
+                                        println!("Particle underwent inelastic scattering at {:?}", particle.position);
+                                        println!("particle killed as code not ready inelastic reaction");
                                         // TODO: Sample outgoing energy and angle from nuclear data
                                         particle.alive = false; // Kill particle for now until inelastic implemented
                                     }
