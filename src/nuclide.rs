@@ -125,7 +125,7 @@ impl Nuclide {
         let fission_mt = 18;
         let absorption_mt = 101;
         let elastic_mt = 2;
-        let nonelastic_mt = 3;
+        let inelastic_mt = 4;
 
         // Helper to get xs for a given MT using Reaction::cross_section_at
         let get_xs = |mt: i32| -> f64 {
@@ -169,8 +169,8 @@ impl Nuclide {
             return temp_reactions.get(&fission_mt);
         }
 
-        // Non-elastic selection as fallback
-        temp_reactions.get(&nonelastic_mt)
+        // inelastic selection as fallback
+        temp_reactions.get(&inelastic_mt)
     }
     /// Get the energy grid for a specific temperature
     pub fn energy_grid(&self, temperature: &str) -> Option<&Vec<f64>> {
