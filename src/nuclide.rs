@@ -172,6 +172,87 @@ impl Nuclide {
         // inelastic selection as fallback
         temp_reactions.get(&inelastic_mt)
     }
+
+    /// Sample a specific inelastic reaction from the constituent MT 50-91 reactions that make up MT 4.
+    /// This provides more detailed physics than just sampling MT 4 directly.
+    /// 
+    /// # Arguments
+    /// * `energy` - Neutron energy in eV
+    /// * `temperature` - Temperature string (e.g., "294" or "294K")
+    /// * `rng` - Random number generator
+    /// 
+    /// # Returns
+    /// * `&Reaction` for the sampled constituent inelastic reaction (MT 50-91)
+    /// 
+    /// # Panics
+    /// * If no inelastic constituent reactions (MT 50-91) are available
+    /// * If sampling logic fails despite having valid reactions and cross sections
+    pub fn sample_inelastic_constituent<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> &Reaction {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            println!("[sample_inelastic_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
+            r
+        } else {
+            println!("[sample_inelastic_constituent] No reaction data available for any temperature.");
+            return None;
+        };
+
+        // MT 4 is composed of MT 50-91 (inelastic scattering to discrete levels)
+        let inelastic_constituent_mts: Vec<i32> = (50..92).collect();
+        
+        // Filter to only the MTs that are actually available in this nuclide
+        let available_inelastic_mts: Vec<i32> = inelastic_constituent_mts
+            .into_iter()
+            .filter(|&mt| temp_reactions.contains_key(&mt))
+            .collect();
+
+        if available_inelastic_mts.is_empty() {
+            panic!("sample_inelastic_constituent: No inelastic constituent reactions (MT 50-91) available in this nuclide at temperature '{}'. This indicates missing nuclear data or incorrect MT 4 sampling.", temperature);
+        }
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Calculate total cross section for all available inelastic constituents
+        let total_inelastic_xs: f64 = available_inelastic_mts
+            .iter()
+            .map(|&mt| get_xs(mt))
+            .sum();
+
+        if total_inelastic_xs <= 0.0 {
+            panic!("sample_inelastic_constituent: Total inelastic cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
+        }
+
+        // Sample which specific inelastic reaction occurs
+        let xi = rng.gen_range(0.0..total_inelastic_xs);
+        let mut accum = 0.0;
+
+        for &mt in &available_inelastic_mts {
+            let xs = get_xs(mt);
+            accum += xs;
+            if xi < accum && xs > 0.0 {
+                return temp_reactions.get(&mt);
+            }
+        }
+
+        // This should never be reached due to the sampling logic above
+        panic!("sample_inelastic_constituent: Failed to sample any inelastic reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
+    }
+
     /// Get the energy grid for a specific temperature
     pub fn energy_grid(&self, temperature: &str) -> Option<&Vec<f64>> {
         self.energy
@@ -2234,5 +2315,89 @@ mod tests {
             li6_vs_li7_different,
             "Li6 and Li7 should have different data"
         );
+    }
+
+    #[test]
+    fn test_sample_inelastic_constituent() {
+        use rand::rngs::StdRng;
+        use rand::SeedableRng;
+        
+        // Load Li6 which should have some inelastic reactions (MT 50-91)
+        let path = std::path::Path::new("tests/Li6.json");
+        let nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
+        let temperature = "294";
+
+        // Check what inelastic constituent MTs are available
+        let available_mts = nuclide.reaction_mts().unwrap_or_default();
+        let inelastic_mts: Vec<i32> = available_mts
+            .into_iter()
+            .filter(|&mt| mt >= 50 && mt < 92)
+            .collect();
+
+        if inelastic_mts.is_empty() {
+            println!("No inelastic constituent reactions (MT 50-91) found in Li6, skipping test");
+            return;
+        }
+
+        println!("Available inelastic constituent MTs in Li6: {:?}", inelastic_mts);
+
+        // Test sampling at various energies
+        let energies = [1e4, 1e5, 1e6, 1e7]; 
+        
+        for energy in energies {
+            let mut rng = StdRng::seed_from_u64(42);
+            
+            if let Some(reaction) = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng) {
+                println!("Energy {:.1e}: Sampled inelastic MT {}", energy, reaction.mt_number);
+                
+                // Verify the sampled MT is in the expected range
+                assert!(
+                    reaction.mt_number >= 50 && reaction.mt_number < 92,
+                    "Sampled MT {} should be in range 50-91",
+                    reaction.mt_number
+                );
+                
+                // Verify it's one of the available MTs
+                assert!(
+                    inelastic_mts.contains(&reaction.mt_number),
+                    "Sampled MT {} should be in available inelastic MTs {:?}",
+                    reaction.mt_number,
+                    inelastic_mts
+                );
+            } else {
+                println!("Energy {:.1e}: No inelastic constituent reaction sampled", energy);
+            }
+        }
+    }
+
+    #[test]
+    fn test_sample_inelastic_constituent_deterministic() {
+        use rand::rngs::StdRng;
+        use rand::SeedableRng;
+        
+        let path = std::path::Path::new("tests/Li6.json");
+        let nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
+        let temperature = "294";
+        let energy = 1e6;
+
+        // Same seed should give same result
+        let mut rng1 = StdRng::seed_from_u64(12345);
+        let mut rng2 = StdRng::seed_from_u64(12345);
+        
+        let reaction1 = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng1);
+        let reaction2 = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng2);
+
+        match (reaction1, reaction2) {
+            (Some(r1), Some(r2)) => {
+                assert_eq!(
+                    r1.mt_number, r2.mt_number,
+                    "Same seed should give same inelastic constituent reaction"
+                );
+            }
+            (None, None) => {
+                println!("No inelastic reactions available at this energy");
+            }
+            _ => panic!("Inconsistent results with same seed"),
+        }
     }
 }
