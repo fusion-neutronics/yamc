@@ -347,9 +347,9 @@ impl PyNuclide {
 
         // Handle both integer and string inputs
         let result = if let Ok(mt_num) = reaction.extract::<i32>() {
-            nuclide.microscopic_cross_section(mt_num, temperature)
+            nuclide.microscopic_cross_section(mt_num, temperature, true)
         } else if let Ok(reaction_name) = reaction.extract::<String>() {
-            nuclide.microscopic_cross_section(reaction_name, temperature)
+            nuclide.microscopic_cross_section(reaction_name, temperature, true)
         } else {
             return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                 "reaction must be either an integer (MT number) or string (reaction name)",
