@@ -233,6 +233,7 @@ impl Nuclide {
         &mut self,
         reaction: R,
         temperature: Option<&str>,
+        trim_trailing_zeros: bool,
     ) -> Result<(Vec<f64>, Vec<f64>), Box<dyn std::error::Error>>
     where
         R: Into<ReactionIdentifier>,
@@ -288,7 +289,19 @@ impl Nuclide {
         }
 
         // Now proceed with the original logic
-        self.get_microscopic_cross_section_data(mt, temperature)
+        let (xs, energy) = self.get_microscopic_cross_section_data(mt, temperature)?;
+        if trim_trailing_zeros {
+            let mut last_nonzero = xs.len();
+            for (i, &val) in xs.iter().enumerate().rev() {
+                if val != 0.0 {
+                    last_nonzero = i + 1;
+                    break;
+                }
+            }
+            Ok((xs[..last_nonzero].to_vec(), energy[..last_nonzero].to_vec()))
+        } else {
+            Ok((xs, energy))
+        }
     }
 
     /// Helper method to automatically load data from config
@@ -1488,7 +1501,7 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Test with specific temperature
-        let result = nuclide.microscopic_cross_section(2, Some("294"));
+        let result = nuclide.microscopic_cross_section(2, Some("294"), false);
         assert!(result.is_ok(), "Should successfully get MT=2 data for 294K");
 
         let (xs, energy) = result.unwrap();
@@ -1501,7 +1514,7 @@ mod tests {
         );
 
         // Test with different temperature
-        let result_300 = nuclide.microscopic_cross_section(2, Some("300"));
+        let result_300 = nuclide.microscopic_cross_section(2, Some("300"), false);
         assert!(
             result_300.is_ok(),
             "Should successfully get MT=2 data for 300K"
@@ -1526,7 +1539,7 @@ mod tests {
             .expect("Failed to load Be9.json with temperature filter");
 
         // Should work without specifying temperature since only one is loaded
-        let result = nuclide.microscopic_cross_section(2, None);
+        let result = nuclide.microscopic_cross_section(2, None, false);
         assert!(
             result.is_ok(),
             "Should successfully get MT=2 data without temperature"
@@ -1548,7 +1561,7 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Should fail when no temperature specified with multiple loaded
-        let result = nuclide.microscopic_cross_section(2, None);
+        let result = nuclide.microscopic_cross_section(2, None, false);
         assert!(
             result.is_err(),
             "Should error when multiple temperatures loaded without specifying"
@@ -1573,7 +1586,7 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Should fail for non-existent temperature
-        let result = nuclide.microscopic_cross_section(2, Some("500"));
+        let result = nuclide.microscopic_cross_section(2, Some("500"), false);
         assert!(result.is_err(), "Should error for invalid temperature");
 
         let error_msg = result.unwrap_err().to_string();
@@ -1600,7 +1613,7 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Should fail for non-existent MT
-        let result = nuclide.microscopic_cross_section(9999, Some("294"));
+        let result = nuclide.microscopic_cross_section(9999, Some("294"), false);
         assert!(result.is_err(), "Should error for invalid MT number");
 
         let error_msg = result.unwrap_err().to_string();
@@ -1631,7 +1644,7 @@ mod tests {
         let test_mts = [1, 2, 3, 16, 27, 101, 102];
 
         for mt in test_mts {
-            let result = nuclide.microscopic_cross_section(mt, Some("294"));
+            let result = nuclide.microscopic_cross_section(mt, Some("294"), false);
             if result.is_ok() {
                 let (xs, energy) = result.unwrap();
                 assert!(!xs.is_empty(), "MT={} should have cross section data", mt);
@@ -1656,7 +1669,7 @@ mod tests {
             super::read_nuclide_from_json("tests/Li6.json", None).expect("Failed to load Li6.json");
 
         // Li6 should have only one temperature, so no temperature needed
-        let result = nuclide.microscopic_cross_section(2, None);
+        let result = nuclide.microscopic_cross_section(2, None, false);
         assert!(
             result.is_ok(),
             "Should successfully get Li6 elastic scattering data"
@@ -1670,7 +1683,7 @@ mod tests {
         assert!(!energy.is_empty(), "Li6 energy data should not be empty");
 
         // Test with explicit temperature too
-        let result_explicit = nuclide.microscopic_cross_section(2, Some("294"));
+        let result_explicit = nuclide.microscopic_cross_section(2, Some("294"), false);
         assert!(
             result_explicit.is_ok(),
             "Should work with explicit temperature"
@@ -1693,8 +1706,8 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Test that temperature matching works with 'K' suffix
-        let result_without_k = nuclide.microscopic_cross_section(2, Some("294"));
-        let result_with_k = nuclide.microscopic_cross_section(2, Some("294K"));
+        let result_without_k = nuclide.microscopic_cross_section(2, Some("294"), false);
+        let result_with_k = nuclide.microscopic_cross_section(2, Some("294K"), false);
 
         // Both should work (though one might fail if the data uses different format)
         if result_without_k.is_ok() && result_with_k.is_ok() {
@@ -1756,7 +1769,7 @@ mod tests {
         );
 
         // Call microscopic_cross_section - should auto-load data
-        let result = nuclide.microscopic_cross_section(2, Some("294"));
+        let result = nuclide.microscopic_cross_section(2, Some("294"), false);
         assert!(
             result.is_ok(),
             "Auto-loading should succeed: {:?}",
@@ -1826,7 +1839,7 @@ mod tests {
         );
 
         // Request 300K data - should auto-load additional temperature
-        let result = nuclide.microscopic_cross_section(2, Some("300"));
+        let result = nuclide.microscopic_cross_section(2, Some("300"), false);
         assert!(
             result.is_ok(),
             "Auto-loading additional temperature should succeed: {:?}",
@@ -1889,7 +1902,7 @@ mod tests {
         };
 
         // Call microscopic_cross_section - should fail with helpful error
-        let result = nuclide.microscopic_cross_section(2, Some("294"));
+        let result = nuclide.microscopic_cross_section(2, Some("294"), false);
         assert!(result.is_err(), "Auto-loading without config should fail");
 
         let error_msg = result.unwrap_err().to_string();
@@ -1972,7 +1985,7 @@ mod tests {
         };
 
         // Call microscopic_cross_section - should fail because no name for auto-loading
-        let result = nuclide.microscopic_cross_section(2, Some("294"));
+        let result = nuclide.microscopic_cross_section(2, Some("294"), false);
         assert!(
             result.is_err(),
             "Auto-loading without nuclide name should fail"
@@ -2024,12 +2037,12 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Test with MT number (existing functionality)
-        let result_mt = nuclide.microscopic_cross_section(2, Some("294"));
+        let result_mt = nuclide.microscopic_cross_section(2, Some("294"), false);
         assert!(result_mt.is_ok(), "Should work with MT number");
         let (xs_mt, energy_mt) = result_mt.unwrap();
 
         // Test with reaction name string
-        let result_str = nuclide.microscopic_cross_section("(n,elastic)", Some("294"));
+        let result_str = nuclide.microscopic_cross_section("(n,elastic)", Some("294"), false);
         assert!(result_str.is_ok(), "Should work with reaction name string");
         let (xs_str, energy_str) = result_str.unwrap();
 
@@ -2047,8 +2060,8 @@ mod tests {
         let test_cases = vec![("(n,gamma)", 102), ("(n,p)", 103), ("(n,a)", 107)];
 
         for (reaction_name, expected_mt) in test_cases {
-            let result_str = nuclide.microscopic_cross_section(reaction_name, Some("294"));
-            let result_mt = nuclide.microscopic_cross_section(expected_mt, Some("294"));
+            let result_str = nuclide.microscopic_cross_section(reaction_name, Some("294"), false);
+            let result_mt = nuclide.microscopic_cross_section(expected_mt, Some("294"), false);
 
             // If both succeed, they should give identical results
             if result_str.is_ok() && result_mt.is_ok() {
@@ -2084,7 +2097,7 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Test with invalid reaction name
-        let result = nuclide.microscopic_cross_section("(n,invalid)", Some("294"));
+        let result = nuclide.microscopic_cross_section("(n,invalid)", Some("294"), false);
         assert!(result.is_err(), "Should fail for invalid reaction name");
 
         let error_msg = result.unwrap_err().to_string();
@@ -2110,7 +2123,7 @@ mod tests {
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
         // Test that "fission" string is recognized (even though Be9 doesn't have fission reactions)
-        let result = nuclide.microscopic_cross_section("fission", Some("294"));
+        let result = nuclide.microscopic_cross_section("fission", Some("294"), false);
 
         // Should fail because Be9 doesn't have MT 18, but the error should be about missing MT, not unknown reaction
         assert!(
@@ -2141,10 +2154,10 @@ mod tests {
 
         // Get cross sections from both (different nuclides will have different data)
         let (xs_li6, _) = li6_file
-            .microscopic_cross_section("(n,gamma)", Some("294"))
+            .microscopic_cross_section("(n,gamma)", Some("294"), false)
             .expect("Failed to get Li6 cross section");
         let (xs_li7, _) = li7_file
-            .microscopic_cross_section("(n,gamma)", Some("294"))
+            .microscopic_cross_section("(n,gamma)", Some("294"), false)
             .expect("Failed to get Li7 cross section");
 
         // Should have different data since they're different nuclides
@@ -2177,10 +2190,10 @@ mod tests {
 
         // Verify we can load cross sections from both
         let (xs_li6, _) = li6_file
-            .microscopic_cross_section("(n,gamma)", Some("294"))
+            .microscopic_cross_section("(n,gamma)", Some("294"), false)
             .expect("Failed to get Li6 cross section");
         let (xs_li7, _) = li7_file
-            .microscopic_cross_section("(n,gamma)", Some("294"))
+            .microscopic_cross_section("(n,gamma)", Some("294"), false)
             .expect("Failed to get Li7 cross section");
 
         assert!(
@@ -2209,13 +2222,13 @@ mod tests {
 
         // Get cross sections
         let (xs_li6_1, _) = li6_1
-            .microscopic_cross_section("(n,gamma)", Some("294"))
+            .microscopic_cross_section("(n,gamma)", Some("294"), false)
             .expect("Failed to get Li6 cross section first time");
         let (xs_li7, _) = li7
-            .microscopic_cross_section("(n,gamma)", Some("294"))
+            .microscopic_cross_section("(n,gamma)", Some("294"), false)
             .expect("Failed to get Li7 cross section");
         let (xs_li6_2, _) = li6_2
-            .microscopic_cross_section("(n,gamma)", Some("294"))
+            .microscopic_cross_section("(n,gamma)", Some("294"), false)
             .expect("Failed to get Li6 cross section second time");
 
         // Li6 loads should be identical (cache working)
