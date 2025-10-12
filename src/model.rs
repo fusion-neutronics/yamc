@@ -148,11 +148,14 @@ impl Model {
                                         particle.alive = false;
                                     }
                                     4 => {
-                                        // Inelastic scattering
-                                        println!("Particle underwent inelastic scattering at {:?}", particle.position);
-                                        println!("particle killed as code not ready inelastic reaction");
-                                        // TODO: Sample outgoing energy and angle from nuclear data
-                                        particle.alive = false; // Kill particle for now until inelastic implemented
+                                        // Inelastic scattering - sample specific constituent reaction
+                                        let constituent_reaction = nuclide.sample_inelastic_constituent(
+                                            particle.energy,
+                                            &material.temperature,
+                                            &mut rng,
+                                        );
+                                        println!("Particle underwent inelastic scattering at {:?} via MT {} (constituent of MT 4)", 
+                                                particle.position, constituent_reaction.mt_number);
                                     }
                                     _ => {
                                         // Unknown reaction type - should never happen
