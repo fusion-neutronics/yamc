@@ -155,10 +155,10 @@ impl Model {
                                             &material.temperature,
                                             &mut rng,
                                         );
-                                        println!("Particle underwent inelastic scattering at {:?} via MT {} (constituent of MT 4)", 
-                                                particle.position, constituent_reaction.mt_number);
                                         // Overwrite reaction with constituent for tally scoring
                                         reaction = constituent_reaction;
+                                        println!("Particle underwent inelastic scattering at {:?} via MT {} (constituent of MT 4)", 
+                                                particle.position, constituent_reaction.mt_number);
                                     }
                                     _ => {
                                         // Unknown reaction type - should never happen
@@ -167,12 +167,14 @@ impl Model {
                                 }
                                 
                                 // Score user tallies for this reaction (after physics is processed)
-                                for tally in &mut tallies[1..] { // skip leakage tally at index 0
-                                    tally.score_event(
+                                for (i, tally) in tallies[1..].iter_mut().enumerate() { // skip leakage tally at index 0
+                                    if tally.score_event(
                                         reaction.mt_number,
                                         cell,
                                         material_id,
-                                    );
+                                    ) {
+                                        user_batch_counts[i] += 1;
+                                    }
                                 }
 
                             } else {
