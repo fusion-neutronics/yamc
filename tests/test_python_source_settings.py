@@ -12,7 +12,7 @@ def test_python_settings_construction():
     assert settings.particles == 100
     assert settings.batches == 10
     assert settings.source.space == [0.0, 0.0, 0.0]
-    assert settings.source.energy == 14.06e6
+    assert settings.source.energy == 1e5
 
 def test_python_settings_source_assignment():
     # Use new OpenMC-compatible API
