@@ -202,8 +202,7 @@ impl Nuclide {
             println!("[sample_inelastic_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
             r
         } else {
-            println!("[sample_inelastic_constituent] No reaction data available for any temperature.");
-            return None;
+            panic!("[sample_inelastic_constituent] No reaction data available for any temperature.");
         };
 
         // MT 4 is composed of MT 50-91 (inelastic scattering to discrete levels)
@@ -245,7 +244,7 @@ impl Nuclide {
             let xs = get_xs(mt);
             accum += xs;
             if xi < accum && xs > 0.0 {
-                return temp_reactions.get(&mt);
+                return temp_reactions.get(&mt).expect("sample_inelastic_constituent: MT not found in temp_reactions after filtering.");
             }
         }
 
@@ -2355,21 +2354,21 @@ mod tests {
         println!("Available inelastic constituent MTs in Li6: {:?}", inelastic_mts);
 
         // Test sampling at various energies
-        let energies = [1e4, 1e5, 1e6, 1e7]; 
-        
+        let energies = [0.375e7]; 
+        let energies = [0.375e7]; 
         for energy in energies {
-            let mut rng = StdRng::seed_from_u64(42);
-            
-            if let Some(reaction) = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng) {
-                println!("Energy {:.1e}: Sampled inelastic MT {}", energy, reaction.mt_number);
-                
+            let mut counts = std::collections::HashMap::new();
+            for i in 0..20 {
+                let mut rng = StdRng::seed_from_u64(42 + i);
+                let reaction = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng);
+                *counts.entry(reaction.mt_number).or_insert(0) += 1;
+                println!("Sample {}: Energy {:.1e}: Sampled inelastic MT {}", i+1, energy, reaction.mt_number);
                 // Verify the sampled MT is in the expected range
                 assert!(
                     reaction.mt_number >= 50 && reaction.mt_number < 92,
                     "Sampled MT {} should be in range 50-91",
                     reaction.mt_number
                 );
-                
                 // Verify it's one of the available MTs
                 assert!(
                     inelastic_mts.contains(&reaction.mt_number),
@@ -2377,9 +2376,11 @@ mod tests {
                     reaction.mt_number,
                     inelastic_mts
                 );
-            } else {
-                println!("Energy {:.1e}: No inelastic constituent reaction sampled", energy);
             }
+            // Find the most common MT
+            let (most_common_mt, most_common_count) = counts.iter().max_by_key(|entry| entry.1).unwrap();
+            println!("Most common sampled MT at energy {:.1e} is {} ({} times)", energy, most_common_mt, most_common_count);
+            assert_eq!(*most_common_mt, 53, "Expected MT 53 to be most commonly sampled at {:.1e}", energy);
         }
     }
 
@@ -2391,7 +2392,7 @@ mod tests {
         let path = std::path::Path::new("tests/Li6.json");
         let nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
         let temperature = "294";
-        let energy = 1e6;
+        let energy = 1.0e7;
 
         // Same seed should give same result
         let mut rng1 = StdRng::seed_from_u64(12345);
@@ -2399,18 +2400,9 @@ mod tests {
         
         let reaction1 = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng1);
         let reaction2 = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng2);
-
-        match (reaction1, reaction2) {
-            (Some(r1), Some(r2)) => {
-                assert_eq!(
-                    r1.mt_number, r2.mt_number,
-                    "Same seed should give same inelastic constituent reaction"
-                );
-            }
-            (None, None) => {
-                println!("No inelastic reactions available at this energy");
-            }
-            _ => panic!("Inconsistent results with same seed"),
-        }
+        assert_eq!(
+            reaction1.mt_number, reaction2.mt_number,
+            "Same seed should give same inelastic constituent reaction"
+        );
     }
 }
