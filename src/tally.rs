@@ -1,3 +1,75 @@
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cell::Cell;
+    use crate::tally::Filter;
+
+    fn dummy_cell(cell_id: i32) -> Cell {
+        // Minimal cell with just an ID for filter testing
+            use crate::region::{Region, HalfspaceType};
+            use std::sync::Arc;
+            use crate::surface::{Surface, SurfaceKind, BoundaryType};
+            let dummy_surface = Arc::new(Surface {
+                surface_id: Some(1),
+                kind: SurfaceKind::Plane { a: 1.0, b: 0.0, c: 0.0, d: 0.0 },
+                boundary_type: BoundaryType::default(),
+            });
+            let region = Region::new_from_halfspace(HalfspaceType::Above(dummy_surface));
+            Cell {
+                cell_id: Some(cell_id as u32),
+                name: None,
+                region,
+                material: None,
+            }
+    }
+
+    #[test]
+    fn test_score_event_direct_mt() {
+        let mut tally = Tally::new();
+        tally.set_score(101); // Absorption
+        tally.batch_data.push(0); // Start batch
+        let cell = dummy_cell(1);
+            tally.score_event(101, &cell, Some(42));
+        assert_eq!(tally.batch_data[0], 1, "Should increment for direct MT match");
+    }
+
+    #[test]
+    fn test_score_event_mt4_inelastic_constituent() {
+        let mut tally = Tally::new();
+        tally.set_score(4); // MT 4 (inelastic)
+        tally.batch_data.push(0); // Start batch
+        let cell = dummy_cell(1);
+            tally.score_event(53, &cell, Some(42)); // MT 53 is inelastic constituent
+        assert_eq!(tally.batch_data[0], 1, "Should increment for MT 4 when constituent MT occurs");
+    }
+
+    #[test]
+    fn test_score_event_inelastic_constituent_only() {
+        let mut tally = Tally::new();
+        tally.set_score(53); // MT 53
+        tally.batch_data.push(0); // Start batch
+        let cell = dummy_cell(1);
+            tally.score_event(53, &cell, Some(42));
+        assert_eq!(tally.batch_data[0], 1, "Should increment for direct constituent MT match");
+            tally.score_event(4, &cell, Some(42));
+        assert_eq!(tally.batch_data[0], 1, "Should not increment for MT 4 if tally is for constituent");
+    }
+
+    #[test]
+    fn test_score_event_with_cell_filter() {
+        let mut tally = Tally::new();
+        tally.set_score(101);
+        tally.batch_data.push(0);
+        // Add a cell filter that matches cell_id 1
+        tally.filters.push(Filter::Cell(crate::tally::CellFilter { cell_id: 1 }));
+        let cell = dummy_cell(1);
+            tally.score_event(101, &cell, Some(42));
+        assert_eq!(tally.batch_data[0], 1, "Should increment when cell filter matches");
+        let cell2 = dummy_cell(2);
+            tally.score_event(101, &cell2, Some(42));
+        assert_eq!(tally.batch_data[0], 1, "Should not increment when cell filter does not match");
+    }
+}
 use std::fmt;
 use std::collections::HashMap;
 use crate::filters::{CellFilter, MaterialFilter};
@@ -40,6 +112,34 @@ pub struct Tally {
 }
 
 impl Tally {
+    /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
+    pub fn score_event(&mut self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) {
+        let mut should_score = self.score == reaction_mt;
+        // If this is an inelastic constituent (MT 50-91), also score for MT 4
+        if (50..92).contains(&reaction_mt) && self.score == 4 {
+            should_score = true;
+        }
+        if should_score {
+            let passes_filters = if self.filters.is_empty() {
+                true
+            } else {
+                self.filters.iter().all(|filter| match filter {
+                    crate::tally::Filter::Cell(cell_filter) => {
+                        cell.cell_id.map_or(false, |id| cell_filter.matches(id))
+                    },
+                    crate::tally::Filter::Material(material_filter) => {
+                        material_filter.matches(material_id)
+                    }
+                })
+            };
+            if passes_filters {
+                // Increment the last batch count (assumes batch_data is being filled per batch)
+                if let Some(last) = self.batch_data.last_mut() {
+                    *last += 1;
+                }
+            }
+        }
+    }
     /// Create a new tally specification
     pub fn new() -> Self {
         Self {
