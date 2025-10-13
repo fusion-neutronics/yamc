@@ -125,6 +125,7 @@ impl Model {
                             if let Some(reaction) = reaction {
                                 println!("Particle collided in cell {:?} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                 
+                                let mut reaction = reaction;
                                 match reaction.mt_number {
                                     2 => {
                                         // Elastic scattering
@@ -156,6 +157,8 @@ impl Model {
                                         );
                                         println!("Particle underwent inelastic scattering at {:?} via MT {} (constituent of MT 4)", 
                                                 particle.position, constituent_reaction.mt_number);
+                                        // Overwrite reaction with constituent for tally scoring
+                                        reaction = constituent_reaction;
                                     }
                                     _ => {
                                         // Unknown reaction type - should never happen
@@ -164,30 +167,12 @@ impl Model {
                                 }
                                 
                                 // Score user tallies for this reaction (after physics is processed)
-                                for (i, tally_spec) in self.tallies.iter().enumerate() {
-                                    if tally_spec.score == reaction.mt_number {
-                                        // Check if this event passes all filters for this tally
-                                        let passes_filters = if tally_spec.filters.is_empty() {
-                                            // No filters means score all events
-                                            true
-                                        } else {
-                                            // Check if ALL filters match this event (intersection of filters)
-                                            tally_spec.filters.iter().all(|filter| match filter {
-                                                crate::tally::Filter::Cell(cell_filter) => {
-                                                    cell.cell_id.map_or(false, |id| cell_filter.matches(id))
-                                                },
-                                                crate::tally::Filter::Material(material_filter) => {
-                                                    // Check if the cell's material matches this material filter
-                                                    // Use the stored material_id to avoid double-locking the mutex
-                                                    material_filter.matches(material_id)
-                                                }
-                                            })
-                                        };
-                                        
-                                        if passes_filters {
-                                            user_batch_counts[i] += 1;
-                                        }
-                                    }
+                                for tally in &mut tallies[1..] { // skip leakage tally at index 0
+                                    tally.score_event(
+                                        reaction.mt_number,
+                                        cell,
+                                        material_id,
+                                    );
                                 }
 
                             } else {

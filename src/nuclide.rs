@@ -2355,7 +2355,6 @@ mod tests {
 
         // Test sampling at various energies
         let energies = [0.375e7]; 
-        let energies = [0.375e7]; 
         for energy in energies {
             let mut counts = std::collections::HashMap::new();
             for i in 0..20 {
