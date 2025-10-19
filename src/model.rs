@@ -6,7 +6,7 @@ use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::tally::{Tally, create_tallies_from_specs};
 impl Model {
     pub fn run(&self) -> Vec<Tally> {
-        println!("Starting particle transport simulation...");
+        // println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
         for cell in &self.geometry.cells {
@@ -22,7 +22,7 @@ impl Model {
 
         let mut rng = rand::thread_rng();
         for batch in 0..self.settings.batches {
-            println!("Batch {}", batch + 1);
+            // println!("Batch {}", batch + 1);
             
             // Initialize leakage counter for this batch
             let mut batch_leakage = 0u32;
@@ -58,12 +58,12 @@ impl Model {
                         }
                         None => {
                             // Void cell - no collisions possible
-                            println!("Particle streaming through void cell {:?}", cell.cell_id);
+                            // println!("Particle streaming through void cell {:?}", cell.cell_id);
                             f64::INFINITY
                         }
                     };
 
-                    println!("Sampled distance to collision: {}", dist_collision);
+                    // println!("Sampled distance to collision: {}", dist_collision);
 
                     // Find closest surface and distance
                     if let Some(surface_arc) =
@@ -85,25 +85,25 @@ impl Model {
                                     cell.cell_id);
                             });
                         
-                        println!("Distance to surface: {}", dist_surface);
+                        // println!("Distance to surface: {}", dist_surface);
                         
                         if dist_surface < dist_collision {
                             // Check boundary type before moving
                             if surface_arc.boundary_type == BoundaryType::Vacuum {
-                                println!(
-                                    "Particle will leak from geometry - killing at {:?}",
-                                    particle.position
-                                );
+                                // println!(
+                                //     "Particle will leak from geometry - killing at {:?}",
+                                //     particle.position
+                                // );
                                 particle.alive = false;
                                 batch_leakage += 1; // Count this leakage
                             } else {
                                 // Move slightly past surface to avoid geometric ambiguity
                                 const SURFACE_TOLERANCE: f64 = 1e-8;
                                 particle.move_by(dist_surface + SURFACE_TOLERANCE);
-                                println!(
-                                    "Particle crossed surface to {:?} (moved {} + tolerance)",
-                                    particle.position, dist_surface
-                                );
+                                // println!(
+                                //     "Particle crossed surface to {:?} (moved {} + tolerance)",
+                                //     particle.position, dist_surface
+                                // );
                             }
                         } else {
                             // Move to collision point
@@ -123,7 +123,7 @@ impl Model {
                                 &mut rng,
                             );
                             if let Some(reaction) = reaction {
-                                println!("Particle collided in cell {:?} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
+                                // println!("Particle collided in cell {:?} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                 
                                 let mut reaction = reaction;
                                 match reaction.mt_number {
@@ -133,13 +133,13 @@ impl Model {
                                             .get(nuclide_name.as_str())
                                             .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                         elastic_scatter(&mut particle, awr, &mut rng);  // updates particles direction and energy
-                                        println!("Particle elastically scattered at {:?}", particle.position);
+                                        // println!("Particle elastically scattered at {:?}", particle.position);
                                         // Continue transport (particle.alive remains true)
                                     }
                                     18 => {
                                         // Fission
-                                        println!("Particle caused fission at {:?}", particle.position);
-                                        println!("particle killed as code not ready fission reaction");
+                                        // println!("Particle caused fission at {:?}", particle.position);
+                                        // println!("particle killed as code not ready fission reaction");
                                         // TODO: Sample number of fission neutrons and add to particle bank
                                         particle.alive = false; // Kill original particle for now
                                     }
@@ -151,11 +151,11 @@ impl Model {
                                             &material.temperature,
                                             &mut rng,
                                         );
-                                        println!(
-                                            "Particle absorbed at {:?} (MT=101 absorption), sub-reaction MT={}",
-                                            particle.position,
-                                            constituent_reaction.mt_number
-                                        );
+                                        // println!(
+                                        //     "Particle absorbed at {:?} (MT=101 absorption), sub-reaction MT={}",
+                                        //     particle.position,
+                                        //     constituent_reaction.mt_number
+                                        // );
                                         reaction = constituent_reaction;
                                         particle.alive = false;
                                     }
@@ -168,8 +168,8 @@ impl Model {
                                         );
                                         // Overwrite reaction with constituent for tally scoring
                                         reaction = constituent_reaction;
-                                        println!("Particle underwent inelastic scattering at {:?} via MT {} (constituent of MT 4)", 
-                                                particle.position, constituent_reaction.mt_number);
+                                        // println!("Particle underwent inelastic scattering at {:?} via MT {} (constituent of MT 4)", 
+                                        //         particle.position, constituent_reaction.mt_number);
                                     }
                                     _ => {
                                         // Unknown reaction type - should never happen
@@ -178,13 +178,48 @@ impl Model {
                                 }
                                 
                                 // Score user tallies for this reaction (after physics is processed)
-                                for (i, tally) in tallies[1..].iter_mut().enumerate() { // skip leakage tally at index 0
-                                    if tally.score_event(
-                                        reaction.mt_number,
-                                        cell,
-                                        material_id,
-                                    ) {
-                                        user_batch_counts[i] += 1;
+                                if reaction.mt_number == 101 {
+                                    // Score only one absorption tally per event (mutually exclusive: cell > material > total)
+                                    let mut scored = false;
+                                    // Cell filter
+                                    for (j, t) in tallies[1..].iter_mut().enumerate() {
+                                        if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Cell(_))) {
+                                            if t.score_event(reaction.mt_number, cell, material_id) {
+                                                user_batch_counts[j] += 1;
+                                                scored = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    // Material filter
+                                    if !scored {
+                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
+                                            if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Material(_))) {
+                                                if t.score_event(reaction.mt_number, cell, material_id) {
+                                                    user_batch_counts[j] += 1;
+                                                    scored = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // No filter (total absorption)
+                                    if !scored {
+                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
+                                            if t.score == 101 && t.filters.is_empty() {
+                                                if t.score_event(reaction.mt_number, cell, material_id) {
+                                                    user_batch_counts[j] += 1;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Non-absorption tallies (e.g., inelastic, elastic, etc.)
+                                    for (i, tally) in tallies[1..].iter_mut().enumerate() {
+                                        if tally.score_event(reaction.mt_number, cell, material_id) {
+                                            user_batch_counts[i] += 1;
+                                        }
                                     }
                                 }
 

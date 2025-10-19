@@ -114,17 +114,25 @@ pub struct Tally {
 impl Tally {
     /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
     pub fn score_event(&mut self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) -> bool {
-        let mut should_score = false;
-        // Score direct match for total absorption (MT 101)
-        if self.score == 101 && reaction_mt == 101 {
-            should_score = true;
-        }
-        // Score direct match for constituent absorption tallies
-        if self.score != 101 && self.score == reaction_mt {
-            should_score = true;
-        }
+    let mut should_score = self.score == reaction_mt;
         // If this is an inelastic constituent (MT 50-91), also score for MT 4
         if (50..92).contains(&reaction_mt) && self.score == 4 {
+            should_score = true;
+        }
+        // If this is a constituent absorption (explicit list and continuum), also score for MT 101
+        let is_absorption_constituent =
+            self.score == 101 && (
+                matches!(reaction_mt,
+                    102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 111 | 112 | 113 | 114 |
+                    115 | 116 | 117 | 155 | 182 | 191 | 192 | 193 | 197
+                ) ||
+                (600..650).contains(&reaction_mt) ||
+                (650..700).contains(&reaction_mt) ||
+                (700..750).contains(&reaction_mt) ||
+                (750..800).contains(&reaction_mt) ||
+                (800..850).contains(&reaction_mt)
+            );
+        if is_absorption_constituent && self.score == 101 {
             should_score = true;
         }
         if should_score {
@@ -143,6 +151,10 @@ impl Tally {
             if passes_filters {
                 if let Some(last) = self.batch_data.last_mut() {
                     *last += 1;
+                }
+                // Debug print for cell filter separation
+                if let Some(cell_id) = cell.cell_id {
+                    println!("[DEBUG] Scored event: tally score {} | cell_id {} | reaction_mt {}", self.score, cell_id, reaction_mt);
                 }
                 return true;
             }
