@@ -114,7 +114,15 @@ pub struct Tally {
 impl Tally {
     /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
     pub fn score_event(&mut self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) -> bool {
-        let mut should_score = self.score == reaction_mt;
+        let mut should_score = false;
+        // Score direct match for total absorption (MT 101)
+        if self.score == 101 && reaction_mt == 101 {
+            should_score = true;
+        }
+        // Score direct match for constituent absorption tallies
+        if self.score != 101 && self.score == reaction_mt {
+            should_score = true;
+        }
         // If this is an inelastic constituent (MT 50-91), also score for MT 4
         if (50..92).contains(&reaction_mt) && self.score == 4 {
             should_score = true;

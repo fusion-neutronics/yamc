@@ -146,7 +146,7 @@ impl Model {
                                     101 => {
                                         // Absorption (capture)
                                         // Sample which sub-reaction (MT) actually occurred for absorption
-                                        let absorption_reaction = nuclide.sample_absorption_constituent(
+                                        let constituent_reaction = nuclide.sample_absorption_constituent(
                                             particle.energy,
                                             &material.temperature,
                                             &mut rng,
@@ -154,8 +154,9 @@ impl Model {
                                         println!(
                                             "Particle absorbed at {:?} (MT=101 absorption), sub-reaction MT={}",
                                             particle.position,
-                                            absorption_reaction.mt_number
+                                            constituent_reaction.mt_number
                                         );
+                                        reaction = constituent_reaction;
                                         particle.alive = false;
                                     }
                                     4 => {
