@@ -29,7 +29,7 @@ mod tests {
         tally.set_score(101); // Absorption
         tally.batch_data.push(0); // Start batch
         let cell = dummy_cell(1);
-            tally.score_event(101, &cell, Some(42));
+        assert!(tally.score_event(101, &cell, Some(42)));
         assert_eq!(tally.batch_data[0], 1, "Should increment for direct MT match");
     }
 
@@ -39,7 +39,7 @@ mod tests {
         tally.set_score(4); // MT 4 (inelastic)
         tally.batch_data.push(0); // Start batch
         let cell = dummy_cell(1);
-            tally.score_event(53, &cell, Some(42)); // MT 53 is inelastic constituent
+        assert!(tally.score_event(53, &cell, Some(42))); // MT 53 is inelastic constituent
         assert_eq!(tally.batch_data[0], 1, "Should increment for MT 4 when constituent MT occurs");
     }
 
@@ -49,9 +49,9 @@ mod tests {
         tally.set_score(53); // MT 53
         tally.batch_data.push(0); // Start batch
         let cell = dummy_cell(1);
-            tally.score_event(53, &cell, Some(42));
+        assert!(tally.score_event(53, &cell, Some(42)));
         assert_eq!(tally.batch_data[0], 1, "Should increment for direct constituent MT match");
-            tally.score_event(4, &cell, Some(42));
+        assert!(!tally.score_event(4, &cell, Some(42)));
         assert_eq!(tally.batch_data[0], 1, "Should not increment for MT 4 if tally is for constituent");
     }
 
@@ -63,10 +63,10 @@ mod tests {
         // Add a cell filter that matches cell_id 1
         tally.filters.push(Filter::Cell(crate::tally::CellFilter { cell_id: 1 }));
         let cell = dummy_cell(1);
-            tally.score_event(101, &cell, Some(42));
+        assert!(tally.score_event(101, &cell, Some(42)));
         assert_eq!(tally.batch_data[0], 1, "Should increment when cell filter matches");
         let cell2 = dummy_cell(2);
-            tally.score_event(101, &cell2, Some(42));
+        assert!(!tally.score_event(101, &cell2, Some(42)));
         assert_eq!(tally.batch_data[0], 1, "Should not increment when cell filter does not match");
     }
 }
@@ -113,7 +113,7 @@ pub struct Tally {
 
 impl Tally {
     /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
-    pub fn score_event(&mut self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) {
+    pub fn score_event(&mut self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) -> bool {
         let mut should_score = self.score == reaction_mt;
         // If this is an inelastic constituent (MT 50-91), also score for MT 4
         if (50..92).contains(&reaction_mt) && self.score == 4 {
@@ -133,12 +133,13 @@ impl Tally {
                 })
             };
             if passes_filters {
-                // Increment the last batch count (assumes batch_data is being filled per batch)
                 if let Some(last) = self.batch_data.last_mut() {
                     *last += 1;
                 }
+                return true;
             }
         }
+        false
     }
     /// Create a new tally specification
     pub fn new() -> Self {
