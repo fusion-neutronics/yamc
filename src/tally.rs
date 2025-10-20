@@ -151,10 +151,13 @@ impl Tally {
             if passes_filters {
                 if let Some(last) = self.batch_data.last_mut() {
                     *last += 1;
-                }
-                // Debug print for cell filter separation
-                if let Some(cell_id) = cell.cell_id {
-                    println!("[DEBUG] Scored event: tally score {} | cell_id {} | reaction_mt {}", self.score, cell_id, reaction_mt);
+                    // Print detailed debug info for tally increment
+                    let tally_name = self.name.as_ref().map(|s| s.as_str()).unwrap_or("Unnamed");
+                    let filter_types: Vec<String> = self.filters.iter().map(|f| f.type_name().to_string()).collect();
+                    println!(
+                        "[DEBUG] Incremented tally: '{}' | score: {} | filters: {:?} | cell_id: {:?} | material_id: {:?} | reaction_mt: {}",
+                        tally_name, self.score, filter_types, cell.cell_id, material_id, reaction_mt
+                    );
                 }
                 return true;
             }
