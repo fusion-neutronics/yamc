@@ -151,13 +151,34 @@ impl Model {
                                             &material.temperature,
                                             &mut rng,
                                         );
-                                        // println!(
-                                        //     "Particle absorbed at {:?} (MT=101 absorption), sub-reaction MT={}",
-                                        //     particle.position,
-                                        //     constituent_reaction.mt_number
-                                        // );
                                         reaction = constituent_reaction;
+                                        // OpenMC-style: always score total absorption tally (no filter), plus any cell/material tallies
+                                        // Cell filter
+                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
+                                            if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Cell(_))) {
+                                                if t.score_event(reaction.mt_number, cell, material_id) {
+                                                    user_batch_counts[j] += 1;
+                                                }
+                                            }
+                                        }
+                                        // Material filter
+                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
+                                            if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Material(_))) {
+                                                if t.score_event(reaction.mt_number, cell, material_id) {
+                                                    user_batch_counts[j] += 1;
+                                                }
+                                            }
+                                        }
+                                        // No filter (total absorption) -- always score
+                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
+                                            if t.score == 101 && t.filters.is_empty() {
+                                                if t.score_event(reaction.mt_number, cell, material_id) {
+                                                    user_batch_counts[j] += 1;
+                                                }
+                                            }
+                                        }
                                         particle.alive = false;
+                                        break;
                                     }
                                     4 => {
                                         // Inelastic scattering - sample specific constituent reaction
