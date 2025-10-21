@@ -150,6 +150,9 @@ fn test_absorption_leakage_filters() {
     let sum_diff = (tally1.mean + tally2.mean - tally3.mean).abs();
     assert!(sum_diff < tolerance, "Sum of cell tallies ({}) should equal total tally ({}), difference: {}", tally1.mean + tally2.mean, tally3.mean, sum_diff);
 
+    let leakage_plus_absorption = (leakage_tally.mean + tally1.mean + tally2.mean - 1.0).abs();
+    assert!(leakage_plus_absorption < tolerance, "Sum of leakage and absorption tallies should equal 1.0, got {}, difference: {}", leakage_tally.mean + tally1.mean + tally2.mean, leakage_plus_absorption);
+
     // Test 3: Particle conservation
     let conservation_diff = (tally1.mean + tally2.mean + leakage_tally.mean - 1.0).abs();
     assert!(conservation_diff < tolerance, "(Absorption in cell 1 + cell 2 + leakage) should equal 1.0, got {}, difference: {}", tally1.mean + tally2.mean + leakage_tally.mean, conservation_diff);
