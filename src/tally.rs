@@ -152,10 +152,6 @@ impl Tally {
                 if let Some(last) = self.batch_data.last_mut() {
                     *last += 1;
                 }
-                // Debug print for cell filter separation
-                if let Some(cell_id) = cell.cell_id {
-                    println!("[DEBUG] Scored event: tally score {} | cell_id {} | reaction_mt {}", self.score, cell_id, reaction_mt);
-                }
                 return true;
             }
         }
@@ -231,7 +227,7 @@ impl Tally {
     }
 
     /// Update statistics from current batch data
-    fn update_statistics(&mut self, particles_per_batch: u32) {
+    pub fn update_statistics(&mut self, particles_per_batch: u32) {
         if self.batch_data.is_empty() || particles_per_batch == 0 {
             self.mean = 0.0;
             self.std_dev = 0.0;

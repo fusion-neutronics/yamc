@@ -147,8 +147,12 @@ fn test_absorption_leakage_filters() {
     // Test 1: CellFilter functionality
     assert_ne!(tally1.mean, tally2.mean, "CellFilter should separate tallies by cell");
 
+    assert!(tally1.mean + tally2.mean == tally3.mean, "Sum of cell tallies should equal total absorption tally");
+
     let sum_diff = (tally1.mean + tally2.mean - tally3.mean).abs();
     assert!(sum_diff < tolerance, "Sum of cell tallies ({}) should equal total tally ({}), difference: {}", tally1.mean + tally2.mean, tally3.mean, sum_diff);
+
+    assert!(leakage_tally.mean + tally1.mean + tally2.mean == 1.0, "Sum of leakage and absorption tallies should equal 1.0");
 
     // Test 3: Particle conservation
     let conservation_diff = (tally1.mean + tally2.mean + leakage_tally.mean - 1.0).abs();

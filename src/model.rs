@@ -23,13 +23,15 @@ impl Model {
         let mut rng = rand::thread_rng();
         for batch in 0..self.settings.batches {
             // println!("Batch {}", batch + 1);
-            
+
             // Initialize leakage counter for this batch
             let mut batch_leakage = 0u32;
-            
-            // Initialize user tally counters for this batch (excluding leakage)
-            let mut user_batch_counts: Vec<u32> = vec![0; tallies.len() - 1];
-            
+
+            // Initialize batch_data for user tallies (not leakage at index 0)
+            for tally in tallies[1..].iter_mut() {
+                tally.batch_data.push(0);
+            }
+
             for _ in 0..self.settings.particles {
                 // Sample a particle from the source via settings
                 let mut particle = self.settings.source.sample();
@@ -152,33 +154,7 @@ impl Model {
                                             &mut rng,
                                         );
                                         reaction = constituent_reaction;
-                                        // OpenMC-style: always score total absorption tally (no filter), plus any cell/material tallies
-                                        // Cell filter
-                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
-                                            if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Cell(_))) {
-                                                if t.score_event(reaction.mt_number, cell, material_id) {
-                                                    user_batch_counts[j] += 1;
-                                                }
-                                            }
-                                        }
-                                        // Material filter
-                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
-                                            if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Material(_))) {
-                                                if t.score_event(reaction.mt_number, cell, material_id) {
-                                                    user_batch_counts[j] += 1;
-                                                }
-                                            }
-                                        }
-                                        // No filter (total absorption) -- always score
-                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
-                                            if t.score == 101 && t.filters.is_empty() {
-                                                if t.score_event(reaction.mt_number, cell, material_id) {
-                                                    user_batch_counts[j] += 1;
-                                                }
-                                            }
-                                        }
                                         particle.alive = false;
-                                        break;
                                     }
                                     4 => {
                                         // Inelastic scattering - sample specific constituent reaction
@@ -199,49 +175,8 @@ impl Model {
                                 }
                                 
                                 // Score user tallies for this reaction (after physics is processed)
-                                if reaction.mt_number == 101 {
-                                    // Score only one absorption tally per event (mutually exclusive: cell > material > total)
-                                    let mut scored = false;
-                                    // Cell filter
-                                    for (j, t) in tallies[1..].iter_mut().enumerate() {
-                                        if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Cell(_))) {
-                                            if t.score_event(reaction.mt_number, cell, material_id) {
-                                                user_batch_counts[j] += 1;
-                                                scored = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    // Material filter
-                                    if !scored {
-                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
-                                            if t.score == 101 && t.filters.iter().any(|f| matches!(f, crate::tally::Filter::Material(_))) {
-                                                if t.score_event(reaction.mt_number, cell, material_id) {
-                                                    user_batch_counts[j] += 1;
-                                                    scored = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    // No filter (total absorption)
-                                    if !scored {
-                                        for (j, t) in tallies[1..].iter_mut().enumerate() {
-                                            if t.score == 101 && t.filters.is_empty() {
-                                                if t.score_event(reaction.mt_number, cell, material_id) {
-                                                    user_batch_counts[j] += 1;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // Non-absorption tallies (e.g., inelastic, elastic, etc.)
-                                    for (i, tally) in tallies[1..].iter_mut().enumerate() {
-                                        if tally.score_event(reaction.mt_number, cell, material_id) {
-                                            user_batch_counts[i] += 1;
-                                        }
-                                    }
+                                for tally in tallies[1..].iter_mut() {
+                                    tally.score_event(reaction.mt_number, cell, material_id);
                                 }
 
                             } else {
@@ -267,10 +202,10 @@ impl Model {
             
             // Store batch leakage at end of each batch (first tally is always leakage)
             tallies[0].add_batch(batch_leakage, self.settings.particles as u32);
-            
-            // Store user tally results for this batch (starting from index 1)
-            for (i, count) in user_batch_counts.iter().enumerate() {
-                tallies[i + 1].add_batch(*count, self.settings.particles as u32);
+
+            // Update statistics for user tallies (batch_data already populated via score_event)
+            for tally in tallies[1..].iter_mut() {
+                tally.update_statistics(self.settings.particles as u32);
             }
         }
         
