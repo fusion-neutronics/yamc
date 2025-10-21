@@ -114,9 +114,25 @@ pub struct Tally {
 impl Tally {
     /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
     pub fn score_event(&mut self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) -> bool {
-        let mut should_score = self.score == reaction_mt;
+    let mut should_score = self.score == reaction_mt;
         // If this is an inelastic constituent (MT 50-91), also score for MT 4
         if (50..92).contains(&reaction_mt) && self.score == 4 {
+            should_score = true;
+        }
+        // If this is a constituent absorption (explicit list and continuum), also score for MT 101
+        let is_absorption_constituent =
+            self.score == 101 && (
+                matches!(reaction_mt,
+                    102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 111 | 112 | 113 | 114 |
+                    115 | 116 | 117 | 155 | 182 | 191 | 192 | 193 | 197
+                ) ||
+                (600..650).contains(&reaction_mt) ||
+                (650..700).contains(&reaction_mt) ||
+                (700..750).contains(&reaction_mt) ||
+                (750..800).contains(&reaction_mt) ||
+                (800..850).contains(&reaction_mt)
+            );
+        if is_absorption_constituent && self.score == 101 {
             should_score = true;
         }
         if should_score {
@@ -211,7 +227,7 @@ impl Tally {
     }
 
     /// Update statistics from current batch data
-    fn update_statistics(&mut self, particles_per_batch: u32) {
+    pub fn update_statistics(&mut self, particles_per_batch: u32) {
         if self.batch_data.is_empty() || particles_per_batch == 0 {
             self.mean = 0.0;
             self.std_dev = 0.0;

@@ -252,6 +252,82 @@ impl Nuclide {
         panic!("sample_inelastic_constituent: Failed to sample any inelastic reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
     }
 
+    /// Sample a specific absorption constituent reaction (MTs that make up MT 101) at a given energy and temperature.
+    /// Panics if no constituent reactions are available or total cross section is zero.
+    pub fn sample_absorption_constituent<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> &Reaction {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            println!("[sample_absorption_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
+            r
+        } else {
+            panic!("[sample_absorption_constituent] No reaction data available for any temperature.");
+        };
+
+        // MTs that make up MT 101 (absorption)
+        let mut constituent_mts: Vec<i32> = vec![
+            102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114,
+            115, 116, 117, 155, 182, 191, 192, 193, 197
+        ];
+        constituent_mts.extend(600..650); // 103: (n,gamma) continuum
+        constituent_mts.extend(650..700); // 104: (n,p) continuum
+        constituent_mts.extend(700..750); // 105: (n,alpha) continuum
+        constituent_mts.extend(750..800); // 106: (n,2n) continuum
+        constituent_mts.extend(800..850); // 107: (n,3n) continuum
+
+        // Filter to only the MTs that are actually available in this nuclide
+        let available_mts: Vec<i32> = constituent_mts
+            .into_iter()
+            .filter(|&mt| temp_reactions.contains_key(&mt))
+            .collect();
+
+        if available_mts.is_empty() {
+            panic!("sample_absorption_constituent: No absorption constituent reactions available in this nuclide at temperature '{}'. This indicates missing nuclear data or incorrect MT 101 sampling.", temperature);
+        }
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Calculate total cross section for all available absorption constituents
+        let total_xs: f64 = available_mts
+            .iter()
+            .map(|&mt| get_xs(mt))
+            .sum();
+
+        if total_xs <= 0.0 {
+            panic!("sample_absorption_constituent: Total absorption cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
+        }
+
+        // Sample which specific absorption reaction occurs
+        let xi = rng.gen_range(0.0..total_xs);
+        let mut accum = 0.0;
+
+        for &mt in &available_mts {
+            let xs = get_xs(mt);
+            accum += xs;
+            if xi < accum && xs > 0.0 {
+                return temp_reactions.get(&mt).expect("sample_absorption_constituent: MT not found in temp_reactions after filtering.");
+            }
+        }
+
+        // This should never be reached due to the sampling logic above
+        panic!("sample_absorption_constituent: Failed to sample any absorption reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
+    }
+
+
     /// Get the energy grid for a specific temperature
     pub fn energy_grid(&self, temperature: &str) -> Option<&Vec<f64>> {
         self.energy
@@ -1159,6 +1235,35 @@ pub fn load_nuclide_from_path_or_keyword(
 }
 
 mod tests {
+    #[test]
+    fn test_sample_absorption_constituent_li6() {
+        use rand::rngs::StdRng;
+        use rand::SeedableRng;
+        let path = std::path::Path::new("tests/Li6.json");
+        let nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
+        let temperature = "294";
+        let energy = 1e6; // 1 MeV, typical fast neutron
+        let mut rng = StdRng::seed_from_u64(12345);
+        // Should not panic and should return a Reaction
+        let reaction = nuclide.sample_absorption_constituent(energy, temperature, &mut rng);
+        // Check that the sampled MT is one of the expected absorption constituent MTs
+        let valid_mts: Vec<i32> = {
+            let mut mts = vec![
+                102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114,
+                115, 116, 117, 155, 182, 191, 192, 193, 197
+            ];
+            mts.extend(600..650);
+            mts.extend(650..700);
+            mts.extend(700..750);
+            mts.extend(750..800);
+            mts.extend(800..850);
+            mts
+        };
+        assert!(valid_mts.contains(&reaction.mt_number),
+            "Sampled absorption constituent MT {} not in valid list", reaction.mt_number);
+        // Print for debug
+        println!("Sampled absorption constituent MT: {}", reaction.mt_number);
+    }
     #[test]
     fn test_get_or_load_nuclide_uses_cache() {
         use std::collections::HashMap;

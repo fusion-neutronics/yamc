@@ -122,9 +122,9 @@ def test_absorption_leakage_filters():
     sum_diff = abs((tally1.mean + tally2.mean) - tally3.mean)
     assert sum_diff < tolerance, f"Sum of cell tallies ({tally1.mean + tally2.mean}) should equal total tally ({tally3.mean}), difference: {sum_diff}"
     
-    # Test 3: Particle conservation - absorbed + leaked should equal 1
-    conservation_diff = abs((tally3.mean + leakage_tally.mean) - 1.0)
-    assert conservation_diff < tolerance, f"Absorption + leakage should equal 1.0, got {tally3.mean + leakage_tally.mean}, difference: {conservation_diff}"
+    # Test 3: Particle conservation - sum of mutually exclusive cell absorptions + leakage should equal 1
+    conservation_diff = abs((tally1.mean + tally2.mean + leakage_tally.mean) - 1.0)
+    assert conservation_diff < tolerance, f"(Absorption in cell 1 + cell 2 + leakage) should equal 1.0, got {tally1.mean + tally2.mean + leakage_tally.mean}, difference: {conservation_diff}"
     
     # Test 4: Physical reasonableness - some particles should be absorbed, some should leak
     assert tally3.mean > 0.0, "Some particles should be absorbed"
@@ -228,6 +228,8 @@ def test_duplicate_filter_error():
         tally_bad_material.filters = [material_filter1, material_filter2]
     
     print("✓ Duplicate filter error test passed!")
+
+
 
 
 if __name__ == "__main__":
