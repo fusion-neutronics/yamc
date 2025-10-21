@@ -73,6 +73,7 @@ fn test_absorption_leakage_filters() {
         particles: 50,
         batches: 2,
         source,
+        seed: Some(1),
     };
 
     // Create tallies
