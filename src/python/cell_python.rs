@@ -33,15 +33,13 @@ impl PyCell {
     ) -> Option<(crate::python::surface_python::PySurface, f64)> {
         let point_arr = [point.0, point.1, point.2];
         let dir_arr = [direction.0, direction.1, direction.2];
-        if let Some(surf_arc) = self.inner.closest_surface(point_arr, dir_arr) {
-            if let Some(dist) = surf_arc.distance_to_surface(point_arr, dir_arr) {
-                return Some((
-                    crate::python::surface_python::PySurface {
-                        inner: surf_arc.clone(),
-                    },
-                    dist,
-                ));
-            }
+        if let Some((surf_arc, dist)) = self.inner.closest_surface(point_arr, dir_arr) {
+            return Some((
+                crate::python::surface_python::PySurface {
+                    inner: surf_arc,
+                },
+                dist,
+            ));
         }
         None
     }

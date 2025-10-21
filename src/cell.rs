@@ -1,6 +1,12 @@
 use crate::material::Material;
 use crate::region::Region;
 use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+
+// Thread-local buffer to avoid allocations in hot path
+thread_local! {
+    static SURFACE_BUFFER: RefCell<Vec<(Arc<crate::surface::Surface>, bool)>> = RefCell::new(Vec::new());
+}
 
 /// A Cell represents a geometric region
 /// This follows OpenMC's approach where cells are defined by:
@@ -20,47 +26,60 @@ impl Cell {
         &self,
         point: [f64; 3],
         direction: [f64; 3],
-    ) -> Option<std::sync::Arc<crate::surface::Surface>> {
-        let mut min_dist = f64::INFINITY;
-        let mut closest_surface = None;
-        for (surface_arc, _sense) in self.region.surfaces_with_sense() {
-            let surface: &crate::surface::Surface = surface_arc.as_ref();
-            if let Some(dist) = surface.distance_to_surface(point, direction) {
-                if dist > 1e-10 && dist < min_dist {
-                    min_dist = dist;
-                    closest_surface = Some(surface_arc.clone());
+    ) -> Option<(std::sync::Arc<crate::surface::Surface>, f64)> {
+        SURFACE_BUFFER.with(|buffer| {
+            let mut surfaces = buffer.borrow_mut();
+            self.region.collect_surfaces_with_sense(&mut surfaces);
+
+            let mut min_dist = f64::INFINITY;
+            let mut closest_surface = None;
+
+            for (surface_arc, _sense) in surfaces.iter() {
+                let surface: &crate::surface::Surface = surface_arc.as_ref();
+                if let Some(dist) = surface.distance_to_surface(point, direction) {
+                    if dist > 1e-10 && dist < min_dist {
+                        min_dist = dist;
+                        closest_surface = Some(surface_arc.clone());
+                    }
                 }
             }
-        }
-        closest_surface
+            closest_surface.map(|surf| (surf, min_dist))
+        })
     }
 
     /// Compute the distance to the closest surface from a point along a direction
     pub fn distance_to_surface(&self, point: [f64; 3], direction: [f64; 3]) -> Option<f64> {
-        let mut min_dist = f64::INFINITY;
-        for (surface_arc, sense) in self.region.surfaces_with_sense() {
-            let surface: &crate::surface::Surface = surface_arc.as_ref();
-            if let Some(dist) = surface.distance_to_surface(point, direction) {
-                if dist > 1e-10
-                    && self.region.is_exit_surface(
-                        (point[0], point[1], point[2]),
-                        (direction[0], direction[1], direction[2]),
-                        surface,
-                        dist,
-                        sense,
-                    )
-                {
-                    if dist < min_dist {
-                        min_dist = dist;
+        SURFACE_BUFFER.with(|buffer| {
+            let mut surfaces = buffer.borrow_mut();
+            self.region.collect_surfaces_with_sense(&mut surfaces);
+
+            let mut min_dist = f64::INFINITY;
+
+            for (surface_arc, sense) in surfaces.iter() {
+                let surface: &crate::surface::Surface = surface_arc.as_ref();
+                if let Some(dist) = surface.distance_to_surface(point, direction) {
+                    if dist > 1e-10
+                        && self.region.is_exit_surface(
+                            (point[0], point[1], point[2]),
+                            (direction[0], direction[1], direction[2]),
+                            surface,
+                            dist,
+                            *sense,
+                        )
+                    {
+                        if dist < min_dist {
+                            min_dist = dist;
+                        }
                     }
                 }
             }
-        }
-        if min_dist < f64::INFINITY {
-            Some(min_dist)
-        } else {
-            None
-        }
+
+            if min_dist < f64::INFINITY {
+                Some(min_dist)
+            } else {
+                None
+            }
+        })
     }
     /// Create a new cell with a region and optional material (fill)
     pub fn new(

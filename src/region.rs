@@ -25,7 +25,8 @@ pub enum RegionExpr {
 // Regular Rust implementation
 impl Region {
     /// Recursively collect all surfaces and their sense (true=Above, false=Below) in the region
-    pub fn surfaces_with_sense(&self) -> Vec<(Arc<Surface>, bool)> {
+    /// Fill a vector with surfaces and their sense (more efficient - reuses allocation)
+    pub fn collect_surfaces_with_sense(&self, surfaces: &mut Vec<(Arc<Surface>, bool)>) {
         fn collect(expr: &RegionExpr, surfaces: &mut Vec<(Arc<Surface>, bool)>, sense: bool) {
             match expr {
                 RegionExpr::Halfspace(hs) => match hs {
@@ -39,8 +40,13 @@ impl Region {
                 RegionExpr::Complement(inner) => collect(inner, surfaces, !sense),
             }
         }
+        surfaces.clear();
+        collect(&self.expr, surfaces, true);
+    }
+
+    pub fn surfaces_with_sense(&self) -> Vec<(Arc<Surface>, bool)> {
         let mut result = Vec::new();
-        collect(&self.expr, &mut result, true);
+        self.collect_surfaces_with_sense(&mut result);
         result
     }
 
