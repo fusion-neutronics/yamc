@@ -56,8 +56,11 @@ impl PyIndependentSource {
     }
 
     pub fn sample(&self) -> crate::python::particle_python::PyParticle {
+        // Python bindings use thread_rng for backwards compatibility
+        // For reproducible results, use Model with a seed in Settings
+        let mut rng = rand::thread_rng();
         crate::python::particle_python::PyParticle {
-            inner: self.inner.sample(),
+            inner: self.inner.sample(&mut rng),
         }
     }
 

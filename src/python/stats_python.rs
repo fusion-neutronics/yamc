@@ -17,7 +17,9 @@ impl PyIsotropic {
     }
 
     pub fn sample(&self) -> [f64; 3] {
-        self.inner.sample()
+        // Python bindings use thread_rng for backwards compatibility
+        let mut rng = rand::thread_rng();
+        self.inner.sample(&mut rng)
     }
 
     pub fn __repr__(&self) -> String {
@@ -41,7 +43,9 @@ impl PyMonodirectional {
     }
 
     pub fn sample(&self) -> [f64; 3] {
-        self.inner.sample()
+        // Python bindings use thread_rng for backwards compatibility
+        let mut rng = rand::thread_rng();
+        self.inner.sample(&mut rng)
     }
 
     #[getter]
