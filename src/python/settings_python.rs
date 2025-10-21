@@ -11,12 +11,14 @@ pub struct PySettings {
 #[pymethods]
 impl PySettings {
     #[new]
-    pub fn new(particles: usize, batches: usize, source: PyIndependentSource) -> Self {
+    #[pyo3(signature = (particles, batches, source, seed=None))]
+    pub fn new(particles: usize, batches: usize, source: PyIndependentSource, seed: Option<u64>) -> Self {
         PySettings {
             inner: Settings {
                 particles,
                 batches,
                 source: source.inner.clone(),
+                seed,
             },
         }
     }
@@ -38,5 +40,15 @@ impl PySettings {
     #[setter]
     pub fn set_source(&mut self, value: PyIndependentSource) {
         self.inner.source = value.inner.clone();
+    }
+
+    #[getter]
+    pub fn seed(&self) -> Option<u64> {
+        self.inner.seed
+    }
+
+    #[setter]
+    pub fn set_seed(&mut self, value: Option<u64>) {
+        self.inner.seed = value;
     }
 }

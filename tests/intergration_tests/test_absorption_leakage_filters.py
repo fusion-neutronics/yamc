@@ -60,7 +60,7 @@ def test_absorption_leakage_filters():
 
         # Source: neutrons starting at origin, moving upward
     source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Isotropic(), energy=1e6)
-    settings = mc.Settings(particles=50, batches=2, source=source)  # Increased for better statistics
+    settings = mc.Settings(particles=50, batches=2, source=source, seed=1)  # Increased for better statistics
 
     # Create tallies with CellFilters
     cell_filter1 = mc.CellFilter(cell1)
@@ -203,7 +203,7 @@ def test_duplicate_filter_error():
     
     geometry = mc.Geometry(cells=[cell1])
     source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Isotropic(), energy=1e6)
-    settings = mc.Settings(particles=10, batches=1, source=source)
+    settings = mc.Settings(particles=10, batches=1, source=source, seed=1)
 
     # Test 1: Multiple CellFilters should raise error
     tally_bad_cell = mc.Tally()

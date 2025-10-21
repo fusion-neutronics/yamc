@@ -1,6 +1,8 @@
 use crate::particle::Particle;
 use crate::surface::BoundaryType;
 use rand::Rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use crate::physics::elastic_scatter;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::tally::{Tally, create_tallies_from_specs};
@@ -17,10 +19,11 @@ impl Model {
             }
         }
 
-        // Initialize tallies from user specifications  
+        // Initialize tallies from user specifications
         let mut tallies = create_tallies_from_specs(&self.tallies);
 
-        let mut rng = rand::thread_rng();
+        // Initialize RNG with seed for reproducibility
+        let mut rng = StdRng::seed_from_u64(self.settings.get_seed());
         for batch in 0..self.settings.batches {
             // println!("Batch {}", batch + 1);
 
@@ -34,7 +37,7 @@ impl Model {
 
             for _ in 0..self.settings.particles {
                 // Sample a particle from the source via settings
-                let mut particle = self.settings.source.sample();
+                let mut particle = self.settings.source.sample(&mut rng);
                 particle.alive = true;
 
                 // Transport loop
@@ -271,6 +274,7 @@ mod tests {
             particles: 100,
             batches: 10,
             source: source.clone(),
+            seed: Some(1),
         };
         
         // Create a tally for absorption reactions with a custom name
