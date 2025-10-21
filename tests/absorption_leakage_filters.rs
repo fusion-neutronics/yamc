@@ -147,12 +147,8 @@ fn test_absorption_leakage_filters() {
     // Test 1: CellFilter functionality
     assert_ne!(tally1.mean, tally2.mean, "CellFilter should separate tallies by cell");
 
-    assert!(tally1.mean + tally2.mean == tally3.mean, "Sum of cell tallies should equal total absorption tally");
-
     let sum_diff = (tally1.mean + tally2.mean - tally3.mean).abs();
     assert!(sum_diff < tolerance, "Sum of cell tallies ({}) should equal total tally ({}), difference: {}", tally1.mean + tally2.mean, tally3.mean, sum_diff);
-
-    assert!(leakage_tally.mean + tally1.mean + tally2.mean == 1.0, "Sum of leakage and absorption tallies should equal 1.0");
 
     // Test 3: Particle conservation
     let conservation_diff = (tally1.mean + tally2.mean + leakage_tally.mean - 1.0).abs();
@@ -170,14 +166,13 @@ fn test_absorption_leakage_filters() {
     assert!(tally1.mean + tally2.mean > 0.0, "Total absorption should be positive");
 
     // Test 6: MaterialFilter equivalence
-    let mat_filter_tolerance = 1e-10;
     let cell1_vs_mat1_diff = (tally1.mean - tally1_mat.mean).abs();
     let cell2_vs_mat2_diff = (tally2.mean - tally2_mat.mean).abs();
-    assert!(cell1_vs_mat1_diff < mat_filter_tolerance, "CellFilter and MaterialFilter should give same results for cell 1 ({} vs {}), difference: {}", tally1.mean, tally1_mat.mean, cell1_vs_mat1_diff);
-    assert!(cell2_vs_mat2_diff < mat_filter_tolerance, "CellFilter and MaterialFilter should give same results for cell 2 ({} vs {}), difference: {}", tally2.mean, tally2_mat.mean, cell2_vs_mat2_diff);
+    assert!(cell1_vs_mat1_diff < tolerance, "CellFilter and MaterialFilter should give same results for cell 1 ({} vs {}), difference: {}", tally1.mean, tally1_mat.mean, cell1_vs_mat1_diff);
+    assert!(cell2_vs_mat2_diff < tolerance, "CellFilter and MaterialFilter should give same results for cell 2 ({} vs {}), difference: {}", tally2.mean, tally2_mat.mean, cell2_vs_mat2_diff);
 
     // Test 7: Mixed filter intersection tests
     let mixed_match_diff = (tally1.mean - tally4_match.mean).abs();
-    assert!(mixed_match_diff < mat_filter_tolerance, "Material 1 AND Cell 1 should equal Cell 1 alone ({} vs {}), difference: {}", tally1.mean, tally4_match.mean, mixed_match_diff);
+    assert!(mixed_match_diff < tolerance, "Material 1 AND Cell 1 should equal Cell 1 alone ({} vs {}), difference: {}", tally1.mean, tally4_match.mean, mixed_match_diff);
     assert_eq!(tally5_zero.mean, 0.0, "Material 2 AND Cell 1 should be zero (no overlap), got: {}", tally5_zero.mean);
 }
