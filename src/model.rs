@@ -10,14 +10,8 @@ impl Model {
     pub fn run(&self) -> Vec<Tally> {
         // println!("Starting particle transport simulation...");
 
-        // Ensure all nuclear data is loaded before transport
-        for cell in &self.geometry.cells {
-            if let Some(material_arc) = &cell.material {
-                let mut material = material_arc.lock().unwrap();
-                let _ = material.ensure_nuclides_loaded();
-                material.calculate_macroscopic_xs(&vec![1], true);
-            }
-        }
+        // Materials must be fully loaded before being added to geometry
+        // (ensure_nuclides_loaded and calculate_macroscopic_xs should be called before Arc wrapping)
 
         // Initialize tallies from user specifications
         let mut tallies = create_tallies_from_specs(&self.tallies);
@@ -55,8 +49,7 @@ impl Model {
 
                     // Check if cell has material or is void
                     let dist_collision = match &cell.material {
-                        Some(mat_arc_mutex) => {
-                            let material = mat_arc_mutex.lock().unwrap();
+                        Some(material) => {
                             material
                                 .sample_distance_to_collision(particle.energy, &mut rng)
                                 .unwrap_or(f64::INFINITY)
@@ -99,8 +92,8 @@ impl Model {
                             particle.move_by(dist_collision);
 
                             // We know we have material here because void cells always hit surfaces first
-                            let material = cell.material.as_ref().unwrap().lock().unwrap();
-                            // Store material_id for filter checking (to avoid double-locking later)
+                            let material = cell.material.as_ref().unwrap();
+                            // Store material_id for filter checking
                             let material_id = material.material_id;
                             // Sample nuclide and reaction
                             let nuclide_name =
@@ -204,7 +197,7 @@ use crate::geometry::Geometry;
 // use crate::materials::Materials;
 use crate::settings::Settings;
 use crate::source::IndependentSource;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -246,7 +239,8 @@ mod tests {
         let mut nuclide_json_map = std::collections::HashMap::new();
         nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
-        let material_arc = Arc::new(Mutex::new(material));
+        material.calculate_macroscopic_xs(&vec![1], true);
+        let material_arc = Arc::new(material);
         let cell = Cell::new(Some(1), region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
         let geometry = Geometry { cells: vec![cell] };
         let source = IndependentSource {
@@ -280,8 +274,7 @@ mod tests {
         assert!(cell_material
             .as_ref()
             .unwrap()
-            .lock()
-            .unwrap()
+            .as_ref()
             .nuclides
             .contains_key("Li6"));
         // Run the model and ensure it executes without panicking

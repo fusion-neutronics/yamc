@@ -15,7 +15,7 @@ sphere2 = mc.Sphere(
     y0=0.0,
     z0=0.0,
     r=200.0,
-    boundary_type='Vacuum',
+    boundary_type='vacuum',
 )
 region1 = -sphere1
 region2 = +sphere1 & -sphere2
@@ -29,6 +29,8 @@ material1.add_nuclide("Li7", 0.93)
 # material1.add_element("Si", 1.0)
 material1.set_density("g/cm3", 2.0)
 material1.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
+# Must call calculate_macroscopic_xs before using material in cells (required after Mutex removal for performance)
+material1.calculate_macroscopic_xs([1], by_nuclide=True)
 
 
 # Create cells

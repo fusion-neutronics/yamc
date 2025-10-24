@@ -1,6 +1,6 @@
 use crate::material::Material;
 use crate::region::Region;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// A Cell represents a geometric region
 /// This follows OpenMC's approach where cells are defined by:
@@ -11,7 +11,7 @@ pub struct Cell {
     pub cell_id: Option<u32>,
     pub name: Option<String>,
     pub region: Region,
-    pub material: Option<Arc<Mutex<Material>>>,
+    pub material: Option<Arc<Material>>,
 }
 
 impl Cell {
@@ -70,7 +70,7 @@ impl Cell {
         cell_id: Option<u32>,
         region: Region,
         name: Option<String>,
-        material: Option<Arc<Mutex<Material>>>,
+        material: Option<Arc<Material>>,
     ) -> Self {
         Cell {
             cell_id,
@@ -94,7 +94,7 @@ impl Cell {
     pub fn contains(&self, point: (f64, f64, f64)) -> bool {
         self.region.contains(point)
     }
-    pub fn material(&self) -> Option<&Arc<Mutex<Material>>> {
+    pub fn material(&self) -> Option<&Arc<Material>> {
         self.material.as_ref()
     }
 }
@@ -184,11 +184,11 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
 
         let mat = Material::new();
-        let mat_arc = Arc::new(Mutex::new(mat.clone()));
+        let mat_arc = Arc::new(mat.clone());
         let cell = Cell::new(Some(1), region, Some("filled".to_string()), Some(mat_arc.clone()));
         assert!(cell.material().is_some());
         // The default Material::new() has an empty nuclides map
-        let locked = cell.material().unwrap().lock().unwrap();
+        let locked = cell.material().unwrap().as_ref();
         assert_eq!(locked.nuclides.len(), 0);
 
         // Optional fill

@@ -2,7 +2,7 @@
 // This test should be placed in tests/absorption_leakage_filters.rs
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use materials_for_mc::surface::{Surface, SurfaceKind, BoundaryType};
 use materials_for_mc::region::{Region, RegionExpr, HalfspaceType};
 use materials_for_mc::cell::Cell;
@@ -45,6 +45,7 @@ fn test_absorption_leakage_filters() {
     let mut nuclide_map1 = HashMap::new();
     nuclide_map1.insert("Li6".to_string(), "tests/Li6.json".to_string());
     material1.read_nuclides_from_json(&nuclide_map1).unwrap();
+    material1.calculate_macroscopic_xs(&vec![1], true);
 
     let mut material2 = Material::new();
     material2.material_id = Some(2);
@@ -53,10 +54,11 @@ fn test_absorption_leakage_filters() {
     let mut nuclide_map2 = HashMap::new();
     nuclide_map2.insert("Be9".to_string(), "tests/Be9.json".to_string());
     material2.read_nuclides_from_json(&nuclide_map2).unwrap();
+    material2.calculate_macroscopic_xs(&vec![1], true);
 
-    // Wrap materials in Arc<Mutex<Material>>
-    let mat1_arc = Arc::new(Mutex::new(material1));
-    let mat2_arc = Arc::new(Mutex::new(material2));
+    // Wrap materials in Arc (materials must be fully prepared before wrapping)
+    let mat1_arc = Arc::new(material1);
+    let mat2_arc = Arc::new(material2);
 
     // Create cells
     let cell1 = Cell::new(Some(1), region1, Some("inner_sphere".to_string()), Some(mat1_arc.clone()));
@@ -89,13 +91,13 @@ fn test_absorption_leakage_filters() {
     tally2.score = 101;
     tally2.name = Some("absorption in cell 2".to_string());
 
-    let material_filter1 = Filter::Material(MaterialFilter::new(&mat1_arc.lock().unwrap()));
+    let material_filter1 = Filter::Material(MaterialFilter::new(&mat1_arc.as_ref()));
     let mut tally1_mat = Tally::new();
     tally1_mat.filters = vec![material_filter1.clone()];
     tally1_mat.score = 101;
     tally1_mat.name = Some("absorption in material 1 (MaterialFilter)".to_string());
 
-    let material_filter2 = Filter::Material(MaterialFilter::new(&mat2_arc.lock().unwrap()));
+    let material_filter2 = Filter::Material(MaterialFilter::new(&mat2_arc.as_ref()));
     let mut tally2_mat = Tally::new();
     tally2_mat.filters = vec![material_filter2.clone()];
     tally2_mat.score = 101;

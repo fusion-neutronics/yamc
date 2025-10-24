@@ -1,7 +1,7 @@
 // Integration test for reproducibility - verifies that simulations with the same seed produce identical results
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use materials_for_mc::surface::{Surface, SurfaceKind, BoundaryType};
 use materials_for_mc::region::{Region, RegionExpr, HalfspaceType};
 use materials_for_mc::cell::Cell;
@@ -31,8 +31,9 @@ fn test_reproducibility_with_same_seed() {
     let mut nuclide_map = HashMap::new();
     nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
     material.read_nuclides_from_json(&nuclide_map).unwrap();
+    material.calculate_macroscopic_xs(&vec![1], true);
 
-    let mat_arc = Arc::new(Mutex::new(material));
+    let mat_arc = Arc::new(material);
     let cell = Cell::new(Some(1), region, Some("test_cell".to_string()), Some(mat_arc.clone()));
     let geometry = Geometry::new(vec![cell.clone()]).unwrap();
 
@@ -120,8 +121,9 @@ fn test_different_seeds_produce_different_results() {
     let mut nuclide_map = HashMap::new();
     nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
     material.read_nuclides_from_json(&nuclide_map).unwrap();
+    material.calculate_macroscopic_xs(&vec![1], true);
 
-    let mat_arc = Arc::new(Mutex::new(material));
+    let mat_arc = Arc::new(material);
     let cell = Cell::new(Some(1), region, Some("test_cell".to_string()), Some(mat_arc.clone()));
     let geometry = Geometry::new(vec![cell.clone()]).unwrap();
 

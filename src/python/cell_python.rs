@@ -52,7 +52,7 @@ impl PyCell {
         fill: Option<crate::python::material_python::PyMaterial>,
     ) -> Self {
         let material =
-            fill.map(|mat| std::sync::Arc::new(std::sync::Mutex::new(mat.internal.clone())));
+            fill.map(|mat| std::sync::Arc::new(mat.internal.clone()));
         PyCell {
             inner: Cell::new(cell_id, region.region, name, material),
         }
@@ -75,7 +75,7 @@ impl PyCell {
     #[getter]
     pub fn fill(&self) -> Option<crate::python::material_python::PyMaterial> {
         self.inner.material.as_ref().map(|arc| {
-            let mat = arc.lock().unwrap().clone();
+            let mat = arc.as_ref().clone();
             crate::python::material_python::PyMaterial { internal: mat }
         })
     }
