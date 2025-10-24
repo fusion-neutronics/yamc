@@ -14,9 +14,10 @@ impl Default for BoundaryType {
 }
 
 impl BoundaryType {
-    /// Parse a boundary type from a string, returning None for invalid strings
+    /// Parse a boundary type from a string (case-sensitive), returning None for invalid strings
+    /// Only accepts lowercase strings: "transmission" or "vacuum"
     pub fn from_str_option(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
+        match s {
             "transmission" => Some(BoundaryType::Transmission),
             "vacuum" => Some(BoundaryType::Vacuum),
             _ => None,
