@@ -70,26 +70,10 @@ impl Model {
 
                     // println!("Sampled distance to collision: {}", dist_collision);
 
-                    // Find closest surface and distance
-                    if let Some(surface_arc) =
+                    // Find closest surface and distance (computed together to avoid recalculation)
+                    if let Some((surface_arc, dist_surface)) =
                         cell.closest_surface(particle.position, particle.direction)
                     {
-                        let dist_surface = surface_arc
-                            .distance_to_surface(
-                                [
-                                    particle.position[0],
-                                    particle.position[1],
-                                    particle.position[2],
-                                ],
-                                particle.direction,
-                            )
-                            .unwrap_or_else(|| {
-                                panic!("Failed to calculate distance to surface for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {:?}",
-                                    particle.position[0], particle.position[1], particle.position[2],
-                                    particle.direction[0], particle.direction[1], particle.direction[2],
-                                    cell.cell_id);
-                            });
-                        
                         // println!("Distance to surface: {}", dist_surface);
                         
                         if dist_surface < dist_collision {

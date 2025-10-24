@@ -20,9 +20,10 @@ impl Cell {
         &self,
         point: [f64; 3],
         direction: [f64; 3],
-    ) -> Option<std::sync::Arc<crate::surface::Surface>> {
+    ) -> Option<(std::sync::Arc<crate::surface::Surface>, f64)> {
         let mut min_dist = f64::INFINITY;
         let mut closest_surface = None;
+
         for (surface_arc, _sense) in self.region.surfaces_with_sense() {
             let surface: &crate::surface::Surface = surface_arc.as_ref();
             if let Some(dist) = surface.distance_to_surface(point, direction) {
@@ -32,12 +33,13 @@ impl Cell {
                 }
             }
         }
-        closest_surface
+        closest_surface.map(|surf| (surf, min_dist))
     }
 
     /// Compute the distance to the closest surface from a point along a direction
     pub fn distance_to_surface(&self, point: [f64; 3], direction: [f64; 3]) -> Option<f64> {
         let mut min_dist = f64::INFINITY;
+
         for (surface_arc, sense) in self.region.surfaces_with_sense() {
             let surface: &crate::surface::Surface = surface_arc.as_ref();
             if let Some(dist) = surface.distance_to_surface(point, direction) {
@@ -56,6 +58,7 @@ impl Cell {
                 }
             }
         }
+
         if min_dist < f64::INFINITY {
             Some(min_dist)
         } else {
