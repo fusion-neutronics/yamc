@@ -840,10 +840,8 @@ impl Material {
         let by_nuclide = self.macroscopic_xs_neutron_total_by_nuclide.as_ref().expect("macroscopic_xs_neutron_total_by_nuclide is None: call calculate_macroscopic_xs with by_nuclide=true first");
         let mut xs_by_nuclide = Vec::new();
         let mut total = 0.0;
-        let mut debug_info = String::new();
         for (nuclide, xs_vec) in by_nuclide.iter() {
             if xs_vec.is_empty() || self.unified_energy_grid_neutron.is_empty() {
-                debug_info.push_str(&format!("{}: EMPTY\n", nuclide));
                 continue;
             }
             let xs = crate::utilities::interpolate_linear(
@@ -851,13 +849,26 @@ impl Material {
                 xs_vec,
                 energy,
             );
-            debug_info.push_str(&format!("{}: xs = {}\n", nuclide, xs));
             if xs > 0.0 {
                 xs_by_nuclide.push((nuclide, xs));
                 total += xs;
             }
         }
         if xs_by_nuclide.is_empty() || total <= 0.0 {
+            // Only build debug info if we're about to panic
+            let mut debug_info = String::new();
+            for (nuclide, xs_vec) in by_nuclide.iter() {
+                if xs_vec.is_empty() || self.unified_energy_grid_neutron.is_empty() {
+                    debug_info.push_str(&format!("{}: EMPTY\n", nuclide));
+                } else {
+                    let xs = crate::utilities::interpolate_linear(
+                        &self.unified_energy_grid_neutron,
+                        xs_vec,
+                        energy,
+                    );
+                    debug_info.push_str(&format!("{}: xs = {}\n", nuclide, xs));
+                }
+            }
             panic!(
                 "No nuclide has nonzero macroscopic total cross section at energy {}. Details:\n{}",
                 energy, debug_info
