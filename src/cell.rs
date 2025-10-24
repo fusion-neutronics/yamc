@@ -21,18 +21,30 @@ impl Cell {
         point: [f64; 3],
         direction: [f64; 3],
     ) -> Option<(std::sync::Arc<crate::surface::Surface>, f64)> {
+        // Use thread-local buffer to avoid Vec allocation on every call (hot path optimization)
+        thread_local! {
+            static SURFACE_BUFFER: std::cell::RefCell<Vec<(std::sync::Arc<crate::surface::Surface>, bool)>> =
+                std::cell::RefCell::new(Vec::with_capacity(16));
+        }
+
         let mut min_dist = f64::INFINITY;
         let mut closest_surface = None;
 
-        for (surface_arc, _sense) in self.region.surfaces_with_sense() {
-            let surface: &crate::surface::Surface = surface_arc.as_ref();
-            if let Some(dist) = surface.distance_to_surface(point, direction) {
-                if dist > 1e-10 && dist < min_dist {
-                    min_dist = dist;
-                    closest_surface = Some(surface_arc.clone());
+        SURFACE_BUFFER.with(|buf| {
+            let mut surfaces = buf.borrow_mut();
+            self.region.collect_surfaces_with_sense(&mut surfaces);
+
+            for (surface_arc, _sense) in surfaces.iter() {
+                let surface: &crate::surface::Surface = surface_arc.as_ref();
+                if let Some(dist) = surface.distance_to_surface(point, direction) {
+                    if dist > 1e-10 && dist < min_dist {
+                        min_dist = dist;
+                        closest_surface = Some(surface_arc.clone());
+                    }
                 }
             }
-        }
+        });
+
         closest_surface.map(|surf| (surf, min_dist))
     }
 
