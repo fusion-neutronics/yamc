@@ -1,6 +1,7 @@
 [![Test usage with Python](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-python.yml/badge.svg)](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-python.yml)
 [![Test usage with WASM](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-wasm.yml/badge.svg)](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-wasm.yml)
 [![Test usage with Rust](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-rust.yml/badge.svg)](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-rust.yml)
+[![Documentation](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/docs.yml/badge.svg)](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/docs.yml)
 
 # Materials for MC
 
