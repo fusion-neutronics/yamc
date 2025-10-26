@@ -27,10 +27,10 @@ mod tests {
     fn test_score_event_direct_mt() {
         let mut tally = Tally::new();
         tally.set_score(101); // Absorption
-        tally.batch_data.push(0); // Start batch
+        tally.batch_data.push(AtomicU64::new(0)); // Start batch
         let cell = dummy_cell(1);
         assert!(tally.score_event(101, &cell, Some(42)));
-        assert_eq!(tally.batch_data[0], 1, "Should increment for direct MT match");
+        assert_eq!(tally.batch_data[0].load(Ordering::Relaxed), 1, "Should increment for direct MT match");
     }
 
     #[test]
@@ -72,6 +72,7 @@ mod tests {
 }
 use std::fmt;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use crate::filters::{CellFilter, MaterialFilter};
 
 /// Unified filter enum for tallies
@@ -92,17 +93,18 @@ impl Filter {
 }
 
 /// Unified tally structure serving as both input specification and results container
-#[derive(Debug, Clone)]
+/// Note: Cannot derive Clone because AtomicU64 is not cloneable (use Arc<Tally> for sharing)
+#[derive(Debug)]
 pub struct Tally {
     // Input specification fields
     pub id: Option<u32>,           // Optional tally ID
-    pub name: Option<String>,      // Optional tally name  
+    pub name: Option<String>,      // Optional tally name
     pub score: i32,               // MT number to score (e.g., 101 for absorption)
     pub filters: Vec<Filter>, // Filters for this tally
-    
+
     // Results fields (populated during simulation)
-    pub units: String,          // Units (e.g., "particles", "collisions", "reactions")  
-    pub batch_data: Vec<u32>,   // Raw counts per batch
+    pub units: String,          // Units (e.g., "particles", "collisions", "reactions")
+    pub batch_data: Vec<AtomicU64>,   // Atomic raw counts per batch (thread-safe)
     // Statistics (calculated from batch_data)
     pub mean: f64,              // Mean per source particle
     pub std_dev: f64,           // Standard deviation per source particle
@@ -113,7 +115,8 @@ pub struct Tally {
 
 impl Tally {
     /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
-    pub fn score_event(&mut self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) -> bool {
+    /// Uses atomic operations for thread-safe scoring (no mut required)
+    pub fn score_event(&self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>) -> bool {
     let mut should_score = self.score == reaction_mt;
         // If this is an inelastic constituent (MT 50-91), also score for MT 4
         if (50..92).contains(&reaction_mt) && self.score == 4 {
@@ -149,8 +152,9 @@ impl Tally {
                 })
             };
             if passes_filters {
-                if let Some(last) = self.batch_data.last_mut() {
-                    *last += 1;
+                // Use atomic fetch_add for thread-safe increment (Ordering::Relaxed is sufficient for counting)
+                if let Some(last) = self.batch_data.last() {
+                    last.fetch_add(1, Ordering::Relaxed);
                 }
                 return true;
             }
@@ -239,11 +243,12 @@ impl Tally {
 
         let n = self.batch_data.len() as f64;
         let particles_per_batch_f64 = particles_per_batch as f64;
-        
+
         // Normalize each batch by particles per batch to get per-source-particle values
+        // Load atomic values with Relaxed ordering (order doesn't matter for final statistics)
         let normalized_data: Vec<f64> = self.batch_data
             .iter()
-            .map(|&count| count as f64 / particles_per_batch_f64)
+            .map(|atomic_count| atomic_count.load(Ordering::Relaxed) as f64 / particles_per_batch_f64)
             .collect();
         
         self.mean = normalized_data.iter().sum::<f64>() / n;
@@ -258,8 +263,8 @@ impl Tally {
     }
 
     /// Get the total count across all batches
-    pub fn total_count(&self) -> u32 {
-        self.batch_data.iter().sum()
+    pub fn total_count(&self) -> u64 {
+        self.batch_data.iter().map(|a| a.load(Ordering::Relaxed)).sum()
     }
     
     /// Get the display name of the tally
