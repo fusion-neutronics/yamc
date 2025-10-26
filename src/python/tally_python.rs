@@ -4,12 +4,14 @@ use pyo3::prelude::*;
 use pyo3::types::PyAny;
 #[cfg(feature = "pyo3")]
 use crate::tally::Tally;
+#[cfg(feature = "pyo3")]
+use std::sync::Arc;
 
 #[cfg(feature = "pyo3")]
-#[pyclass(name = "Tally")]
+#[pyclass(name = "Tally", unsendable)]
 #[derive(Clone)]
 pub struct PyTally {
-    pub inner: Tally,
+    pub inner: Arc<Tally>,
 }
 
 #[cfg(feature = "pyo3")]
@@ -18,7 +20,7 @@ impl PyTally {
     #[new]
     pub fn new() -> Self {
         PyTally {
-            inner: Tally::new(),
+            inner: Arc::new(Tally::new()),
         }
     }
     
@@ -29,27 +31,39 @@ impl PyTally {
     
     #[setter]
     pub fn set_score(&mut self, score: i32) {
-        self.inner.score = score;
+        if let Some(tally) = Arc::get_mut(&mut self.inner) {
+            tally.score = score;
+        } else {
+            panic!("Cannot modify tally: multiple references exist");
+        }
     }
-    
+
     #[getter]
     pub fn name(&self) -> Option<String> {
         self.inner.name.clone()
     }
-    
-    #[setter]  
+
+    #[setter]
     pub fn set_name(&mut self, name: Option<String>) {
-        self.inner.name = name;
+        if let Some(tally) = Arc::get_mut(&mut self.inner) {
+            tally.name = name;
+        } else {
+            panic!("Cannot modify tally: multiple references exist");
+        }
     }
-    
+
     #[getter]
     pub fn id(&self) -> Option<u32> {
         self.inner.id
     }
-    
+
     #[setter]
     pub fn set_id(&mut self, id: Option<u32>) {
-        self.inner.id = id;
+        if let Some(tally) = Arc::get_mut(&mut self.inner) {
+            tally.id = id;
+        } else {
+            panic!("Cannot modify tally: multiple references exist");
+        }
     }
 
     #[getter]
@@ -59,32 +73,36 @@ impl PyTally {
     
     #[getter]
     pub fn mean(&self) -> f64 {
-        self.inner.mean
+        self.inner.mean.get()
     }
-    
+
     #[getter]
     pub fn std_dev(&self) -> f64 {
-        self.inner.std_dev
+        self.inner.std_dev.get()
     }
-    
+
     #[getter]
     pub fn rel_error(&self) -> f64 {
-        self.inner.rel_error
+        self.inner.rel_error.get()
     }
-    
+
     #[getter]
     pub fn n_batches(&self) -> u32 {
-        self.inner.n_batches
+        self.inner.n_batches.get()
     }
     
     #[getter]
     pub fn particles_per_batch(&self) -> u32 {
-        self.inner.particles_per_batch
+        self.inner.particles_per_batch.get()
     }
     
     #[getter]
-    pub fn batch_data(&self) -> Vec<u32> {
-        self.inner.batch_data.clone()
+    pub fn batch_data(&self) -> Vec<u64> {
+        use std::sync::atomic::Ordering;
+        self.inner.batch_data.borrow()
+            .iter()
+            .map(|a| a.load(Ordering::Relaxed))
+            .collect()
     }
     
     #[getter]
@@ -128,17 +146,23 @@ impl PyTally {
             }
         }
         
-        self.inner.filters = filter_objects;
-        
-        // Validate the tally configuration
-        if let Err(err) = self.inner.validate() {
-            return Err(pyo3::exceptions::PyValueError::new_err(err));
+        if let Some(tally) = Arc::get_mut(&mut self.inner) {
+            tally.filters = filter_objects;
+
+            // Validate the tally configuration
+            if let Err(err) = tally.validate() {
+                return Err(pyo3::exceptions::PyValueError::new_err(err));
+            }
+        } else {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "Cannot modify tally: multiple references exist"
+            ));
         }
         
         Ok(())
     }
     
-    pub fn total_count(&self) -> u32 {
+    pub fn total_count(&self) -> u64 {
         self.inner.total_count()
     }
     
@@ -154,7 +178,7 @@ impl PyTally {
 #[cfg(feature = "pyo3")]
 impl From<Tally> for PyTally {
     fn from(tally: Tally) -> Self {
-        PyTally { inner: tally }
+        PyTally { inner: Arc::new(tally) }
     }
 }
 
