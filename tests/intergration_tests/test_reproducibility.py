@@ -22,44 +22,44 @@ def test_reproducibility_with_same_seed():
     source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Isotropic(), energy=1e6)
     settings = mc.Settings(particles=100, batches=10, source=source, seed=42)
 
-    # Create tally
-    tally = mc.Tally()
-    tally.score = 101  # absorption
-    tally.name = "test_absorption"
+    # Create separate tallies for each run
+    tally1 = mc.Tally()
+    tally1.score = 101  # absorption
+    tally1.name = "test_absorption_1"
+
+    tally2 = mc.Tally()
+    tally2.score = 101  # absorption
+    tally2.name = "test_absorption_2"
+
+    tally3 = mc.Tally()
+    tally3.score = 101  # absorption
+    tally3.name = "test_absorption_3"
 
     # Run simulation 1
-    model1 = mc.Model(geometry=geometry, settings=settings, tallies=[tally])
-    results1 = model1.run()
+    model1 = mc.Model(geometry=geometry, settings=settings, tallies=[tally1])
+    model1.run()
 
     # Run simulation 2 with same seed
-    model2 = mc.Model(geometry=geometry, settings=settings, tallies=[tally])
-    results2 = model2.run()
+    model2 = mc.Model(geometry=geometry, settings=settings, tallies=[tally2])
+    model2.run()
 
     # Run simulation 3 with same seed
-    model3 = mc.Model(geometry=geometry, settings=settings, tallies=[tally])
-    results3 = model3.run()
+    model3 = mc.Model(geometry=geometry, settings=settings, tallies=[tally3])
+    model3.run()
 
     # Verify all three runs produced identical results
-    leakage1, absorption1 = results1
-    leakage2, absorption2 = results2
-    leakage3, absorption3 = results3
+    # Tallies are updated in place - access results directly
 
-    # Check leakage
-    assert leakage1.mean == leakage2.mean, f"Leakage should be identical with same seed: {leakage1.mean} vs {leakage2.mean}"
-    assert leakage1.mean == leakage3.mean, f"Leakage should be identical with same seed: {leakage1.mean} vs {leakage3.mean}"
-    assert leakage1.batch_data == leakage2.batch_data, "Leakage batch data should be identical"
-    assert leakage1.batch_data == leakage3.batch_data, "Leakage batch data should be identical"
-
-    # Check absorption
-    assert absorption1.mean == absorption2.mean, f"Absorption should be identical with same seed: {absorption1.mean} vs {absorption2.mean}"
-    assert absorption1.mean == absorption3.mean, f"Absorption should be identical with same seed: {absorption1.mean} vs {absorption3.mean}"
-    assert absorption1.batch_data == absorption2.batch_data, "Absorption batch data should be identical"
-    assert absorption1.batch_data == absorption3.batch_data, "Absorption batch data should be identical"
+    # Check absorption (no more leakage tally)
+    assert tally1.mean == tally2.mean, f"Absorption should be identical with same seed: {tally1.mean} vs {tally2.mean}"
+    assert tally1.mean == tally3.mean, f"Absorption should be identical with same seed: {tally1.mean} vs {tally3.mean}"
+    assert tally1.batch_data == tally2.batch_data, "Absorption batch data should be identical"
+    assert tally1.batch_data == tally3.batch_data, "Absorption batch data should be identical"
 
     print(f"✓ Python reproducibility test passed!")
-    print(f"  Run 1 - Leakage: {leakage1.mean:.6f}, Absorption: {absorption1.mean:.6f}")
-    print(f"  Run 2 - Leakage: {leakage2.mean:.6f}, Absorption: {absorption2.mean:.6f}")
-    print(f"  Run 3 - Leakage: {leakage3.mean:.6f}, Absorption: {absorption3.mean:.6f}")
+    print(f"  Run 1 - Absorption: {tally1.mean:.6f}")
+    print(f"  Run 2 - Absorption: {tally2.mean:.6f}")
+    print(f"  Run 3 - Absorption: {tally3.mean:.6f}")
 
 
 def test_different_seeds_produce_different_results():
@@ -86,33 +86,34 @@ def test_different_seeds_produce_different_results():
     settings1 = mc.Settings(particles=100, batches=10, source=source, seed=42)
     settings2 = mc.Settings(particles=100, batches=10, source=source, seed=123)
 
-    # Create tally
-    tally = mc.Tally()
-    tally.score = 101  # absorption
-    tally.name = "test_absorption"
+    # Create separate tallies for each run
+    tally1 = mc.Tally()
+    tally1.score = 101  # absorption
+    tally1.name = "test_absorption_1"
+
+    tally2 = mc.Tally()
+    tally2.score = 101  # absorption
+    tally2.name = "test_absorption_2"
 
     # Run simulation with seed 42
-    model1 = mc.Model(geometry=geometry, settings=settings1, tallies=[tally])
-    results1 = model1.run()
+    model1 = mc.Model(geometry=geometry, settings=settings1, tallies=[tally1])
+    model1.run()
 
     # Run simulation with seed 123
-    model2 = mc.Model(geometry=geometry, settings=settings2, tallies=[tally])
-    results2 = model2.run()
+    model2 = mc.Model(geometry=geometry, settings=settings2, tallies=[tally2])
+    model2.run()
 
-    leakage1, absorption1 = results1
-    leakage2, absorption2 = results2
-
+    # Tallies are updated in place - access results directly
     # Verify different seeds produce different results (with high probability)
-    different_leakage = leakage1.mean != leakage2.mean
-    different_absorption = absorption1.mean != absorption2.mean
-    different_batch_data = absorption1.batch_data != absorption2.batch_data
+    different_absorption = tally1.mean != tally2.mean
+    different_batch_data = tally1.batch_data != tally2.batch_data
 
-    assert different_leakage or different_absorption or different_batch_data, \
-        f"Different seeds should produce different results (leakage: {leakage1.mean} vs {leakage2.mean}, absorption: {absorption1.mean} vs {absorption2.mean})"
+    assert different_absorption or different_batch_data, \
+        f"Different seeds should produce different results (absorption: {tally1.mean} vs {tally2.mean})"
 
     print(f"✓ Different seeds test passed!")
-    print(f"  Seed 42  - Leakage: {leakage1.mean:.6f}, Absorption: {absorption1.mean:.6f}")
-    print(f"  Seed 123 - Leakage: {leakage2.mean:.6f}, Absorption: {absorption2.mean:.6f}")
+    print(f"  Seed 42  - Absorption: {tally1.mean:.6f}")
+    print(f"  Seed 123 - Absorption: {tally2.mean:.6f}")
 
 
 if __name__ == "__main__":

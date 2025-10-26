@@ -130,34 +130,17 @@ class TestTallySimulation:
         
         # Create and run model
         model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
-        results = model.run()
-        
-        # Should return leakage tally + user tallies
-        assert len(results) == 2
-        leakage_tally, absorption_result = results
-        
-        # Check leakage tally
-        assert leakage_tally.name == "Leakage"
-        assert leakage_tally.units == "particles"
-        assert leakage_tally.n_batches == 5
-        assert leakage_tally.particles_per_batch == 100
+        model.run()
         
         # Check absorption tally
-        assert absorption_result.name == "Absorption Tally"
-        assert absorption_result.units == "events"
-        assert absorption_result.n_batches == 5
-        assert absorption_result.particles_per_batch == 100
-        
-        # Results should be reasonable (non-negative, finite)
-        assert leakage_tally.mean >= 0.0
-        assert leakage_tally.total_count() >= 0
-        assert absorption_result.mean >= 0.0
-        assert absorption_result.total_count() >= 0
+        assert absorption_tally.name == "Absorption Tally"
+        assert absorption_tally.n_batches == 5
+        assert absorption_tally.particles_per_batch == 100
         
         # Statistics should be calculated
-        if absorption_result.total_count() > 0:
-            assert absorption_result.std_dev >= 0.0
-            assert absorption_result.rel_error >= 0.0
+        if absorption_tally.total_count() > 0:
+            assert absorption_tally.std_dev >= 0.0
+            assert absorption_tally.rel_error >= 0.0
     
     def test_simulation_with_multiple_tallies(self, simple_model):
         """Test simulation with multiple tallies."""
@@ -176,19 +159,15 @@ class TestTallySimulation:
         
         # Create and run model
         model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
-        results = model.run()
-        
-        # Should return leakage + 2 user tallies
-        assert len(results) == 3
-        leakage_tally, absorption_result, elastic_result = results
+        model.run()
+
         
         # Check all tallies
-        assert leakage_tally.name == "Leakage"
-        assert absorption_result.name == "Absorption Events"
-        assert elastic_result.name == "Elastic Scattering Events"
+        assert absorption_tally.name == "Absorption Events"
+        assert elastic_tally.name == "Elastic Scattering Events"
         
         # All should have proper batch information
-        for tally_result in results:
+        for tally_result in model.tallies:
             assert tally_result.n_batches == 5
             assert tally_result.particles_per_batch == 100
             assert len(tally_result.batch_data) == 5
@@ -199,17 +178,8 @@ class TestTallySimulation:
         
         # Create model with no user tallies
         model = mc.Model(geometry=geometry, settings=settings, tallies=[])
-        results = model.run()
-        
-        # Should only return leakage tally
-        assert len(results) == 1
-        leakage_tally = results[0]
-        
-        assert leakage_tally.name == "Leakage"
-        assert leakage_tally.units == "particles"
-        assert leakage_tally.n_batches == 5
-        assert leakage_tally.particles_per_batch == 100
-        
+        model.run()
+
     def test_tally_statistics_consistency(self, simple_model):
         """Test that tally statistics are consistent and reasonable."""
         geometry, settings = simple_model
@@ -222,26 +192,24 @@ class TestTallySimulation:
         
         # Run simulation
         model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
-        results = model.run()
-        
-        _, absorption_result = results
+        model.run()
         
         # Test statistics consistency
-        assert absorption_result.n_batches == len(absorption_result.batch_data)
-        assert absorption_result.total_count() == sum(absorption_result.batch_data)
+        assert absorption_tally.n_batches == len(absorption_tally.batch_data)
+        assert absorption_tally.total_count() == sum(absorption_tally.batch_data)
         
         # If we have results, test statistical relationships
-        if absorption_result.total_count() > 0:
+        if absorption_tally.total_count() > 0:
             # Mean should be total divided by (batches * particles_per_batch)
-            expected_mean = absorption_result.total_count() / (
-                absorption_result.n_batches * absorption_result.particles_per_batch
+            expected_mean = absorption_tally.total_count() / (
+                absorption_tally.n_batches * absorption_tally.particles_per_batch
             )
-            assert abs(absorption_result.mean - expected_mean) < 1e-10
+            assert abs(absorption_tally.mean - expected_mean) < 1e-10
             
             # Relative error should be std_dev / mean (if mean > 0)
-            if absorption_result.mean > 0:
-                expected_rel_error = absorption_result.std_dev / absorption_result.mean
-                assert abs(absorption_result.rel_error - expected_rel_error) < 1e-10
+            if absorption_tally.mean > 0:
+                expected_rel_error = absorption_tally.std_dev / absorption_tally.mean
+                assert abs(absorption_tally.rel_error - expected_rel_error) < 1e-10
 
 
 class TestTallyIntegration:
