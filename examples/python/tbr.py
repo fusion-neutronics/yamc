@@ -57,6 +57,7 @@ tally1.name = "tbr"
 tallies = [tally1]
 
 model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
-leakage_tally, tally1 = model.run()
+model.run()
 
-print(tally1.mean)
+# Tallies are updated in place!
+print(f"TBR (tritium breeding ratio): {tally1.mean}")

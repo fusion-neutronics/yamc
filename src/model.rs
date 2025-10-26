@@ -7,7 +7,7 @@ use crate::physics::elastic_scatter;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::tally::{Tally, create_tallies_from_specs};
 impl Model {
-    pub fn run(&self) -> Vec<Tally> {
+    pub fn run(&mut self) {
         // println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
@@ -19,21 +19,18 @@ impl Model {
             }
         }
 
-        // Initialize tallies from user specifications
-        let mut tallies = create_tallies_from_specs(&self.tallies);
+        // Initialize batch data for all user tallies (updates them in place via RefCell)
+        for user_tally_arc in &self.tallies {
+            user_tally_arc.initialize_batches(self.settings.batches as usize);
+        }
+
+        // Work with the tallies directly during transport
+        let tallies = &self.tallies;
 
         // Initialize RNG with seed for reproducibility
         let mut rng = StdRng::seed_from_u64(self.settings.get_seed());
         for batch in 0..self.settings.batches {
             // println!("Batch {}", batch + 1);
-
-            // Initialize leakage counter for this batch
-            let mut batch_leakage = 0u32;
-
-            // Initialize batch_data for user tallies (not leakage at index 0)
-            for tally in tallies[1..].iter_mut() {
-                tally.batch_data.push(0);
-            }
 
             for _ in 0..self.settings.particles {
                 // Sample a particle from the source via settings
@@ -84,7 +81,6 @@ impl Model {
                                 //     particle.position
                                 // );
                                 particle.alive = false;
-                                batch_leakage += 1; // Count this leakage
                             } else {
                                 // Move slightly past surface to avoid geometric ambiguity
                                 const SURFACE_TOLERANCE: f64 = 1e-8;
@@ -162,7 +158,7 @@ impl Model {
                                 }
                                 
                                 // Score user tallies for this reaction (after physics is processed)
-                                for tally in tallies[1..].iter_mut() {
+                                for tally in tallies.iter() {
                                     tally.score_event(reaction.mt_number, cell, material_id);
                                 }
 
@@ -186,18 +182,15 @@ impl Model {
                     }
                 }
             }
-            
-            // Store batch leakage at end of each batch (first tally is always leakage)
-            tallies[0].add_batch(batch_leakage, self.settings.particles as u32);
 
-            // Update statistics for user tallies (batch_data already populated via score_event)
-            for tally in tallies[1..].iter_mut() {
+            // Update statistics for all user tallies (batch_data already populated via score_event)
+            for tally in tallies.iter() {
                 tally.update_statistics(self.settings.particles as u32);
             }
         }
-        
+
         println!("Simulation complete.");
-        tallies
+        // Tallies updated in place - no return needed
     }
 }
 use crate::geometry::Geometry;
@@ -210,7 +203,7 @@ use std::sync::{Arc, Mutex};
 pub struct Model {
     pub geometry: Geometry,
     pub settings: Settings,
-    pub tallies: Vec<crate::tally::Tally>,
+    pub tallies: Vec<Arc<crate::tally::Tally>>,  // Arc allows sharing tallies for parallel updates
 }
 
 #[cfg(test)]
@@ -265,11 +258,14 @@ mod tests {
         let mut absorption_tally = crate::tally::Tally::new();
         absorption_tally.score = 101; // MT 101 = absorption
         absorption_tally.name = Some("Absorption Tally".to_string());
-        
-        let model = Model { 
-            geometry, 
-            settings, 
-            tallies: vec![absorption_tally] 
+        absorption_tally.units = "events".to_string();
+
+        let absorption_tally_arc = Arc::new(absorption_tally);
+
+        let mut model = Model {
+            geometry,
+            settings,
+            tallies: vec![Arc::clone(&absorption_tally_arc)]
         };
         assert_eq!(model.settings.particles, 100);
         assert_eq!(model.settings.source.energy, 1e6);
@@ -285,26 +281,16 @@ mod tests {
             .nuclides
             .contains_key("Li6"));
         // Run the model and ensure it executes without panicking
-        let tallies = model.run();
+        model.run();
 
-        // Verify we got the expected number of tallies (leakage + 1 user tally)
-        assert_eq!(tallies.len(), 2, "Expected 2 tallies: leakage + absorption");
-        
-        // Verify leakage tally (index 0)
-        assert_eq!(tallies[0].name, Some("Leakage".to_string()));
-        assert_eq!(tallies[0].units, "particles");
-        assert_eq!(tallies[0].n_batches, 10);
-        
-        // Verify absorption tally (index 1) 
-        assert_eq!(tallies[1].name, Some("Absorption Tally".to_string()));
-        assert_eq!(tallies[1].units, "events");
-        assert_eq!(tallies[1].n_batches, 10);
-        
+        // Verify the absorption tally was updated in place
+        assert_eq!(absorption_tally_arc.name, Some("Absorption Tally".to_string()));
+        assert_eq!(absorption_tally_arc.units, "events");
+        assert_eq!(absorption_tally_arc.n_batches.get(), 10);
+
         println!("Test tally results:");
-        for (i, tally) in tallies.iter().enumerate() {
-            println!("Tally {}: {}", i, tally);
-        }
-        
-        println!("✓ Both leakage and absorption tallies verified successfully");
+        println!("Absorption Tally: {}", absorption_tally_arc);
+
+        println!("✓ Absorption tally verified successfully - tally updated in place!");
     }
 }

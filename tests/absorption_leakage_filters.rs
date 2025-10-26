@@ -116,67 +116,70 @@ fn test_absorption_leakage_filters() {
     tally5_zero.name = Some("absorption in material 2 AND cell 1 (should be zero)".to_string());
 
     // Place the total absorption tally before the filtered tallies to ensure mutually exclusive scoring works as intended
-    let tallies = vec![tally3, tally1, tally2, tally1_mat, tally2_mat, tally4_match, tally5_zero];
+    let tallies = vec![
+        Arc::new(tally3),
+        Arc::new(tally1),
+        Arc::new(tally2),
+        Arc::new(tally1_mat),
+        Arc::new(tally2_mat),
+        Arc::new(tally4_match),
+        Arc::new(tally5_zero)
+    ];
 
-    let model = Model {
+    let mut model = Model {
         geometry,
         settings,
         tallies,
     };
-    let results = model.run();
-    let leakage_tally = &results[0];
-    let tally3 = &results[1]; // total absorption
-    let tally1 = &results[2];
-    let tally2 = &results[3];
-    let tally1_mat = &results[4];
-    let tally2_mat = &results[5];
-    let tally4_match = &results[6];
-    let tally5_zero = &results[7];
+    model.run();
+
+    // Access tallies from model after run (no leakage tally anymore)
+    let tally3 = &model.tallies[0]; // total absorption
+    let tally1 = &model.tallies[1];
+    let tally2 = &model.tallies[2];
+    let tally1_mat = &model.tallies[3];
+    let tally2_mat = &model.tallies[4];
+    let tally4_match = &model.tallies[5];
+    let tally5_zero = &model.tallies[6];
 
     // Debug: Print means for tally1, tally2, tally3
-    println!("[DEBUG] tally1.mean (cell 1): {}", tally1.mean);
-    println!("[DEBUG] tally2.mean (cell 2): {}", tally2.mean);
-    println!("[DEBUG] tally3.mean (total absorption): {}", tally3.mean);
+    println!("[DEBUG] tally1.mean (cell 1): {}", tally1.mean.get());
+    println!("[DEBUG] tally2.mean (cell 2): {}", tally2.mean.get());
+    println!("[DEBUG] tally3.mean (total absorption): {}", tally3.mean.get());
 
     // Test 2: Tally consistency
     let tolerance = 1e-10;
 
     // Test: Sum of cell tallies equals total absorption
-    let cell_sum_vs_total = (tally1.mean + tally2.mean - tally3.mean).abs();
-    assert!(cell_sum_vs_total < tolerance, "Sum of cell tallies ({}) should equal total absorption tally ({}), difference: {}", tally1.mean + tally2.mean, tally3.mean, cell_sum_vs_total);
+    let cell_sum_vs_total = (tally1.mean.get() + tally2.mean.get() - tally3.mean.get()).abs();
+    assert!(cell_sum_vs_total < tolerance, "Sum of cell tallies ({}) should equal total absorption tally ({}), difference: {}", tally1.mean.get() + tally2.mean.get(), tally3.mean.get(), cell_sum_vs_total);
 
     // Test 1: CellFilter functionality
-    assert_ne!(tally1.mean, tally2.mean, "CellFilter should separate tallies by cell");
+    assert_ne!(tally1.mean.get(), tally2.mean.get(), "CellFilter should separate tallies by cell");
 
-    let sum_diff = (tally1.mean + tally2.mean - tally3.mean).abs();
-    assert!(sum_diff < tolerance, "Sum of cell tallies ({}) should equal total tally ({}), difference: {}", tally1.mean + tally2.mean, tally3.mean, sum_diff);
+    let sum_diff = (tally1.mean.get() + tally2.mean.get() - tally3.mean.get()).abs();
+    assert!(sum_diff < tolerance, "Sum of cell tallies ({}) should equal total tally ({}), difference: {}", tally1.mean.get() + tally2.mean.get(), tally3.mean.get(), sum_diff);
 
-    let leakage_plus_absorption = (leakage_tally.mean + tally1.mean + tally2.mean - 1.0).abs();
-    assert!(leakage_plus_absorption < tolerance, "Sum of leakage and absorption tallies should equal 1.0, got {}, difference: {}", leakage_tally.mean + tally1.mean + tally2.mean, leakage_plus_absorption);
-
-    // Test 3: Particle conservation
-    let conservation_diff = (tally1.mean + tally2.mean + leakage_tally.mean - 1.0).abs();
-    assert!(conservation_diff < tolerance, "(Absorption in cell 1 + cell 2 + leakage) should equal 1.0, got {}, difference: {}", tally1.mean + tally2.mean + leakage_tally.mean, conservation_diff);
+    // Test 3: Particle conservation (leakage tally removed - only check absorption <= 1.0)
+    assert!(tally3.mean.get() <= 1.0, "Total absorption should be <= 1.0 (some particles may leak), got {}", tally3.mean.get());
 
     // Test 4: Physical reasonableness
-    assert!(tally3.mean > 0.0, "Some particles should be absorbed");
-    assert!(leakage_tally.mean > 0.0, "Some particles should leak from geometry");
-    assert!(tally3.mean < 1.0, "Not all particles should be absorbed");
-    assert!(leakage_tally.mean < 1.0, "Not all particles should leak");
+    assert!(tally3.mean.get() > 0.0, "Some particles should be absorbed");
+    assert!(tally3.mean.get() < 1.0, "Not all particles should be absorbed (some leak)");
 
     // Test 5: At least one cell should have absorption
-    assert!(tally1.mean >= 0.0, "Cell 1 absorption should be non-negative");
-    assert!(tally2.mean >= 0.0, "Cell 2 absorption should be non-negative");
-    assert!(tally1.mean + tally2.mean > 0.0, "Total absorption should be positive");
+    assert!(tally1.mean.get() >= 0.0, "Cell 1 absorption should be non-negative");
+    assert!(tally2.mean.get() >= 0.0, "Cell 2 absorption should be non-negative");
+    assert!(tally1.mean.get() + tally2.mean.get() > 0.0, "Total absorption should be positive");
 
     // Test 6: MaterialFilter equivalence
-    let cell1_vs_mat1_diff = (tally1.mean - tally1_mat.mean).abs();
-    let cell2_vs_mat2_diff = (tally2.mean - tally2_mat.mean).abs();
-    assert!(cell1_vs_mat1_diff < tolerance, "CellFilter and MaterialFilter should give same results for cell 1 ({} vs {}), difference: {}", tally1.mean, tally1_mat.mean, cell1_vs_mat1_diff);
-    assert!(cell2_vs_mat2_diff < tolerance, "CellFilter and MaterialFilter should give same results for cell 2 ({} vs {}), difference: {}", tally2.mean, tally2_mat.mean, cell2_vs_mat2_diff);
+    let cell1_vs_mat1_diff = (tally1.mean.get() - tally1_mat.mean.get()).abs();
+    let cell2_vs_mat2_diff = (tally2.mean.get() - tally2_mat.mean.get()).abs();
+    assert!(cell1_vs_mat1_diff < tolerance, "CellFilter and MaterialFilter should give same results for cell 1 ({} vs {}), difference: {}", tally1.mean.get(), tally1_mat.mean.get(), cell1_vs_mat1_diff);
+    assert!(cell2_vs_mat2_diff < tolerance, "CellFilter and MaterialFilter should give same results for cell 2 ({} vs {}), difference: {}", tally2.mean.get(), tally2_mat.mean.get(), cell2_vs_mat2_diff);
 
     // Test 7: Mixed filter intersection tests
-    let mixed_match_diff = (tally1.mean - tally4_match.mean).abs();
-    assert!(mixed_match_diff < tolerance, "Material 1 AND Cell 1 should equal Cell 1 alone ({} vs {}), difference: {}", tally1.mean, tally4_match.mean, mixed_match_diff);
-    assert_eq!(tally5_zero.mean, 0.0, "Material 2 AND Cell 1 should be zero (no overlap), got: {}", tally5_zero.mean);
+    let mixed_match_diff = (tally1.mean.get() - tally4_match.mean.get()).abs();
+    assert!(mixed_match_diff < tolerance, "Material 1 AND Cell 1 should equal Cell 1 alone ({} vs {}), difference: {}", tally1.mean.get(), tally4_match.mean.get(), mixed_match_diff);
+    assert_eq!(tally5_zero.mean.get(), 0.0, "Material 2 AND Cell 1 should be zero (no overlap), got: {}", tally5_zero.mean.get());
 }

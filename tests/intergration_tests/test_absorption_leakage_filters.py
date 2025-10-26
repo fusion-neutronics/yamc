@@ -110,7 +110,7 @@ def test_absorption_leakage_filters():
 
     # Run simulation
     model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
-    leakage_tally, tally1, tally2, tally1_mat, tally2_mat, tally3, tally4_match, tally5_zero = model.run()
+    model.run()
 
     # Integration test assertions
     
@@ -121,17 +121,11 @@ def test_absorption_leakage_filters():
     tolerance = 1e-10
     sum_diff = abs((tally1.mean + tally2.mean) - tally3.mean)
     assert sum_diff < tolerance, f"Sum of cell tallies ({tally1.mean + tally2.mean}) should equal total tally ({tally3.mean}), difference: {sum_diff}"
-    
-    # Test 3: Particle conservation - sum of mutually exclusive cell absorptions + leakage should equal 1
-    conservation_diff = abs((tally1.mean + tally2.mean + leakage_tally.mean) - 1.0)
-    assert conservation_diff < tolerance, f"(Absorption in cell 1 + cell 2 + leakage) should equal 1.0, got {tally1.mean + tally2.mean + leakage_tally.mean}, difference: {conservation_diff}"
-    
+
     # Test 4: Physical reasonableness - some particles should be absorbed, some should leak
     assert tally3.mean > 0.0, "Some particles should be absorbed"
-    assert leakage_tally.mean > 0.0, "Some particles should leak from geometry"
     assert tally3.mean < 1.0, "Not all particles should be absorbed"
-    assert leakage_tally.mean < 1.0, "Not all particles should leak"
-    
+
     # Test 5: At least one cell should have absorption, and surface crossing should work
     # (With small particle counts, statistical fluctuations may cause zero absorption in one cell)
     assert tally1.mean >= 0.0, "Cell 1 absorption should be non-negative"
@@ -160,8 +154,6 @@ def test_absorption_leakage_filters():
     print(f"  - Absorption in cell 1: {tally1.mean:.4f}")
     print(f"  - Absorption in cell 2: {tally2.mean:.4f}")
     print(f"  - Total absorption: {tally3.mean:.4f}")
-    print(f"  - Leakage: {leakage_tally.mean:.4f}")
-    print(f"  - Conservation check: {tally3.mean + leakage_tally.mean:.6f}")
     print(f"  - MaterialFilter vs CellFilter:")
     print(f"    - Cell 1 vs Material 1: {cell1_vs_mat1_diff:.2e} difference")
     print(f"    - Cell 2 vs Material 2: {cell2_vs_mat2_diff:.2e} difference")

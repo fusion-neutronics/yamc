@@ -51,55 +51,69 @@ fn test_reproducibility_with_same_seed() {
         seed: Some(42), // Fixed seed for reproducibility
     };
 
-    // Create tally
-    let mut tally = Tally::new();
-    tally.score = 101; // absorption
-    tally.name = Some("test_absorption".to_string());
+    // Create tallies
+    let mut tally1 = Tally::new();
+    tally1.score = 101;
+    tally1.name = Some("test_absorption_1".to_string());
+
+    let mut tally2 = Tally::new();
+    tally2.score = 101;
+    tally2.name = Some("test_absorption_2".to_string());
+
+    let mut tally3 = Tally::new();
+    tally3.score = 101;
+    tally3.name = Some("test_absorption_3".to_string());
 
     // Run simulation 1
-    let model1 = Model {
+    let mut model1 = Model {
         geometry: geometry.clone(),
         settings: settings.clone(),
-        tallies: vec![tally.clone()],
+        tallies: vec![Arc::new(tally1)],
     };
-    let results1 = model1.run();
+    model1.run();
 
     // Run simulation 2 with same seed
-    let model2 = Model {
+    let mut model2 = Model {
         geometry: geometry.clone(),
         settings: settings.clone(),
-        tallies: vec![tally.clone()],
+        tallies: vec![Arc::new(tally2)],
     };
-    let results2 = model2.run();
+    model2.run();
 
     // Run simulation 3 with same seed
-    let model3 = Model {
+    let mut model3 = Model {
         geometry: geometry.clone(),
         settings: settings.clone(),
-        tallies: vec![tally.clone()],
+        tallies: vec![Arc::new(tally3)],
     };
-    let results3 = model3.run();
+    model3.run();
 
     // Verify all three runs produced identical results
-    assert_eq!(results1.len(), results2.len(), "Should have same number of tallies");
-    assert_eq!(results1.len(), results3.len(), "Should have same number of tallies");
+    assert_eq!(model1.tallies.len(), model2.tallies.len(), "Should have same number of tallies");
+    assert_eq!(model1.tallies.len(), model3.tallies.len(), "Should have same number of tallies");
 
-    // Check leakage tally (index 0)
-    assert_eq!(results1[0].mean, results2[0].mean, "Leakage should be identical with same seed");
-    assert_eq!(results1[0].mean, results3[0].mean, "Leakage should be identical with same seed");
-    assert_eq!(results1[0].batch_data, results2[0].batch_data, "Leakage batch data should be identical");
-    assert_eq!(results1[0].batch_data, results3[0].batch_data, "Leakage batch data should be identical");
+    // Check absorption tally (index 0) - no leakage tally anymore
+    assert_eq!(model1.tallies[0].mean.get(), model2.tallies[0].mean.get(), "Absorption should be identical with same seed");
+    assert_eq!(model1.tallies[0].mean.get(), model3.tallies[0].mean.get(), "Absorption should be identical with same seed");
 
-    // Check absorption tally (index 1)
-    assert_eq!(results1[1].mean, results2[1].mean, "Absorption should be identical with same seed");
-    assert_eq!(results1[1].mean, results3[1].mean, "Absorption should be identical with same seed");
-    assert_eq!(results1[1].batch_data, results2[1].batch_data, "Absorption batch data should be identical");
-    assert_eq!(results1[1].batch_data, results3[1].batch_data, "Absorption batch data should be identical");
+    // Compare batch data
+    let batch_data1 = model1.tallies[0].batch_data.borrow();
+    let batch_data2 = model2.tallies[0].batch_data.borrow();
+    let batch_data3 = model3.tallies[0].batch_data.borrow();
+
+    for i in 0..batch_data1.len() {
+        assert_eq!(batch_data1[i].load(std::sync::atomic::Ordering::SeqCst),
+                   batch_data2[i].load(std::sync::atomic::Ordering::SeqCst),
+                   "Absorption batch data should be identical");
+        assert_eq!(batch_data1[i].load(std::sync::atomic::Ordering::SeqCst),
+                   batch_data3[i].load(std::sync::atomic::Ordering::SeqCst),
+                   "Absorption batch data should be identical");
+    }
 
     println!("✓ Reproducibility test passed!");
-    println!("  Run 1 - Leakage: {:.6}, Absorption: {:.6}", results1[0].mean, results1[1].mean);
-    println!("  Run 2 - Leakage: {:.6}, Absorption: {:.6}", results2[0].mean, results2[1].mean);
-    println!("  Run 3 - Leakage: {:.6}, Absorption: {:.6}", results3[0].mean, results3[1].mean);
+    println!("  Run 1 - Absorption: {:.6}", model1.tallies[0].mean.get());
+    println!("  Run 2 - Absorption: {:.6}", model2.tallies[0].mean.get());
+    println!("  Run 3 - Absorption: {:.6}", model3.tallies[0].mean.get());
 }
 
 #[test]
@@ -147,40 +161,53 @@ fn test_different_seeds_produce_different_results() {
         seed: Some(123),
     };
 
-    // Create tally
-    let mut tally = Tally::new();
-    tally.score = 101; // absorption
-    tally.name = Some("test_absorption".to_string());
+    // Create tallies
+    let mut tally1 = Tally::new();
+    tally1.score = 101; // absorption
+    tally1.name = Some("test_absorption_1".to_string());
+
+    let mut tally2 = Tally::new();
+    tally2.score = 101; // absorption
+    tally2.name = Some("test_absorption_2".to_string());
 
     // Run simulation with seed 42
-    let model1 = Model {
+    let mut model1 = Model {
         geometry: geometry.clone(),
         settings: settings1,
-        tallies: vec![tally.clone()],
+        tallies: vec![Arc::new(tally1)],
     };
-    let results1 = model1.run();
+    model1.run();
 
     // Run simulation with seed 123
-    let model2 = Model {
+    let mut model2 = Model {
         geometry: geometry.clone(),
         settings: settings2,
-        tallies: vec![tally.clone()],
+        tallies: vec![Arc::new(tally2)],
     };
-    let results2 = model2.run();
+    model2.run();
 
     // Verify different seeds produce different results (with high probability)
     // Note: In principle they could be equal by chance, but with 100 particles this is extremely unlikely
-    let different_leakage = results1[0].mean != results2[0].mean;
-    let different_absorption = results1[1].mean != results2[1].mean;
-    let different_batch_data = results1[1].batch_data != results2[1].batch_data;
+    let different_absorption = model1.tallies[0].mean.get() != model2.tallies[0].mean.get();
+
+    // Check batch data
+    let batch_data1 = model1.tallies[0].batch_data.borrow();
+    let batch_data2 = model2.tallies[0].batch_data.borrow();
+    let mut different_batch_data = false;
+    for i in 0..batch_data1.len() {
+        if batch_data1[i].load(std::sync::atomic::Ordering::SeqCst) != batch_data2[i].load(std::sync::atomic::Ordering::SeqCst) {
+            different_batch_data = true;
+            break;
+        }
+    }
 
     assert!(
-        different_leakage || different_absorption || different_batch_data,
-        "Different seeds should produce different results (leakage: {} vs {}, absorption: {} vs {})",
-        results1[0].mean, results2[0].mean, results1[1].mean, results2[1].mean
+        different_absorption || different_batch_data,
+        "Different seeds should produce different results (absorption: {} vs {})",
+        model1.tallies[0].mean.get(), model2.tallies[0].mean.get()
     );
 
     println!("✓ Different seeds test passed!");
-    println!("  Seed 42  - Leakage: {:.6}, Absorption: {:.6}", results1[0].mean, results1[1].mean);
-    println!("  Seed 123 - Leakage: {:.6}, Absorption: {:.6}", results2[0].mean, results2[1].mean);
+    println!("  Seed 42  - Absorption: {:.6}", model1.tallies[0].mean.get());
+    println!("  Seed 123 - Absorption: {:.6}", model2.tallies[0].mean.get());
 }
