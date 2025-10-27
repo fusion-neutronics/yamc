@@ -73,33 +73,35 @@ impl PyTally {
     
     #[getter]
     pub fn mean(&self) -> f64 {
-        self.inner.mean.get()
+        self.inner.get_mean()
     }
 
     #[getter]
     pub fn std_dev(&self) -> f64 {
-        self.inner.std_dev.get()
+        self.inner.get_std_dev()
     }
 
     #[getter]
     pub fn rel_error(&self) -> f64 {
-        self.inner.rel_error.get()
+        self.inner.get_rel_error()
     }
 
     #[getter]
     pub fn n_batches(&self) -> u32 {
-        self.inner.n_batches.get()
+        use std::sync::atomic::Ordering;
+        self.inner.n_batches.load(Ordering::Relaxed)
     }
-    
+
     #[getter]
     pub fn particles_per_batch(&self) -> u32 {
-        self.inner.particles_per_batch.get()
+        use std::sync::atomic::Ordering;
+        self.inner.particles_per_batch.load(Ordering::Relaxed)
     }
-    
+
     #[getter]
     pub fn batch_data(&self) -> Vec<u64> {
         use std::sync::atomic::Ordering;
-        self.inner.batch_data.borrow()
+        self.inner.batch_data.lock().unwrap()
             .iter()
             .map(|a| a.load(Ordering::Relaxed))
             .collect()

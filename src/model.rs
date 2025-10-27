@@ -6,6 +6,8 @@ use rand::rngs::StdRng;
 use crate::physics::elastic_scatter;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::tally::{Tally, create_tallies_from_specs};
+use rayon::prelude::*;
+use std::sync::atomic::Ordering;
 impl Model {
     pub fn run(&mut self) {
         // println!("Starting particle transport simulation...");
@@ -27,13 +29,22 @@ impl Model {
         // Work with the tallies directly during transport
         let tallies = &self.tallies;
 
-        // Initialize RNG with seed for reproducibility
-        let mut rng = StdRng::seed_from_u64(self.settings.get_seed());
+        // Get base seed for reproducibility
+        let base_seed = self.settings.get_seed();
+
         for batch in 0..self.settings.batches {
             // println!("Batch {}", batch + 1);
 
-            for _ in 0..self.settings.particles {
-                // Sample a particle from the source via settings
+            // Parallelize particle transport within each batch
+            // Each particle gets a unique, deterministic seed based on batch and particle index
+            (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
+                // Create a unique seed for this particle: base_seed + batch * particles + particle_idx
+                let particle_seed = base_seed
+                    .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64))
+                    .wrapping_add(particle_idx as u64);
+                let mut rng = StdRng::seed_from_u64(particle_seed);
+
+                // Sample a particle from the source
                 let mut particle = self.settings.source.sample(&mut rng);
                 particle.alive = true;
 
@@ -159,7 +170,7 @@ impl Model {
                                 
                                 // Score user tallies for this reaction (after physics is processed)
                                 for tally in tallies.iter() {
-                                    tally.score_event(reaction.mt_number, cell, material_id);
+                                    tally.score_event(reaction.mt_number, cell, material_id, batch as usize);
                                 }
 
                             } else {
@@ -181,7 +192,7 @@ impl Model {
                             cell.cell_id);
                     }
                 }
-            }
+            }); // End of parallel for_each
 
             // Update statistics for all user tallies (batch_data already populated via score_event)
             for tally in tallies.iter() {
@@ -286,7 +297,7 @@ mod tests {
         // Verify the absorption tally was updated in place
         assert_eq!(absorption_tally_arc.name, Some("Absorption Tally".to_string()));
         assert_eq!(absorption_tally_arc.units, "events");
-        assert_eq!(absorption_tally_arc.n_batches.get(), 10);
+        assert_eq!(absorption_tally_arc.n_batches.load(Ordering::Relaxed), 10);
 
         println!("Test tally results:");
         println!("Absorption Tally: {}", absorption_tally_arc);
