@@ -13,11 +13,13 @@ impl Model {
         // println!("Starting particle transport simulation...");
 
         // Ensure all nuclear data is loaded before transport
-        for cell in &self.geometry.cells {
+        for cell in &mut self.geometry.cells {
             if let Some(material_arc) = &cell.material {
-                let mut material = material_arc.lock().unwrap();
+                // Setup phase: clone the inner Material, mutate, and re-wrap in Arc
+                let mut material = (**material_arc).clone();
                 let _ = material.ensure_nuclides_loaded();
                 material.calculate_macroscopic_xs(&vec![1], true);
+                cell.material = Some(Arc::new(material));
             }
         }
 
@@ -63,8 +65,8 @@ impl Model {
 
                     // Check if cell has material or is void
                     let dist_collision = match &cell.material {
-                        Some(mat_arc_mutex) => {
-                            let material = mat_arc_mutex.lock().unwrap();
+                        Some(material_arc) => {
+                            let material = material_arc.as_ref();
                             material
                                 .sample_distance_to_collision(particle.energy, &mut rng)
                                 .unwrap_or(f64::INFINITY)
@@ -106,19 +108,19 @@ impl Model {
                             particle.move_by(dist_collision);
 
                             // We know we have material here because void cells always hit surfaces first
-                            let material = cell.material.as_ref().unwrap().lock().unwrap();
-                            // Store material_id for filter checking (to avoid double-locking later)
+                            let material = cell.material.as_ref().unwrap().as_ref();
+                            // Store material_id for filter checking
                             let material_id = material.material_id;
                             // Sample nuclide and reaction
                             let nuclide_name =
                                 material.sample_interacting_nuclide(particle.energy, &mut rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
-                            let reaction = nuclide.sample_reaction(
-                                particle.energy,
-                                &material.temperature,
-                                &mut rng,
-                            );
-                            if let Some(reaction) = reaction {
+                                let reaction = nuclide.sample_reaction(
+                                    particle.energy,
+                                    &material.temperature,
+                                    &mut rng,
+                                );
+                                if let Some(reaction) = reaction {
                                 // println!("Particle collided in cell {:?} at {:?} with nuclide {} via MT {}", cell.cell_id, particle.position, nuclide_name, reaction.mt_number);
                                 
                                 let mut reaction = reaction;
@@ -250,7 +252,7 @@ mod tests {
         let mut nuclide_json_map = std::collections::HashMap::new();
         nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
-        let material_arc = Arc::new(Mutex::new(material));
+        let material_arc = Arc::new(material.clone());
         let cell = Cell::new(Some(1), region, Some("sphere_cell".to_string()), Some(material_arc.clone()));
         let geometry = Geometry { cells: vec![cell] };
         let source = IndependentSource {
@@ -286,8 +288,6 @@ mod tests {
         assert!(cell_material.is_some());
         assert!(cell_material
             .as_ref()
-            .unwrap()
-            .lock()
             .unwrap()
             .nuclides
             .contains_key("Li6"));

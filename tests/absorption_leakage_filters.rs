@@ -2,7 +2,7 @@
 // This test should be placed in tests/absorption_leakage_filters.rs
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use materials_for_mc::surface::{Surface, SurfaceKind, BoundaryType};
 use materials_for_mc::region::{Region, RegionExpr, HalfspaceType};
 use materials_for_mc::cell::Cell;
@@ -55,8 +55,8 @@ fn test_absorption_leakage_filters() {
     material2.read_nuclides_from_json(&nuclide_map2).unwrap();
 
     // Wrap materials in Arc<Mutex<Material>>
-    let mat1_arc = Arc::new(Mutex::new(material1));
-    let mat2_arc = Arc::new(Mutex::new(material2));
+    let mat1_arc = Arc::new(material1);
+    let mat2_arc = Arc::new(material2);
 
     // Create cells
     let cell1 = Cell::new(Some(1), region1, Some("inner_sphere".to_string()), Some(mat1_arc.clone()));
@@ -89,13 +89,13 @@ fn test_absorption_leakage_filters() {
     tally2.score = 101;
     tally2.name = Some("absorption in cell 2".to_string());
 
-    let material_filter1 = Filter::Material(MaterialFilter::new(&mat1_arc.lock().unwrap()));
+    let material_filter1 = Filter::Material(MaterialFilter::new(&mat1_arc));
     let mut tally1_mat = Tally::new();
     tally1_mat.filters = vec![material_filter1.clone()];
     tally1_mat.score = 101;
     tally1_mat.name = Some("absorption in material 1 (MaterialFilter)".to_string());
 
-    let material_filter2 = Filter::Material(MaterialFilter::new(&mat2_arc.lock().unwrap()));
+    let material_filter2 = Filter::Material(MaterialFilter::new(&mat2_arc));
     let mut tally2_mat = Tally::new();
     tally2_mat.filters = vec![material_filter2.clone()];
     tally2_mat.score = 101;

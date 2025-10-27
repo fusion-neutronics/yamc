@@ -49,7 +49,7 @@ impl Geometry {
         
         for (cell_idx, cell) in cells.iter().enumerate() {
             if let Some(material_arc) = &cell.material {
-                let material = material_arc.lock().unwrap();
+                let material = material_arc.as_ref();
                 match material.material_id {
                     None => {
                         materials_needing_ids.push(cell_idx);
@@ -68,14 +68,15 @@ impl Geometry {
         let mut next_material_id = 1;
         for &cell_idx in &materials_needing_ids {
             if let Some(material_arc) = &cells[cell_idx].material {
-                let mut material = material_arc.lock().unwrap();
-                // Find next available material ID
+                // Clone the inner Material, mutate, and re-wrap in Arc
+                let mut material = (**material_arc).clone();
                 while used_material_ids.contains(&next_material_id) {
                     next_material_id += 1;
                 }
                 material.set_material_id(next_material_id);
                 used_material_ids.insert(next_material_id);
                 next_material_id += 1;
+                cells[cell_idx].material = Some(Arc::new(material));
             }
         }
 
@@ -232,7 +233,7 @@ mod tests {
         use crate::material::Material;
         use crate::region::{HalfspaceType, Region};
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
-        use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
         
         let s1 = Surface {
             surface_id: Some(1),
@@ -242,8 +243,8 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         
         // Test duplicate material IDs
-        let mat1 = Arc::new(Mutex::new(Material::with_id(10)));
-        let mat2 = Arc::new(Mutex::new(Material::with_id(10))); // Same ID - should fail
+    let mat1 = Arc::new(Material::with_id(10));
+    let mat2 = Arc::new(Material::with_id(10)); // Same ID - should fail
         
         let cell1 = Cell::new(Some(1), region.clone(), Some("cell1".to_string()), Some(mat1));
         let cell2 = Cell::new(Some(2), region.clone(), Some("cell2".to_string()), Some(mat2));
@@ -258,7 +259,7 @@ mod tests {
         use crate::material::Material;
         use crate::region::{HalfspaceType, Region};
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
-        use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
         
         let s1 = Surface {
             surface_id: Some(1),
@@ -268,8 +269,8 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         
         // Materials without IDs - should get auto-assigned
-        let mat1 = Arc::new(Mutex::new(Material::new())); // material_id: None
-        let mat2 = Arc::new(Mutex::new(Material::new())); // material_id: None
+    let mat1 = Arc::new(Material::new()); // material_id: None
+    let mat2 = Arc::new(Material::new()); // material_id: None
         
         let cell1 = Cell::new(Some(1), region.clone(), Some("cell1".to_string()), Some(mat1.clone()));
         let cell2 = Cell::new(Some(2), region.clone(), Some("cell2".to_string()), Some(mat2.clone()));
@@ -277,12 +278,12 @@ mod tests {
         let geometry = Geometry::new(vec![cell1, cell2]).expect("Failed to create geometry");
         
         // Check that material IDs were auto-assigned
-        let mat1_id = mat1.lock().unwrap().get_material_id();
-        let mat2_id = mat2.lock().unwrap().get_material_id();
-        
-        assert!(mat1_id.is_some());
-        assert!(mat2_id.is_some());
-        assert_ne!(mat1_id, mat2_id, "Materials should have different auto-generated IDs");
+    // After geometry creation, the cell's material Arc may be updated with auto-assigned ID
+    let mat1_id = geometry.cells[0].material.as_ref().unwrap().get_material_id();
+    let mat2_id = geometry.cells[1].material.as_ref().unwrap().get_material_id();
+    assert!(mat1_id.is_some());
+    assert!(mat2_id.is_some());
+    assert_ne!(mat1_id, mat2_id, "Materials should have different auto-generated IDs");
     }
 
     #[test]
@@ -290,7 +291,7 @@ mod tests {
         use crate::material::Material;
         use crate::region::{HalfspaceType, Region};
         use crate::surface::{BoundaryType, Surface, SurfaceKind};
-        use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
         
         let s1 = Surface {
             surface_id: Some(1),
@@ -300,30 +301,28 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         
         // Mix of explicit and auto-generated material IDs
-        let mat1 = Arc::new(Mutex::new(Material::new()));        // auto-generate
-        let mat2 = Arc::new(Mutex::new(Material::with_id(5)));    // explicit ID = 5
-        let mat3 = Arc::new(Mutex::new(Material::new()));        // auto-generate
+    let mat1 = Arc::new(Material::new());        // auto-generate
+    let mat2 = Arc::new(Material::with_id(5));    // explicit ID = 5
+    let mat3 = Arc::new(Material::new());        // auto-generate
         
         let cell1 = Cell::new(Some(1), region.clone(), Some("cell1".to_string()), Some(mat1.clone()));
         let cell2 = Cell::new(Some(2), region.clone(), Some("cell2".to_string()), Some(mat2.clone()));
         let cell3 = Cell::new(Some(3), region.clone(), Some("cell3".to_string()), Some(mat3.clone()));
         
-        let geometry = Geometry::new(vec![cell1, cell2, cell3]).expect("Failed to create geometry");
-        
-        // Check material IDs
-        let mat1_id = mat1.lock().unwrap().get_material_id().unwrap();
-        let mat2_id = mat2.lock().unwrap().get_material_id().unwrap();
-        let mat3_id = mat3.lock().unwrap().get_material_id().unwrap();
-        
-        // Explicit ID should be preserved
-        assert_eq!(mat2_id, 5);
-        
-        // All IDs should be unique
-        let ids = vec![mat1_id, mat2_id, mat3_id];
-        let mut unique_ids = ids.clone();
-        unique_ids.sort();
-        unique_ids.dedup();
-        assert_eq!(ids.len(), unique_ids.len(), "All material IDs should be unique");
+    let geometry = Geometry::new(vec![cell1, cell2, cell3]).expect("Failed to create geometry");
+    // Check material IDs
+    // After geometry creation, the cell's material Arc may be updated with auto-assigned ID
+    let mat1_id = geometry.cells[0].material.as_ref().unwrap().get_material_id().unwrap();
+    let mat2_id = geometry.cells[1].material.as_ref().unwrap().get_material_id().unwrap();
+    let mat3_id = geometry.cells[2].material.as_ref().unwrap().get_material_id().unwrap();
+    // Explicit ID should be preserved
+    assert_eq!(mat2_id, 5);
+    // All IDs should be unique
+    let ids = vec![mat1_id, mat2_id, mat3_id];
+    let mut unique_ids = ids.clone();
+    unique_ids.sort();
+    unique_ids.dedup();
+    assert_eq!(ids.len(), unique_ids.len(), "All material IDs should be unique");
     }
 
     #[test]
