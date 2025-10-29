@@ -48,6 +48,7 @@ mod nuclide;
 mod reaction;
 mod url_cache;
 mod utilities;
+pub mod filter;
 
 pub use config::Config;
 pub use element::Element;
@@ -88,7 +89,7 @@ mod python {
     pub mod source_python;
     pub mod stats_python;
     pub mod surface_python;
-    // ...existing code...
+    pub mod filter_python;
 }
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
