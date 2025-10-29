@@ -1,7 +1,7 @@
 // Integration test for reproducibility - verifies that simulations with the same seed produce identical results
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use materials_for_mc::surface::{Surface, SurfaceKind, BoundaryType};
 use materials_for_mc::region::{Region, RegionExpr, HalfspaceType};
 use materials_for_mc::cell::Cell;
@@ -32,7 +32,7 @@ fn test_reproducibility_with_same_seed() {
     nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
     material.read_nuclides_from_json(&nuclide_map).unwrap();
 
-    let mat_arc = Arc::new(Mutex::new(material));
+    let mat_arc = Arc::new(material);
     let cell = Cell::new(Some(1), region, Some("test_cell".to_string()), Some(mat_arc.clone()));
     let geometry = Geometry::new(vec![cell.clone()]).unwrap();
 
@@ -93,13 +93,13 @@ fn test_reproducibility_with_same_seed() {
     assert_eq!(model1.tallies.len(), model3.tallies.len(), "Should have same number of tallies");
 
     // Check absorption tally (index 0) - no leakage tally anymore
-    assert_eq!(model1.tallies[0].mean.get(), model2.tallies[0].mean.get(), "Absorption should be identical with same seed");
-    assert_eq!(model1.tallies[0].mean.get(), model3.tallies[0].mean.get(), "Absorption should be identical with same seed");
+    assert_eq!(model1.tallies[0].get_mean(), model2.tallies[0].get_mean(), "Absorption should be identical with same seed");
+    assert_eq!(model1.tallies[0].get_mean(), model3.tallies[0].get_mean(), "Absorption should be identical with same seed");
 
     // Compare batch data
-    let batch_data1 = model1.tallies[0].batch_data.borrow();
-    let batch_data2 = model2.tallies[0].batch_data.borrow();
-    let batch_data3 = model3.tallies[0].batch_data.borrow();
+    let batch_data1 = model1.tallies[0].batch_data.lock().unwrap();
+    let batch_data2 = model2.tallies[0].batch_data.lock().unwrap();
+    let batch_data3 = model3.tallies[0].batch_data.lock().unwrap();
 
     for i in 0..batch_data1.len() {
         assert_eq!(batch_data1[i].load(std::sync::atomic::Ordering::SeqCst),
@@ -111,9 +111,9 @@ fn test_reproducibility_with_same_seed() {
     }
 
     println!("✓ Reproducibility test passed!");
-    println!("  Run 1 - Absorption: {:.6}", model1.tallies[0].mean.get());
-    println!("  Run 2 - Absorption: {:.6}", model2.tallies[0].mean.get());
-    println!("  Run 3 - Absorption: {:.6}", model3.tallies[0].mean.get());
+    println!("  Run 1 - Absorption: {:.6}", model1.tallies[0].get_mean());
+    println!("  Run 2 - Absorption: {:.6}", model2.tallies[0].get_mean());
+    println!("  Run 3 - Absorption: {:.6}", model3.tallies[0].get_mean());
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn test_different_seeds_produce_different_results() {
     nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
     material.read_nuclides_from_json(&nuclide_map).unwrap();
 
-    let mat_arc = Arc::new(Mutex::new(material));
+    let mat_arc = Arc::new(material);
     let cell = Cell::new(Some(1), region, Some("test_cell".to_string()), Some(mat_arc.clone()));
     let geometry = Geometry::new(vec![cell.clone()]).unwrap();
 
@@ -188,12 +188,14 @@ fn test_different_seeds_produce_different_results() {
 
     // Verify different seeds produce different results (with high probability)
     // Note: In principle they could be equal by chance, but with 100 particles this is extremely unlikely
-    let different_absorption = model1.tallies[0].mean.get() != model2.tallies[0].mean.get();
+    let different_absorption = model1.tallies[0].get_mean() != model2.tallies[0].get_mean();
 
     // Check batch data
-    let batch_data1 = model1.tallies[0].batch_data.borrow();
-    let batch_data2 = model2.tallies[0].batch_data.borrow();
+    let batch_data1 = model1.tallies[0].batch_data.lock().unwrap();
+    let batch_data2 = model2.tallies[0].batch_data.lock().unwrap();
     let mut different_batch_data = false;
+    println!("Batch data 1: {:?}", batch_data1.iter().map(|a| a.load(std::sync::atomic::Ordering::SeqCst)).collect::<Vec<_>>());
+    println!("Batch data 2: {:?}", batch_data2.iter().map(|a| a.load(std::sync::atomic::Ordering::SeqCst)).collect::<Vec<_>>());
     for i in 0..batch_data1.len() {
         if batch_data1[i].load(std::sync::atomic::Ordering::SeqCst) != batch_data2[i].load(std::sync::atomic::Ordering::SeqCst) {
             different_batch_data = true;
@@ -201,13 +203,18 @@ fn test_different_seeds_produce_different_results() {
         }
     }
 
+    // For this test, it's possible (though unlikely) that different seeds produce the same mean
+    // We'll accept the test passing if either the means OR the batch data are different
+    // However, if both are identical, that indicates a problem with seeding
+    println!("Different absorption: {}, Different batch data: {}", different_absorption, different_batch_data);
+
     assert!(
         different_absorption || different_batch_data,
         "Different seeds should produce different results (absorption: {} vs {})",
-        model1.tallies[0].mean.get(), model2.tallies[0].mean.get()
+        model1.tallies[0].get_mean(), model2.tallies[0].get_mean()
     );
 
     println!("✓ Different seeds test passed!");
-    println!("  Seed 42  - Absorption: {:.6}", model1.tallies[0].mean.get());
-    println!("  Seed 123 - Absorption: {:.6}", model2.tallies[0].mean.get());
+    println!("  Seed 42  - Absorption: {:.6}", model1.tallies[0].get_mean());
+    println!("  Seed 123 - Absorption: {:.6}", model2.tallies[0].get_mean());
 }
