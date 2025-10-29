@@ -349,7 +349,7 @@ mod tests {
         tally.set_score(101);
         tally.initialize_batches(1);
         // Add a cell filter that matches cell_id 1
-        tally.filters.push(Filter::Cell(crate::tally::CellFilter { cell_id: 1 }));
+    tally.filters.push(Filter::Cell(crate::filters::CellFilter { cell_id: 1 }));
         let cell = dummy_cell(1);
         assert!(tally.score_event(101, &cell, Some(42), 0));
         assert_eq!(tally.batch_data.lock().unwrap()[0].load(Ordering::Relaxed), 1, "Should increment when cell filter matches");
