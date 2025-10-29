@@ -164,7 +164,7 @@ impl Tally {
     }
 
     /// Add a batch result to the tally (stores value in existing batch slot)
-    pub fn add_batch(&self, batch_index: usize, count: u32, _particles_per_batch: u32) {
+    pub fn add_batch(&self, batch_index: usize, count: u32, particles_per_batch: u32) {
         let batch_data = self.batch_data.lock().unwrap();
         if let Some(atomic) = batch_data.get(batch_index) {
             atomic.store(count as u64, Ordering::Relaxed);
@@ -342,5 +342,20 @@ mod tests {
         assert_eq!(tally.batch_data.lock().unwrap()[0].load(Ordering::Relaxed), 1, "Should not increment for MT 4 if tally is for constituent");
     }
 
-    // Note: test_score_event_with_cell_filter is not moved because it tests tally logic, not Filter logic directly.
+    #[test]
+    fn test_score_event_with_cell_filter() {
+        use std::sync::atomic::Ordering;
+        let mut tally = Tally::new();
+        tally.set_score(101);
+        tally.initialize_batches(1);
+        // Add a cell filter that matches cell_id 1
+        tally.filters.push(Filter::Cell(crate::tally::CellFilter { cell_id: 1 }));
+        let cell = dummy_cell(1);
+        assert!(tally.score_event(101, &cell, Some(42), 0));
+        assert_eq!(tally.batch_data.lock().unwrap()[0].load(Ordering::Relaxed), 1, "Should increment when cell filter matches");
+        let cell2 = dummy_cell(2);
+        assert!(!tally.score_event(101, &cell2, Some(42), 0));
+        assert_eq!(tally.batch_data.lock().unwrap()[0].load(Ordering::Relaxed), 1, "Should not increment when cell filter does not match");
+    }
+
 }
