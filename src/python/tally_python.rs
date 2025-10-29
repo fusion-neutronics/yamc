@@ -109,49 +109,25 @@ impl PyTally {
     
     #[getter]
     pub fn filters(&self) -> Vec<PyObject> {
-        // Convert internal Filters to appropriate Python filter objects
         use pyo3::Python;
+        use crate::python::filter_python::rust_filter_to_py;
         Python::with_gil(|py| {
             self.inner.filters
                 .iter()
-                .map(|f| match f {
-                    crate::tally::Filter::Cell(cell_filter) => {
-                        let py_cell_filter = crate::python::filters_python::PyCellFilter {
-                            internal: cell_filter.clone(),
-                        };
-                        py_cell_filter.into_py(py)
-                    }
-                    crate::tally::Filter::Material(material_filter) => {
-                        let py_material_filter = crate::python::filters_python::PyMaterialFilter {
-                            internal: material_filter.clone(),
-                        };
-                        py_material_filter.into_py(py)
-                    }
-                })
+                .map(|f| rust_filter_to_py(py, f))
                 .collect()
         })
     }
     
     #[setter]
     pub fn set_filters(&mut self, filters: Vec<&PyAny>) -> PyResult<()> {
+        use crate::python::filter_python::py_filter_to_rust;
         let mut filter_objects = Vec::new();
-        
         for filter_obj in filters {
-            if let Ok(cell_filter) = filter_obj.extract::<crate::python::filters_python::PyCellFilter>() {
-                filter_objects.push(crate::tally::Filter::Cell(cell_filter.internal));
-            } else if let Ok(material_filter) = filter_obj.extract::<crate::python::filters_python::PyMaterialFilter>() {
-                filter_objects.push(crate::tally::Filter::Material(material_filter.internal));
-            } else {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "Filter must be either CellFilter or MaterialFilter"
-                ));
-            }
+            filter_objects.push(py_filter_to_rust(filter_obj)?);
         }
-        
         if let Some(tally) = Arc::get_mut(&mut self.inner) {
             tally.filters = filter_objects;
-
-            // Validate the tally configuration
             if let Err(err) = tally.validate() {
                 return Err(pyo3::exceptions::PyValueError::new_err(err));
             }
@@ -160,7 +136,6 @@ impl PyTally {
                 "Cannot modify tally: multiple references exist"
             ));
         }
-        
         Ok(())
     }
     
