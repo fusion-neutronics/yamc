@@ -346,7 +346,7 @@ mod tests {
     fn test_score_event_with_cell_filter() {
         use std::sync::atomic::Ordering;
         let mut tally = Tally::new();
-        tally.set_score(101);
+        tally.set_scores(vec![101]);
         tally.initialize_batches(1);
         // Add a cell filter that matches cell_id 1
     tally.filters.push(Filter::Cell(crate::filters::CellFilter { cell_id: 1 }));
