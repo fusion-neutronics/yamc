@@ -11,7 +11,7 @@ class TestTally:
     def test_tally_creation(self):
         """Test creating a new tally."""
         tally = mc.Tally()
-        assert tally.score == 0  # Default score
+        assert tally.scores == []  # Default score
         assert tally.name is None
         assert tally.id is None
         assert tally.units == ""
@@ -22,17 +22,16 @@ class TestTally:
         tally = mc.Tally()
         
         # Test absorption
-        tally.score = 101
-        assert tally.score == 101
-        assert isinstance(tally.score, int)
+        tally.scores = [101]
+        assert tally.scores == [101]
         
         # Test elastic scattering  
-        tally.score = 2
-        assert tally.score == 2
+        tally.scores = [2]
+        assert tally.scores == [2]
         
         # Test fission
-        tally.score = 18
-        assert tally.score == 18
+        tally.scores = [18]
+        assert tally.scores == [18]
         
     def test_tally_score_type_validation(self):
         """Test that tally score only accepts integers."""
@@ -40,13 +39,16 @@ class TestTally:
         
         # These should fail
         with pytest.raises(TypeError):
-            tally.score = [101, 2]  # No lists
+            tally.scores = ['101', '2']  # Lists allowed
+
+        with pytest.raises(TypeError):
+            tally.scores = '101'  # Should be list, not string
             
         with pytest.raises(TypeError):
-            tally.score = "101"  # No strings
-            
+            tally.scores = 101  # Should be list, not int
+
         with pytest.raises(TypeError):
-            tally.score = 101.0  # No floats
+            tally.scores = 101.0  # Should be list, not float
             
     def test_tally_name_and_id(self):
         """Test setting tally name and ID."""
@@ -69,13 +71,13 @@ class TestTally:
     def test_tally_repr(self):
         """Test tally string representation."""
         tally = mc.Tally()
-        tally.score = 101
+        tally.scores = [101]
         tally.name = "Test Tally"
         tally.id = 1
         
         repr_str = repr(tally)
         assert "Tally(" in repr_str
-        assert "score=101" in repr_str
+        assert "scores=[101]" in repr_str
         assert 'Some("Test Tally")' in repr_str  # Rust Option format
         assert "Some(1)" in repr_str
 
@@ -124,7 +126,7 @@ class TestTallySimulation:
         
         # Create absorption tally
         absorption_tally = mc.Tally()
-        absorption_tally.score = 101  # MT 101 = absorption
+        absorption_tally.scores = [101]  # MT 101 = absorption
         absorption_tally.name = "Absorption Tally"
         tallies = [absorption_tally]
         
@@ -148,11 +150,11 @@ class TestTallySimulation:
         
         # Create multiple tallies
         absorption_tally = mc.Tally()
-        absorption_tally.score = 101  # Absorption
+        absorption_tally.scores = [101]  # Absorption
         absorption_tally.name = "Absorption Events"
         
         elastic_tally = mc.Tally()
-        elastic_tally.score = 2  # Elastic scattering
+        elastic_tally.scores = [2]  # Elastic scattering
         elastic_tally.name = "Elastic Scattering Events"
         
         tallies = [absorption_tally, elastic_tally]
@@ -186,7 +188,7 @@ class TestTallySimulation:
         
         # Create absorption tally
         absorption_tally = mc.Tally()
-        absorption_tally.score = 101
+        absorption_tally.scores = [101]
         absorption_tally.name = "Statistics Test"
         tallies = [absorption_tally]
         
@@ -218,7 +220,7 @@ class TestTallyIntegration:
     def test_tally_display_output(self):
         """Test that tally display output is reasonable."""
         tally = mc.Tally()
-        tally.score = 101
+        tally.scores = [101]
         tally.name = "Test Display"
         
         # Test string output doesn't crash
@@ -244,7 +246,7 @@ class TestTallyIntegration:
         
         # Create tally
         tally = mc.Tally()
-        tally.score = 101
+        tally.scores = [101]
         tallies = [tally]
         
         # Model should accept tallies
@@ -253,4 +255,4 @@ class TestTallyIntegration:
         
         # Should be able to access tallies
         assert len(model.tallies) == 1
-        assert model.tallies[0].score == 101
+        assert model.tallies[0].scores == [101]

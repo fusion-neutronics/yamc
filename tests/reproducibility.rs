@@ -53,15 +53,15 @@ fn test_reproducibility_with_same_seed() {
 
     // Create tallies
     let mut tally1 = Tally::new();
-    tally1.score = 101;
+    tally1.scores = vec![101];
     tally1.name = Some("test_absorption_1".to_string());
 
     let mut tally2 = Tally::new();
-    tally2.score = 101;
+    tally2.scores = vec![101];
     tally2.name = Some("test_absorption_2".to_string());
 
     let mut tally3 = Tally::new();
-    tally3.score = 101;
+    tally3.scores = vec![101];
     tally3.name = Some("test_absorption_3".to_string());
 
     // Run simulation 1
@@ -163,11 +163,11 @@ fn test_different_seeds_produce_different_results() {
 
     // Create tallies
     let mut tally1 = Tally::new();
-    tally1.score = 101; // absorption
+    tally1.scores = vec![101]; // absorption
     tally1.name = Some("test_absorption_1".to_string());
 
     let mut tally2 = Tally::new();
-    tally2.score = 101; // absorption
+    tally2.scores = vec![101]; // absorption
     tally2.name = Some("test_absorption_2".to_string());
 
     // Run simulation with seed 42

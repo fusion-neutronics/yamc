@@ -13,7 +13,7 @@ pub struct Tally {
     // Input specification fields
     pub id: Option<u32>,           // Optional tally ID
     pub name: Option<String>,      // Optional tally name
-    pub score: i32,               // MT number to score (e.g., 101 for absorption)
+    pub scores: Vec<i32>,         // MT numbers to score (e.g., [101] for absorption)
     pub filters: Vec<Filter>, // Filters for this tally
 
     // Results fields (populated during simulation)
@@ -30,14 +30,14 @@ pub struct Tally {
 impl Tally {
     /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
     pub fn score_event(&self, reaction_mt: i32, cell: &crate::cell::Cell, material_id: Option<u32>, batch_index: usize) -> bool {
-    let mut should_score = self.score == reaction_mt;
+        let mut should_score = self.scores.contains(&reaction_mt);
         // If this is an inelastic constituent (MT 50-91), also score for MT 4
-        if (50..92).contains(&reaction_mt) && self.score == 4 {
+        if (50..92).contains(&reaction_mt) && self.scores.contains(&4) {
             should_score = true;
         }
         // If this is a constituent absorption (explicit list and continuum), also score for MT 101
         let is_absorption_constituent =
-            self.score == 101 && (
+            self.scores.contains(&101) && (
                 matches!(reaction_mt,
                     102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 111 | 112 | 113 | 114 |
                     115 | 116 | 117 | 155 | 182 | 191 | 192 | 193 | 197
@@ -48,7 +48,7 @@ impl Tally {
                 (750..800).contains(&reaction_mt) ||
                 (800..850).contains(&reaction_mt)
             );
-        if is_absorption_constituent && self.score == 101 {
+        if is_absorption_constituent && self.scores.contains(&101) {
             should_score = true;
         }
         if should_score {
@@ -80,7 +80,7 @@ impl Tally {
         Self {
             id: None,
             name: None,
-            score: 0,
+            scores: Vec::new(),
             filters: Vec::new(),
             units: String::new(),
             batch_data: Mutex::new(Arc::new(Vec::new())),
@@ -105,7 +105,7 @@ impl Tally {
         Self {
             id: self.id,
             name: self.name.clone(),
-            score: self.score,
+            scores: self.scores.clone(),
             filters: self.filters.clone(),
             units: self.units.clone(),
             batch_data: Mutex::new(Arc::new(Vec::new())),  // Empty - will be initialized separately
@@ -122,7 +122,7 @@ impl Tally {
         Self {
             id: None,
             name: Some(name.to_string()),
-            score: 0,
+            scores: Vec::new(),
             filters: Vec::new(),
             units: units.to_string(),
             batch_data: Mutex::new(Arc::new(Vec::new())),
@@ -135,8 +135,8 @@ impl Tally {
     }
     
     /// Set the MT number to score
-    pub fn set_score(&mut self, mt_number: i32) {
-        self.score = mt_number;
+    pub fn set_scores(&mut self, mt_numbers: Vec<i32>) {
+        self.scores = mt_numbers;
     }
     
     /// Validate that the tally configuration is valid
@@ -269,7 +269,7 @@ pub fn create_tallies_from_specs(tally_specs: &[Tally]) -> Vec<Tally> {
         
         let mut tally = Tally::with_name_and_units(&name, units);
         tally.id = spec.id;
-        tally.score = spec.score;
+    tally.scores = spec.scores.clone();
         tally.filters = spec.filters.clone();
         
         // Validate the tally configuration
@@ -311,7 +311,7 @@ mod tests {
     fn test_score_event_direct_mt() {
         use std::sync::atomic::Ordering;
         let mut tally = Tally::new();
-        tally.set_score(101); // Absorption
+    tally.set_scores(vec![101]); // Absorption
         tally.initialize_batches(1); // Start batch
         let cell = dummy_cell(1);
         assert!(tally.score_event(101, &cell, Some(42), 0));
@@ -322,7 +322,7 @@ mod tests {
     fn test_score_event_mt4_inelastic_constituent() {
         use std::sync::atomic::Ordering;
         let mut tally = Tally::new();
-        tally.set_score(4); // MT 4 (inelastic)
+    tally.set_scores(vec![4]); // MT 4 (inelastic)
         tally.initialize_batches(1); // Start batch
         let cell = dummy_cell(1);
         assert!(tally.score_event(53, &cell, Some(42), 0)); // MT 53 is inelastic constituent
@@ -333,7 +333,7 @@ mod tests {
     fn test_score_event_inelastic_constituent_only() {
         use std::sync::atomic::Ordering;
         let mut tally = Tally::new();
-        tally.set_score(53); // MT 53
+    tally.set_scores(vec![53]); // MT 53
         tally.initialize_batches(1); // Start batch
         let cell = dummy_cell(1);
         assert!(tally.score_event(53, &cell, Some(42), 0));

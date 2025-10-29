@@ -24,15 +24,15 @@ def test_reproducibility_with_same_seed():
 
     # Create separate tallies for each run
     tally1 = mc.Tally()
-    tally1.score = 101  # absorption
+    tally1.scores = [101]  # absorption
     tally1.name = "test_absorption_1"
 
     tally2 = mc.Tally()
-    tally2.score = 101  # absorption
+    tally2.scores = [101]  # absorption
     tally2.name = "test_absorption_2"
 
     tally3 = mc.Tally()
-    tally3.score = 101  # absorption
+    tally3.scores = [101]  # absorption
     tally3.name = "test_absorption_3"
 
     # Run simulation 1
@@ -88,11 +88,11 @@ def test_different_seeds_produce_different_results():
 
     # Create separate tallies for each run
     tally1 = mc.Tally()
-    tally1.score = 101  # absorption
+    tally1.scores = [101]  # absorption
     tally1.name = "test_absorption_1"
 
     tally2 = mc.Tally()
-    tally2.score = 101  # absorption
+    tally2.scores = [101]  # absorption
     tally2.name = "test_absorption_2"
 
     # Run simulation with seed 42

@@ -51,25 +51,25 @@ settings = mc.Settings(particles=100, batches=10, source=source)
 filter1 = mc.CellFilter(cell1)
 tally1= mc.Tally()
 tally1.filters = [filter1]
-tally1.score=101
+tally1.scores = [101]
 tally1.name="absorption in cell 1"
 
 filter2 = mc.CellFilter(cell2)
 tally2= mc.Tally()
 tally2.filters = [filter2]
-tally2.score=101
+tally2.scores =[101]
 tally2.name="absorption in cell 2"
 
 tally3= mc.Tally()
-tally3.score=101
+tally3.scores =[101]
 tally3.name="absorption in whole model"
 
 tally4= mc.Tally()
-tally4.score=4
+tally4.scores =[4]
 tally4.name="inelastic in whole model"
 
 tally5= mc.Tally()
-tally5.score=55
+tally5.scores =[55]
 tally5.name="inelastic (55) in whole model"
 
 tallies = [tally1, tally2, tally3, tally4, tally5]
@@ -78,12 +78,12 @@ tallies = [tally1, tally2, tally3, tally4, tally5]
 abs_constituent_mts = [102, 103, 104, 105, 106, 107, 108, 109]
 for mt in abs_constituent_mts:
     t = mc.Tally()
-    t.score = mt
+    t.scores  = mt
     t.name = f"absorption constituent MT={mt} in whole model"
     tallies.append(t)
 
 fission_tally = mc.Tally()
-fission_tally.score = 18
+fission_tally.scores = [18]
 fission_tally.name = "fission in whole model"
 tallies.append(fission_tally)
 

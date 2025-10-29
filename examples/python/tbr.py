@@ -52,7 +52,7 @@ settings = mc.Settings(particles=500, batches=200, source=source, seed=1)  # Inc
 cell_filter2 = mc.CellFilter(cell2)
 tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
-tally1.score = 105  # n,t
+tally1.scores = [105]  # n,t
 tally1.name = "tbr"
 tallies = [tally1]
 

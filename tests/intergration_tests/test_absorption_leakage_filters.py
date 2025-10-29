@@ -66,44 +66,44 @@ def test_absorption_leakage_filters():
     cell_filter1 = mc.CellFilter(cell1)
     tally1 = mc.Tally()
     tally1.filters = [cell_filter1]
-    tally1.score = 101  # absorption
+    tally1.scores= [101]  # absorption
     tally1.name = "absorption in cell 1"
 
     cell_filter2 = mc.CellFilter(cell2)
     tally2 = mc.Tally()
     tally2.filters = [cell_filter2]
-    tally2.score = 101  # absorption
+    tally2.scores = [101]  # absorption
     tally2.name = "absorption in cell 2"
 
     # Create equivalent MaterialFilters for comparison
     material_filter1 = mc.MaterialFilter(material1)
     tally1_mat = mc.Tally()
     tally1_mat.filters = [material_filter1]
-    tally1_mat.score = 101  # absorption
+    tally1_mat.scores = [101]  # absorption
     tally1_mat.name = "absorption in material 1 (MaterialFilter)"
 
     material_filter2 = mc.MaterialFilter(material2)
     tally2_mat = mc.Tally()
     tally2_mat.filters = [material_filter2]
-    tally2_mat.score = 101  # absorption
+    tally2_mat.scores = [101]  # absorption
     tally2_mat.name = "absorption in material 2 (MaterialFilter)"
 
     # Total absorption tally (no filter)
     tally3 = mc.Tally()
-    tally3.score = 101  # absorption
+    tally3.scores = [101]  # absorption
     tally3.name = "total absorption"
 
     # Mixed filter tallies - intersection of MaterialFilter and CellFilter
     # Should match cell 1 absorption when material 1 and cell 1 are combined
     tally4_match = mc.Tally()
     tally4_match.filters = [material_filter1, cell_filter1]  # Material 1 AND Cell 1
-    tally4_match.score = 101  # absorption
+    tally4_match.scores = [101]  # absorption
     tally4_match.name = "absorption in material 1 AND cell 1 (should match cell 1)"
 
     # Should be zero when material 2 and cell 1 are combined (no overlap)
     tally5_zero = mc.Tally()
     tally5_zero.filters = [material_filter2, cell_filter1]  # Material 2 AND Cell 1
-    tally5_zero.score = 101  # absorption
+    tally5_zero.scores = [101]  # absorption
     tally5_zero.name = "absorption in material 2 AND cell 1 (should be zero)"
 
     tallies = [tally1, tally2, tally1_mat, tally2_mat, tally3, tally4_match, tally5_zero]
@@ -199,7 +199,7 @@ def test_duplicate_filter_error():
 
     # Test 1: Multiple CellFilters should raise error
     tally_bad_cell = mc.Tally()
-    tally_bad_cell.score = 101
+    tally_bad_cell.scores = [101]
     tally_bad_cell.name = "bad tally with duplicate cell filters"
     
     cell_filter1 = mc.CellFilter(cell1)
@@ -210,7 +210,7 @@ def test_duplicate_filter_error():
     
     # Test 2: Multiple MaterialFilters should raise error
     tally_bad_material = mc.Tally()
-    tally_bad_material.score = 101
+    tally_bad_material.scores = [101]
     tally_bad_material.name = "bad tally with duplicate material filters"
     
     material_filter1 = mc.MaterialFilter(material1)

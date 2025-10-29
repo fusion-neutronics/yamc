@@ -25,14 +25,14 @@ impl PyTally {
     }
     
     #[getter]
-    pub fn score(&self) -> i32 {
-        self.inner.score
+    pub fn scores(&self) -> Vec<i32> {
+        self.inner.scores.clone()
     }
-    
+
     #[setter]
-    pub fn set_score(&mut self, score: i32) {
+    pub fn set_scores(&mut self, scores: Vec<i32>) {
         if let Some(tally) = Arc::get_mut(&mut self.inner) {
-            tally.score = score;
+            tally.scores = scores;
         } else {
             panic!("Cannot modify tally: multiple references exist");
         }
@@ -144,7 +144,7 @@ impl PyTally {
     }
     
     fn __repr__(&self) -> String {
-        format!("Tally(score={}, name={:?}, id={:?})", self.inner.score, self.inner.name, self.inner.id)
+    format!("Tally(scores={:?}, name={:?}, id={:?})", self.inner.scores, self.inner.name, self.inner.id)
     }
     
     fn __str__(&self) -> String {
