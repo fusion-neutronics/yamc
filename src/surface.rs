@@ -16,7 +16,7 @@ impl Default for BoundaryType {
 impl BoundaryType {
     /// Parse a boundary type from a string, returning None for invalid strings
     pub fn from_str_option(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
+        match s {
             "transmission" => Some(BoundaryType::Transmission),
             "vacuum" => Some(BoundaryType::Vacuum),
             _ => None,

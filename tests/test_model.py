@@ -8,7 +8,7 @@ def test_model_construction():
         y0=0.0,
         z0=0.0,
         r=2.0,
-        boundary_type='Vacuum',
+        boundary_type='vacuum',
     )
     region = -sphere
     material = mc.Material()
