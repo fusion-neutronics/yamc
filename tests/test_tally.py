@@ -93,7 +93,7 @@ class TestTallySimulation:
             y0=0.0,
             z0=0.0,
             r=2.0,
-            boundary_type='Vacuum',
+            boundary_type='vacuum',
         )
         region = -sphere
         
@@ -229,7 +229,7 @@ class TestTallyIntegration:
     def test_model_constructor_with_tallies(self):
         """Test that model accepts tallies in constructor."""
         # Create minimal geometry
-        sphere = mc.Sphere(surface_id=1, x0=0.0, y0=0.0, z0=0.0, r=1.0, boundary_type='Vacuum')
+        sphere = mc.Sphere(surface_id=1, x0=0.0, y0=0.0, z0=0.0, r=1.0, boundary_type='vacuum')
         region = -sphere
         material = mc.Material()
         material.add_nuclide("Li6", 1.0)
