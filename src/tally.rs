@@ -151,9 +151,7 @@ impl Tally {
         // Initialize each score's batch data
         for (i, batch_mutex) in self.batch_data.iter().enumerate() {
             if i < self.scores.len() {
-                let new_arc = Arc::new(
-                    (0..n_batches).map(|_| AtomicU64::new(0)).collect()
-                );
+                let new_arc = Arc::new((0..n_batches).map(|_| AtomicU64::new(0)).collect());
                 *batch_mutex.lock().unwrap() = new_arc;
             }
         }
@@ -392,12 +390,7 @@ impl fmt::Display for Tally {
                 rel_error,
                 rel_error * 100.0
             )?;
-            writeln!(
-                f,
-                "    Total {}: {}",
-                self.units.to_lowercase(),
-                total
-            )?;
+            writeln!(f, "    Total {}: {}", self.units.to_lowercase(), total)?;
             if let Some(batch_mutex) = self.batch_data.get(i) {
                 let batch_arc = batch_mutex.lock().unwrap();
                 let batch_values: Vec<u64> = batch_arc

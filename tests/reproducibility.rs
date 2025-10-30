@@ -95,8 +95,14 @@ fn test_separate_vs_multi_score_tallies_equivalence() {
     model_multi.run();
     let means_multi = &model_multi.tallies[0].get_mean();
 
-    assert!((mean_a - means_multi[0]).abs() < 1e-12, "Separate tally 101 and multi-score tally[0] should match");
-    assert!((mean_b - means_multi[1]).abs() < 1e-12, "Separate tally 102 and multi-score tally[1] should match");
+    assert!(
+        (mean_a - means_multi[0]).abs() < 1e-12,
+        "Separate tally 101 and multi-score tally[0] should match"
+    );
+    assert!(
+        (mean_b - means_multi[1]).abs() < 1e-12,
+        "Separate tally 102 and multi-score tally[1] should match"
+    );
 
     // --- Three tallies, one score each ---
 
@@ -140,9 +146,18 @@ fn test_separate_vs_multi_score_tallies_equivalence() {
     model_multi3.run();
     let means_multi3 = &model_multi3.tallies[0].get_mean();
 
-    assert!((mean_a3 - means_multi3[0]).abs() < 1e-12, "Separate tally 101 and multi-score tally[0] should match");
-    assert!((mean_b3 - means_multi3[1]).abs() < 1e-12, "Separate tally 102 and multi-score tally[1] should match");
-    assert!((mean_c3 - means_multi3[2]).abs() < 1e-12, "Separate tally 103 and multi-score tally[2] should match");
+    assert!(
+        (mean_a3 - means_multi3[0]).abs() < 1e-12,
+        "Separate tally 101 and multi-score tally[0] should match"
+    );
+    assert!(
+        (mean_b3 - means_multi3[1]).abs() < 1e-12,
+        "Separate tally 102 and multi-score tally[1] should match"
+    );
+    assert!(
+        (mean_c3 - means_multi3[2]).abs() < 1e-12,
+        "Separate tally 103 and multi-score tally[2] should match"
+    );
 
     println!("✓ Separate vs multi-score tally equivalence test passed!");
 }
