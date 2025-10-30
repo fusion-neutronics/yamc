@@ -113,53 +113,57 @@ def test_absorption_leakage_filters():
     model.run()
 
     # Integration test assertions
-    
+
+    # All tallies have one score, so use mean[0]
+    mean1 = tally1.mean[0]
+    mean2 = tally2.mean[0]
+    mean1_mat = tally1_mat.mean[0]
+    mean2_mat = tally2_mat.mean[0]
+    mean3 = tally3.mean[0]
+    mean4_match = tally4_match.mean[0]
+    mean5_zero = tally5_zero.mean[0]
+
     # Test 1: CellFilter functionality - different cells should have different absorption rates
-    assert tally1.mean != tally2.mean, "CellFilter should separate tallies by cell"
-    
+    assert mean1 != mean2, "CellFilter should separate tallies by cell"
+
     # Test 2: Tally consistency - sum of cell tallies should equal total tally
     tolerance = 1e-10
-    sum_diff = abs((tally1.mean + tally2.mean) - tally3.mean)
-    assert sum_diff < tolerance, f"Sum of cell tallies ({tally1.mean + tally2.mean}) should equal total tally ({tally3.mean}), difference: {sum_diff}"
+    sum_diff = abs((mean1 + mean2) - mean3)
+    assert sum_diff < tolerance, f"Sum of cell tallies ({mean1 + mean2}) should equal total tally ({mean3}), difference: {sum_diff}"
 
     # Test 4: Physical reasonableness - some particles should be absorbed, some should leak
-    assert tally3.mean > 0.0, "Some particles should be absorbed"
-    assert tally3.mean < 1.0, "Not all particles should be absorbed"
+    assert mean3 > 0.0, "Some particles should be absorbed"
+    assert mean3 < 1.0, "Not all particles should be absorbed"
 
     # Test 5: At least one cell should have absorption, and surface crossing should work
-    # (With small particle counts, statistical fluctuations may cause zero absorption in one cell)
-    assert tally1.mean >= 0.0, "Cell 1 absorption should be non-negative"
-    assert tally2.mean >= 0.0, "Cell 2 absorption should be non-negative"
-    assert (tally1.mean + tally2.mean) > 0.0, "Total absorption should be positive"
-    
+    assert mean1 >= 0.0, "Cell 1 absorption should be non-negative"
+    assert mean2 >= 0.0, "Cell 2 absorption should be non-negative"
+    assert (mean1 + mean2) > 0.0, "Total absorption should be positive"
+
     # Test 6: MaterialFilter equivalence - should give same results as CellFilter for single-material cells
     mat_filter_tolerance = 1e-10
-    cell1_vs_mat1_diff = abs(tally1.mean - tally1_mat.mean)
-    cell2_vs_mat2_diff = abs(tally2.mean - tally2_mat.mean)
-    
-    assert cell1_vs_mat1_diff < mat_filter_tolerance, f"CellFilter and MaterialFilter should give same results for cell 1 ({tally1.mean} vs {tally1_mat.mean}), difference: {cell1_vs_mat1_diff}"
-    assert cell2_vs_mat2_diff < mat_filter_tolerance, f"CellFilter and MaterialFilter should give same results for cell 2 ({tally2.mean} vs {tally2_mat.mean}), difference: {cell2_vs_mat2_diff}"
-    
-    # Test 7: Mixed filter intersection tests
-    # Material 1 AND Cell 1 should equal Cell 1 alone (since Cell 1 contains Material 1)
-    mixed_match_diff = abs(tally1.mean - tally4_match.mean)
-    assert mixed_match_diff < mat_filter_tolerance, f"Material 1 AND Cell 1 should equal Cell 1 alone ({tally1.mean} vs {tally4_match.mean}), difference: {mixed_match_diff}"
-    
-    # Material 2 AND Cell 1 should be zero (Cell 1 contains Material 1, not Material 2)
-    assert tally5_zero.mean == 0.0, f"Material 2 AND Cell 1 should be zero (no overlap), got: {tally5_zero.mean}"
-    
+    cell1_vs_mat1_diff = abs(mean1 - mean1_mat)
+    cell2_vs_mat2_diff = abs(mean2 - mean2_mat)
 
-    
+    assert cell1_vs_mat1_diff < mat_filter_tolerance, f"CellFilter and MaterialFilter should give same results for cell 1 ({mean1} vs {mean1_mat}), difference: {cell1_vs_mat1_diff}"
+    assert cell2_vs_mat2_diff < mat_filter_tolerance, f"CellFilter and MaterialFilter should give same results for cell 2 ({mean2} vs {mean2_mat}), difference: {cell2_vs_mat2_diff}"
+
+    # Test 7: Mixed filter intersection tests
+    mixed_match_diff = abs(mean1 - mean4_match)
+    assert mixed_match_diff < mat_filter_tolerance, f"Material 1 AND Cell 1 should equal Cell 1 alone ({mean1} vs {mean4_match}), difference: {mixed_match_diff}"
+
+    assert mean5_zero == 0.0, f"Material 2 AND Cell 1 should be zero (no overlap), got: {mean5_zero}"
+
     print(f"✓ Integration test passed!")
-    print(f"  - Absorption in cell 1: {tally1.mean:.4f}")
-    print(f"  - Absorption in cell 2: {tally2.mean:.4f}")
-    print(f"  - Total absorption: {tally3.mean:.4f}")
+    print(f"  - Absorption in cell 1: {mean1:.4f}")
+    print(f"  - Absorption in cell 2: {mean2:.4f}")
+    print(f"  - Total absorption: {mean3:.4f}")
     print(f"  - MaterialFilter vs CellFilter:")
     print(f"    - Cell 1 vs Material 1: {cell1_vs_mat1_diff:.2e} difference")
     print(f"    - Cell 2 vs Material 2: {cell2_vs_mat2_diff:.2e} difference")
     print(f"  - Mixed filter tests:")
-    print(f"    - Material 1 AND Cell 1: {tally4_match.mean:.4f} (should equal Cell 1)")
-    print(f"    - Material 2 AND Cell 1: {tally5_zero.mean:.4f} (should be zero)")
+    print(f"    - Material 1 AND Cell 1: {mean4_match:.4f} (should equal Cell 1)")
+    print(f"    - Material 2 AND Cell 1: {mean5_zero:.4f} (should be zero)")
 
 
 def test_duplicate_filter_error():

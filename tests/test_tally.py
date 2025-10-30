@@ -15,7 +15,7 @@ class TestTally:
         assert tally.name is None
         assert tally.id is None
         assert tally.units == ""
-        assert tally.mean == 0.0
+        assert tally.mean == []
         
     def test_tally_score_assignment(self):
         """Test setting tally score as single integer."""
@@ -140,9 +140,9 @@ class TestTallySimulation:
         assert absorption_tally.particles_per_batch == 100
         
         # Statistics should be calculated
-        if absorption_tally.total_count() > 0:
-            assert absorption_tally.std_dev >= 0.0
-            assert absorption_tally.rel_error >= 0.0
+        if absorption_tally.total_count()[0] > 0:
+            assert absorption_tally.std_dev[0] >= 0.0
+            assert absorption_tally.rel_error[0] >= 0.0
     
     def test_simulation_with_multiple_tallies(self, simple_model):
         """Test simulation with multiple tallies."""
@@ -172,7 +172,7 @@ class TestTallySimulation:
         for tally_result in model.tallies:
             assert tally_result.n_batches == 5
             assert tally_result.particles_per_batch == 100
-            assert len(tally_result.batch_data) == 5
+            assert len(tally_result.batch_data[0]) == 5
             
     def test_simulation_without_user_tallies(self, simple_model):
         """Test simulation with only leakage tally (no user tallies)."""
@@ -197,21 +197,21 @@ class TestTallySimulation:
         model.run()
         
         # Test statistics consistency
-        assert absorption_tally.n_batches == len(absorption_tally.batch_data)
-        assert absorption_tally.total_count() == sum(absorption_tally.batch_data)
-        
+        assert absorption_tally.n_batches == len(absorption_tally.batch_data[0])
+        assert absorption_tally.total_count()[0] == sum(absorption_tally.batch_data[0])
+
         # If we have results, test statistical relationships
-        if absorption_tally.total_count() > 0:
+        if absorption_tally.total_count()[0] > 0:
             # Mean should be total divided by (batches * particles_per_batch)
-            expected_mean = absorption_tally.total_count() / (
+            expected_mean = absorption_tally.total_count()[0] / (
                 absorption_tally.n_batches * absorption_tally.particles_per_batch
             )
-            assert abs(absorption_tally.mean - expected_mean) < 1e-10
-            
+            assert abs(absorption_tally.mean[0] - expected_mean) < 1e-10
+
             # Relative error should be std_dev / mean (if mean > 0)
-            if absorption_tally.mean > 0:
-                expected_rel_error = absorption_tally.std_dev / absorption_tally.mean
-                assert abs(absorption_tally.rel_error - expected_rel_error) < 1e-10
+            if absorption_tally.mean[0] > 0:
+                expected_rel_error = absorption_tally.std_dev[0] / absorption_tally.mean[0]
+                assert abs(absorption_tally.rel_error[0] - expected_rel_error) < 1e-10
 
 
 class TestTallyIntegration:
@@ -222,7 +222,7 @@ class TestTallyIntegration:
         tally = mc.Tally()
         tally.scores = [101]
         tally.name = "Test Display"
-        
+
         # Test string output doesn't crash
         str_output = str(tally)
         assert "Test Display" in str_output

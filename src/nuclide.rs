@@ -175,15 +175,15 @@ impl Nuclide {
 
     /// Sample a specific inelastic reaction from the constituent MT 50-91 reactions that make up MT 4.
     /// This provides more detailed physics than just sampling MT 4 directly.
-    /// 
+    ///
     /// # Arguments
     /// * `energy` - Neutron energy in eV
     /// * `temperature` - Temperature string (e.g., "294" or "294K")
     /// * `rng` - Random number generator
-    /// 
+    ///
     /// # Returns
     /// * `&Reaction` for the sampled constituent inelastic reaction (MT 50-91)
-    /// 
+    ///
     /// # Panics
     /// * If no inelastic constituent reactions (MT 50-91) are available
     /// * If sampling logic fails despite having valid reactions and cross sections
@@ -202,12 +202,14 @@ impl Nuclide {
             println!("[sample_inelastic_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
             r
         } else {
-            panic!("[sample_inelastic_constituent] No reaction data available for any temperature.");
+            panic!(
+                "[sample_inelastic_constituent] No reaction data available for any temperature."
+            );
         };
 
         // MT 4 is composed of MT 50-91 (inelastic scattering to discrete levels)
         let inelastic_constituent_mts: Vec<i32> = (50..92).collect();
-        
+
         // Filter to only the MTs that are actually available in this nuclide
         let available_inelastic_mts: Vec<i32> = inelastic_constituent_mts
             .into_iter()
@@ -227,10 +229,7 @@ impl Nuclide {
         };
 
         // Calculate total cross section for all available inelastic constituents
-        let total_inelastic_xs: f64 = available_inelastic_mts
-            .iter()
-            .map(|&mt| get_xs(mt))
-            .sum();
+        let total_inelastic_xs: f64 = available_inelastic_mts.iter().map(|&mt| get_xs(mt)).sum();
 
         if total_inelastic_xs <= 0.0 {
             panic!("sample_inelastic_constituent: Total inelastic cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
@@ -244,7 +243,9 @@ impl Nuclide {
             let xs = get_xs(mt);
             accum += xs;
             if xi < accum && xs > 0.0 {
-                return temp_reactions.get(&mt).expect("sample_inelastic_constituent: MT not found in temp_reactions after filtering.");
+                return temp_reactions.get(&mt).expect(
+                    "sample_inelastic_constituent: MT not found in temp_reactions after filtering.",
+                );
             }
         }
 
@@ -269,13 +270,15 @@ impl Nuclide {
             println!("[sample_absorption_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
             r
         } else {
-            panic!("[sample_absorption_constituent] No reaction data available for any temperature.");
+            panic!(
+                "[sample_absorption_constituent] No reaction data available for any temperature."
+            );
         };
 
         // MTs that make up MT 101 (absorption)
         let mut constituent_mts: Vec<i32> = vec![
-            102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114,
-            115, 116, 117, 155, 182, 191, 192, 193, 197
+            102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117, 155, 182,
+            191, 192, 193, 197,
         ];
         constituent_mts.extend(600..650); // 103: (n,gamma) continuum
         constituent_mts.extend(650..700); // 104: (n,p) continuum
@@ -302,10 +305,7 @@ impl Nuclide {
         };
 
         // Calculate total cross section for all available absorption constituents
-        let total_xs: f64 = available_mts
-            .iter()
-            .map(|&mt| get_xs(mt))
-            .sum();
+        let total_xs: f64 = available_mts.iter().map(|&mt| get_xs(mt)).sum();
 
         if total_xs <= 0.0 {
             panic!("sample_absorption_constituent: Total absorption cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
@@ -326,7 +326,6 @@ impl Nuclide {
         // This should never be reached due to the sampling logic above
         panic!("sample_absorption_constituent: Failed to sample any absorption reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
     }
-
 
     /// Get the energy grid for a specific temperature
     pub fn energy_grid(&self, temperature: &str) -> Option<&Vec<f64>> {
@@ -1249,8 +1248,8 @@ mod tests {
         // Check that the sampled MT is one of the expected absorption constituent MTs
         let valid_mts: Vec<i32> = {
             let mut mts = vec![
-                102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114,
-                115, 116, 117, 155, 182, 191, 192, 193, 197
+                102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117, 155,
+                182, 191, 192, 193, 197,
             ];
             mts.extend(600..650);
             mts.extend(650..700);
@@ -1259,8 +1258,11 @@ mod tests {
             mts.extend(800..850);
             mts
         };
-        assert!(valid_mts.contains(&reaction.mt_number),
-            "Sampled absorption constituent MT {} not in valid list", reaction.mt_number);
+        assert!(
+            valid_mts.contains(&reaction.mt_number),
+            "Sampled absorption constituent MT {} not in valid list",
+            reaction.mt_number
+        );
         // Print for debug
         println!("Sampled absorption constituent MT: {}", reaction.mt_number);
     }
@@ -2438,7 +2440,7 @@ mod tests {
     fn test_sample_inelastic_constituent() {
         use rand::rngs::StdRng;
         use rand::SeedableRng;
-        
+
         // Load Li6 which should have some inelastic reactions (MT 50-91)
         let path = std::path::Path::new("tests/Li6.json");
         let nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
@@ -2456,17 +2458,25 @@ mod tests {
             return;
         }
 
-        println!("Available inelastic constituent MTs in Li6: {:?}", inelastic_mts);
+        println!(
+            "Available inelastic constituent MTs in Li6: {:?}",
+            inelastic_mts
+        );
 
         // Test sampling at various energies
-        let energies = [0.375e7]; 
+        let energies = [0.375e7];
         for energy in energies {
             let mut counts = std::collections::HashMap::new();
             for i in 0..20 {
                 let mut rng = StdRng::seed_from_u64(42 + i);
                 let reaction = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng);
                 *counts.entry(reaction.mt_number).or_insert(0) += 1;
-                println!("Sample {}: Energy {:.1e}: Sampled inelastic MT {}", i+1, energy, reaction.mt_number);
+                println!(
+                    "Sample {}: Energy {:.1e}: Sampled inelastic MT {}",
+                    i + 1,
+                    energy,
+                    reaction.mt_number
+                );
                 // Verify the sampled MT is in the expected range
                 assert!(
                     reaction.mt_number >= 50 && reaction.mt_number < 92,
@@ -2482,9 +2492,17 @@ mod tests {
                 );
             }
             // Find the most common MT
-            let (most_common_mt, most_common_count) = counts.iter().max_by_key(|entry| entry.1).unwrap();
-            println!("Most common sampled MT at energy {:.1e} is {} ({} times)", energy, most_common_mt, most_common_count);
-            assert_eq!(*most_common_mt, 53, "Expected MT 53 to be most commonly sampled at {:.1e}", energy);
+            let (most_common_mt, most_common_count) =
+                counts.iter().max_by_key(|entry| entry.1).unwrap();
+            println!(
+                "Most common sampled MT at energy {:.1e} is {} ({} times)",
+                energy, most_common_mt, most_common_count
+            );
+            assert_eq!(
+                *most_common_mt, 53,
+                "Expected MT 53 to be most commonly sampled at {:.1e}",
+                energy
+            );
         }
     }
 
@@ -2492,7 +2510,7 @@ mod tests {
     fn test_sample_inelastic_constituent_deterministic() {
         use rand::rngs::StdRng;
         use rand::SeedableRng;
-        
+
         let path = std::path::Path::new("tests/Li6.json");
         let nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
         let temperature = "294";
@@ -2501,7 +2519,7 @@ mod tests {
         // Same seed should give same result
         let mut rng1 = StdRng::seed_from_u64(12345);
         let mut rng2 = StdRng::seed_from_u64(12345);
-        
+
         let reaction1 = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng1);
         let reaction2 = nuclide.sample_inelastic_constituent(energy, temperature, &mut rng2);
         assert_eq!(

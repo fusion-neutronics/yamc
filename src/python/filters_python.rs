@@ -26,8 +26,6 @@ impl PyCellFilter {
         }
     }
 
-
-
     /// String representation of the CellFilter
     fn __repr__(&self) -> String {
         format!("CellFilter(cell_id={})", self.internal.cell_id)
@@ -57,12 +55,10 @@ impl PyMaterialFilter {
     #[new]
     fn new(material: &PyMaterial) -> PyResult<Self> {
         match std::panic::catch_unwind(|| MaterialFilter::new(&material.internal)) {
-            Ok(filter) => Ok(PyMaterialFilter {
-                internal: filter,
-            }),
+            Ok(filter) => Ok(PyMaterialFilter { internal: filter }),
             Err(_) => Err(pyo3::exceptions::PyValueError::new_err(
-                "Cannot create MaterialFilter for material with no ID - assign a material_id first"
-            ))
+                "Cannot create MaterialFilter for material with no ID - assign a material_id first",
+            )),
         }
     }
 

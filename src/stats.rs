@@ -42,7 +42,11 @@ impl AngularDistribution {
                 let cos_phi = phi.cos();
                 let sin_phi = phi.sin();
 
-                [sqrt_one_minus_mu2 * cos_phi, sqrt_one_minus_mu2 * sin_phi, mu]
+                [
+                    sqrt_one_minus_mu2 * cos_phi,
+                    sqrt_one_minus_mu2 * sin_phi,
+                    mu,
+                ]
             }
             AngularDistribution::Monodirectional { reference_uvw } => *reference_uvw,
         }
@@ -52,8 +56,8 @@ impl AngularDistribution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
     use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     #[test]
     fn test_monodirectional_distribution() {
@@ -75,7 +79,8 @@ mod tests {
         ];
 
         for &direction in &test_directions {
-            let mono = AngularDistribution::new_monodirectional(direction[0], direction[1], direction[2]);
+            let mono =
+                AngularDistribution::new_monodirectional(direction[0], direction[1], direction[2]);
             let sample = mono.sample(&mut rng);
             assert_eq!(sample, direction);
         }
@@ -115,7 +120,8 @@ mod tests {
             let sample = iso.sample(&mut rng);
 
             // Check normalization
-            let mag = (sample[0] * sample[0] + sample[1] * sample[1] + sample[2] * sample[2]).sqrt();
+            let mag =
+                (sample[0] * sample[0] + sample[1] * sample[1] + sample[2] * sample[2]).sqrt();
             assert!((mag - 1.0).abs() < 1e-10);
 
             samples.push(sample);
@@ -139,7 +145,10 @@ mod tests {
         let mono_sample = mono.sample(&mut rng);
 
         // Isotropic should be normalized
-        let mag = (iso_sample[0] * iso_sample[0] + iso_sample[1] * iso_sample[1] + iso_sample[2] * iso_sample[2]).sqrt();
+        let mag = (iso_sample[0] * iso_sample[0]
+            + iso_sample[1] * iso_sample[1]
+            + iso_sample[2] * iso_sample[2])
+            .sqrt();
         assert!((mag - 1.0).abs() < 1e-10);
 
         // Monodirectional should match expected
@@ -151,7 +160,7 @@ mod tests {
         // Test that our distribution enum implements Send + Sync for threading
         fn assert_send<T: Send>() {}
         fn assert_sync<T: Sync>() {}
-        
+
         assert_send::<AngularDistribution>();
         assert_sync::<AngularDistribution>();
     }

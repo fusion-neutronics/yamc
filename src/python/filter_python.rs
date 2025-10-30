@@ -1,19 +1,21 @@
 #[cfg(feature = "pyo3")]
+use crate::filter::Filter;
+#[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 #[cfg(feature = "pyo3")]
 use pyo3::types::PyAny;
-#[cfg(feature = "pyo3")]
-use crate::filter::Filter;
 
 #[cfg(feature = "pyo3")]
 pub fn py_filter_to_rust(filter_obj: &PyAny) -> PyResult<Filter> {
     if let Ok(cell_filter) = filter_obj.extract::<crate::python::filters_python::PyCellFilter>() {
         Ok(Filter::Cell(cell_filter.internal))
-    } else if let Ok(material_filter) = filter_obj.extract::<crate::python::filters_python::PyMaterialFilter>() {
+    } else if let Ok(material_filter) =
+        filter_obj.extract::<crate::python::filters_python::PyMaterialFilter>()
+    {
         Ok(Filter::Material(material_filter.internal))
     } else {
         Err(pyo3::exceptions::PyTypeError::new_err(
-            "Filter must be either CellFilter or MaterialFilter"
+            "Filter must be either CellFilter or MaterialFilter",
         ))
     }
 }

@@ -10,7 +10,7 @@ impl IndependentSource {
         let sampled_angle = self.angle.sample(rng);
         crate::particle::Particle::new(self.space, sampled_angle, self.energy)
     }
-    
+
     pub fn new() -> Self {
         Self {
             space: [0.0, 0.0, 0.0],
@@ -26,8 +26,8 @@ mod tests {
 
     #[test]
     fn test_source_construction() {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
 
         let mut rng = StdRng::seed_from_u64(1);
         let mut s = IndependentSource::new();
@@ -41,11 +41,11 @@ mod tests {
         assert_eq!(p.energy, 2e6);
         assert!(p.alive);
     }
-    
+
     #[test]
     fn test_default_source() {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
 
         let mut rng = StdRng::seed_from_u64(1);
         let s = IndependentSource::new();
@@ -57,24 +57,23 @@ mod tests {
         assert!(p.alive);
 
         // Check that direction is normalized (isotropic sampling)
-        let mag = (p.direction[0] * p.direction[0] + p.direction[1] * p.direction[1] + p.direction[2] * p.direction[2]).sqrt();
+        let mag = (p.direction[0] * p.direction[0]
+            + p.direction[1] * p.direction[1]
+            + p.direction[2] * p.direction[2])
+            .sqrt();
         assert!((mag - 1.0).abs() < 1e-10);
     }
 
     #[test]
     fn test_source_space_modification() {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
 
         let mut rng = StdRng::seed_from_u64(1);
         let mut s = IndependentSource::new();
 
         // Test different space values
-        let test_positions = [
-            [1.0, 2.0, 3.0],
-            [-5.0, 0.0, 10.0],
-            [0.5, -0.5, 0.0],
-        ];
+        let test_positions = [[1.0, 2.0, 3.0], [-5.0, 0.0, 10.0], [0.5, -0.5, 0.0]];
 
         for &position in &test_positions {
             s.space = position;
@@ -85,8 +84,8 @@ mod tests {
 
     #[test]
     fn test_source_energy_modification() {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
 
         let mut rng = StdRng::seed_from_u64(1);
         let mut s = IndependentSource::new();
@@ -103,8 +102,8 @@ mod tests {
 
     #[test]
     fn test_source_angle_switching() {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
 
         let mut rng = StdRng::seed_from_u64(1);
         let mut s = IndependentSource::new();
@@ -125,8 +124,14 @@ mod tests {
         let p4 = s.sample(&mut rng);
 
         // Both should be normalized
-        let p3_mag = (p3.direction[0] * p3.direction[0] + p3.direction[1] * p3.direction[1] + p3.direction[2] * p3.direction[2]).sqrt();
-        let p4_mag = (p4.direction[0] * p4.direction[0] + p4.direction[1] * p4.direction[1] + p4.direction[2] * p4.direction[2]).sqrt();
+        let p3_mag = (p3.direction[0] * p3.direction[0]
+            + p3.direction[1] * p3.direction[1]
+            + p3.direction[2] * p3.direction[2])
+            .sqrt();
+        let p4_mag = (p4.direction[0] * p4.direction[0]
+            + p4.direction[1] * p4.direction[1]
+            + p4.direction[2] * p4.direction[2])
+            .sqrt();
         assert!((p3_mag - 1.0).abs() < 1e-10);
         assert!((p4_mag - 1.0).abs() < 1e-10);
 
@@ -136,8 +141,8 @@ mod tests {
 
     #[test]
     fn test_source_consistency() {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
 
         let mut rng = StdRng::seed_from_u64(1);
         let mut s = IndependentSource::new();
@@ -157,8 +162,8 @@ mod tests {
 
     #[test]
     fn test_source_isotropic_variation() {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
 
         let mut rng = StdRng::seed_from_u64(1);
         let s = IndependentSource::new(); // Uses isotropic by default
@@ -174,7 +179,10 @@ mod tests {
             assert!(p.alive);
 
             // Direction should be normalized
-            let mag = (p.direction[0] * p.direction[0] + p.direction[1] * p.direction[1] + p.direction[2] * p.direction[2]).sqrt();
+            let mag = (p.direction[0] * p.direction[0]
+                + p.direction[1] * p.direction[1]
+                + p.direction[2] * p.direction[2])
+                .sqrt();
             assert!((mag - 1.0).abs() < 1e-10);
 
             directions.push(p.direction);
@@ -183,6 +191,9 @@ mod tests {
         // Should have variation in directions (isotropic)
         let first_direction = directions[0];
         let all_same = directions.iter().all(|&d| d == first_direction);
-        assert!(!all_same, "Isotropic source should produce varying directions");
+        assert!(
+            !all_same,
+            "Isotropic source should produce varying directions"
+        );
     }
 }
