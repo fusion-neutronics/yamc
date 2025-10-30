@@ -43,7 +43,7 @@ cell2 = mc.Cell(
     region=region2,
     fill=material1,
 )
-geometry = mc.Geometry(cells=[cell1, cell2])
+geometry = mc.Geometry([cell1, cell2])
 
 source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Isotropic(), energy=1e6)
 settings = mc.Settings(particles=500, batches=200, source=source, seed=1)  # Increased for better statistics
