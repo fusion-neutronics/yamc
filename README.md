@@ -3,9 +3,9 @@
 [![Test usage with Rust](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-rust.yml/badge.svg)](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/ci-rust.yml)
 [![Documentation](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/docs.yml/badge.svg)](https://github.com/fusion-neutronics/materials_for_mc/actions/workflows/docs.yml)
 
-# Materials for MC
+# YAMC
 
-Materials For MC is a package for accessing nuclear cross section data and performing neutron transport through constructive solid geometry.
+YAMC (Yet Another Monte Carlo) is a package for performing neutron transport through constructive solid geometry.
 
 See the 👉 **[documentation](https://fusion-neutronics.github.io/materials_for_mc/)** 👈 for installation and API usage details.
 
