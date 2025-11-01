@@ -22,6 +22,7 @@ pub struct Reaction {
     /// ENDF/MT reaction identifier.
     pub mt_number: i32, // The MT number for this reaction
     /// Products emitted by this reaction (e.g., neutrons, photons, fragments)
+    #[serde(default)]
     pub products: Vec<ReactionProduct>,
 }
 
@@ -63,6 +64,7 @@ mod tests {
             interpolation: vec![],
             energy: vec![0.5, 1.0, 2.0, 5.0],
             mt_number: 102,
+            products: vec![],
         };
 
         // Below grid

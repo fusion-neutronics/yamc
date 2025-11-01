@@ -759,6 +759,7 @@ fn parse_nuclide_from_json_value(
                             interpolation: Vec::new(),
                             energy: Vec::new(),
                             mt_number: 0,
+                            products: Vec::new(),
                         };
 
                         // Get cross section (might be named "xs" in old format)
@@ -804,6 +805,17 @@ fn parse_nuclide_from_json_value(
                                     if reaction.threshold_idx < energy_grid.len() {
                                         reaction.energy =
                                             energy_grid[reaction.threshold_idx..].to_vec();
+                                    }
+                                }
+                            }
+                        }
+
+                        // Parse products if present
+                        if let Some(products_array) = reaction_obj.get("products") {
+                            if let Some(products_arr) = products_array.as_array() {
+                                for product_value in products_arr {
+                                    if let Ok(product) = serde_json::from_value::<crate::reaction_product::ReactionProduct>(product_value.clone()) {
+                                        reaction.products.push(product);
                                     }
                                 }
                             }
