@@ -2,9 +2,11 @@
   "atomic_number": 26,
   "atomic_symbol": "Fe",
   "atomic_weight_ratio": 53.47625,
+  "element": "iron",
   "mass_number": 54,
   "metastable": 0,
-  "nuclide": "Fe54",
+  "name": "Fe54",
+  "neutron_number": 28,
   "temperatures": ["294"],
   "reactions": { "294": {
     "1": {

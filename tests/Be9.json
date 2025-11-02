@@ -2,9 +2,11 @@
   "atomic_number": 4,
   "atomic_symbol": "Be",
   "atomic_weight_ratio": 8.93478,
+  "element": "beryllium",
   "mass_number": 9,
   "metastable": 0,
-  "nuclide": "Be9",
+  "name": "Be9",
+  "neutron_number": 5,
   "temperatures": ["294", "300"],
   "reactions": { 
     "294": {

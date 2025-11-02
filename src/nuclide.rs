@@ -652,6 +652,8 @@ fn parse_nuclide_from_json_value(
     // Parse basic metadata
     if let Some(name) = json_value.get("name").and_then(|v| v.as_str()) {
         nuclide.name = Some(name.to_string());
+    } else if let Some(name) = json_value.get("nuclide").and_then(|v| v.as_str()) {
+        nuclide.name = Some(name.to_string());
     }
 
     if let Some(element) = json_value.get("element").and_then(|v| v.as_str()) {
@@ -660,10 +662,6 @@ fn parse_nuclide_from_json_value(
 
     if let Some(symbol) = json_value.get("atomic_symbol").and_then(|v| v.as_str()) {
         nuclide.atomic_symbol = Some(symbol.to_string());
-        // For backward compatibility, set element to "lithium" if atomic_symbol is "Li"
-        if symbol == "Li" && nuclide.element.is_none() {
-            nuclide.element = Some("lithium".to_string());
-        }
     }
 
     if let Some(num) = json_value.get("atomic_number").and_then(|v| v.as_u64()) {
@@ -676,10 +674,6 @@ fn parse_nuclide_from_json_value(
 
     if let Some(num) = json_value.get("neutron_number").and_then(|v| v.as_u64()) {
         nuclide.neutron_number = Some(num as u32);
-    } else if nuclide.mass_number.is_some() && nuclide.atomic_number.is_some() {
-        // Calculate neutron_number = mass_number - atomic_number
-        nuclide.neutron_number =
-            Some(nuclide.mass_number.unwrap() - nuclide.atomic_number.unwrap());
     }
 
     if let Some(lib) = json_value.get("library").and_then(|v| v.as_str()) {
@@ -762,7 +756,7 @@ fn parse_nuclide_from_json_value(
                             products: Vec::new(),
                         };
 
-                        // Get cross section (might be named "xs" in old format)
+                        // Get cross section (support both "cross_section" and legacy "xs")
                         if let Some(xs) = reaction_obj
                             .get("cross_section")
                             .or_else(|| reaction_obj.get("xs"))
@@ -917,22 +911,7 @@ fn parse_nuclide_from_json_value(
         nuclide.available_temperatures.clear();
     }
 
-    // If we have no energy map but have reactions, try to create an energy map
-    if nuclide.energy.is_none() && !nuclide.reactions.is_empty() {
-        let mut energy_grids = HashMap::new();
 
-        for (temp, temp_reactions) in &nuclide.reactions {
-            if let Some((_, reaction)) = temp_reactions.iter().next() {
-                if !reaction.energy.is_empty() {
-                    energy_grids.insert(temp.clone(), reaction.energy.clone());
-                }
-            }
-        }
-
-        if !energy_grids.is_empty() {
-            nuclide.energy = Some(energy_grids);
-        }
-    }
 
     // At this point we should have both reactions and (possibly) an energy map.
     // Populate per-reaction energy grids if they are still empty so that
@@ -951,12 +930,7 @@ fn parse_nuclide_from_json_value(
         }
     }
 
-    // Fallback: derive name if still None (e.g., from atomic_symbol + mass_number)
-    if nuclide.name.is_none() {
-        if let (Some(symbol), Some(mass)) = (&nuclide.atomic_symbol, nuclide.mass_number) {
-            nuclide.name = Some(format!("{}{}", symbol, mass));
-        }
-    }
+
 
     // Determine fissionable status now that reactions are loaded
     let fission_mt_list = [18, 19, 20, 21, 38];

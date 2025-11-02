@@ -2,9 +2,11 @@
   "atomic_number": 82,
   "atomic_symbol": "Pb",
   "atomic_weight_ratio": 206.19,
+  "element": "lead",
   "mass_number": 208,
   "metastable": 0,
-  "nuclide": "Pb208",
+  "name": "Pb208",
+  "neutron_number": 126,
   "temperatures": ["294"],
   "reactions": { "294": {
     "1": {
