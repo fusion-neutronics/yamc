@@ -22,9 +22,16 @@ pub struct AngleDistribution {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnergyDistribution {
-    pub energy: Vec<f64>,
-    pub energy_out: Vec<Vec<f64>>,
+#[serde(tag = "type")]
+pub enum EnergyDistribution {
+    LevelInelastic {
+        // Level inelastic scattering - no additional data needed
+    },
+    Tabulated {
+        energy: Vec<f64>,
+        energy_out: Vec<Vec<f64>>,
+    },
+    // Add other energy distribution types as needed
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +41,12 @@ pub enum AngleEnergyDistribution {
         angle: AngleDistribution,
         energy: Option<EnergyDistribution>,
     },
-    // Add other distribution types as needed (CorrelatedAngleEnergy, KalbachMann, etc.)
+    KalbachMann {
+        energy: Vec<f64>,
+        energy_out: Vec<serde_json::Value>,
+        slope: Vec<serde_json::Value>,
+    },
+    // Add other distribution types as needed (CorrelatedAngleEnergy, etc.)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

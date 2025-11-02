@@ -814,8 +814,14 @@ fn parse_nuclide_from_json_value(
                         if let Some(products_array) = reaction_obj.get("products") {
                             if let Some(products_arr) = products_array.as_array() {
                                 for product_value in products_arr {
-                                    if let Ok(product) = serde_json::from_value::<crate::reaction_product::ReactionProduct>(product_value.clone()) {
-                                        reaction.products.push(product);
+                                    match serde_json::from_value::<crate::reaction_product::ReactionProduct>(product_value.clone()) {
+                                        Ok(product) => {
+                                            reaction.products.push(product);
+                                        }
+                                        Err(e) => {
+                                            // Log parsing failure and skip this product
+                                            eprintln!("Warning: Failed to parse product for MT {}: {}. Skipping this product.", mt, e);
+                                        }
                                     }
                                 }
                             }
