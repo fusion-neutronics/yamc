@@ -258,6 +258,90 @@ impl PyNuclide {
                 if !reaction.energy.is_empty() {
                     reaction_dict.set_item("energy", &reaction.energy)?;
                 }
+                // Add products if available
+                if !reaction.products.is_empty() {
+                    let py_products: PyResult<Vec<PyObject>> = reaction
+                        .products
+                        .iter()
+                        .map(|product| {
+                            // Convert ReactionProduct to a Python dictionary
+                            let product_dict = PyDict::new(py);
+                            
+                            // Convert particle type
+                            let particle_str = match product.particle {
+                                crate::reaction_product::ParticleType::Neutron => "neutron",
+                                crate::reaction_product::ParticleType::Photon => "photon",
+                            };
+                            product_dict.set_item("particle", particle_str)?;
+                            product_dict.set_item("emission_mode", &product.emission_mode)?;
+                            product_dict.set_item("decay_rate", product.decay_rate)?;
+                            
+                            // Convert distributions to dictionaries
+                            let distributions: PyResult<Vec<PyObject>> = product.distribution
+                                .iter()
+                                .map(|dist| {
+                                    let dist_dict = PyDict::new(py);
+                                    match dist {
+                                        crate::reaction_product::AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
+                                            dist_dict.set_item("type", "UncorrelatedAngleEnergy")?;
+                                            
+                                            // Convert angle distribution
+                                            let angle_dict = PyDict::new(py);
+                                            angle_dict.set_item("energy", &angle.energy)?;
+                                            let mu_dicts: PyResult<Vec<PyObject>> = angle.mu
+                                                .iter()
+                                                .map(|tab| {
+                                                    let tab_dict = PyDict::new(py);
+                                                    tab_dict.set_item("x", &tab.x)?;
+                                                    tab_dict.set_item("p", &tab.p)?;
+                                                    Ok(tab_dict.into())
+                                                })
+                                                .collect();
+                                            angle_dict.set_item("mu", mu_dicts?)?;
+                                            dist_dict.set_item("angle", angle_dict)?;
+                                            
+                                            // Convert energy distribution if present
+                                            if let Some(energy_dist) = energy {
+                                                let energy_dict = PyDict::new(py);
+                                                match energy_dist {
+                                                    crate::reaction_product::EnergyDistribution::LevelInelastic {} => {
+                                                        energy_dict.set_item("type", "LevelInelastic")?;
+                                                    }
+                                                    crate::reaction_product::EnergyDistribution::Tabulated { energy, energy_out } => {
+                                                        energy_dict.set_item("type", "Tabulated")?;
+                                                        energy_dict.set_item("energy", energy)?;
+                                                        energy_dict.set_item("energy_out", energy_out)?;
+                                                    }
+                                                }
+                                                dist_dict.set_item("energy", energy_dict)?;
+                                            }
+                                        }
+                                        crate::reaction_product::AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
+                                            dist_dict.set_item("type", "KalbachMann")?;
+                                            dist_dict.set_item("energy", energy)?;
+                                            // Convert serde_json::Value to Python object
+                                            let energy_out_py: Vec<PyObject> = energy_out
+                                                .iter()
+                                                .map(|val| serde_json::to_string(val).unwrap().into_py(py))
+                                                .collect();
+                                            dist_dict.set_item("energy_out", energy_out_py)?;
+                                            let slope_py: Vec<PyObject> = slope
+                                                .iter()
+                                                .map(|val| serde_json::to_string(val).unwrap().into_py(py))
+                                                .collect();
+                                            dist_dict.set_item("slope", slope_py)?;
+                                        }
+                                    }
+                                    Ok(dist_dict.into())
+                                })
+                                .collect();
+                            product_dict.set_item("distribution", distributions?)?;
+                            
+                            Ok(product_dict.into())
+                        })
+                        .collect();
+                    reaction_dict.set_item("products", py_products?)?;
+                }
                 mt_dict.set_item(mt, reaction_dict)?;
             }
             py_dict.set_item(temp, mt_dict)?;
