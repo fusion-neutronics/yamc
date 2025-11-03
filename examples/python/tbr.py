@@ -1,4 +1,5 @@
 import materials_for_mc as mc
+import time
     
 # Create two-cell geometry: inner sphere (Li6) and outer annular region (Be9)
 sphere1 = mc.Sphere(
@@ -57,7 +58,9 @@ tally1.name = "tbr"
 tallies = [tally1]
 
 model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
-model.run()
 
+time.start = time.time()
+model.run()
+print(f"Simulation completed in {time.time() - time.start} seconds.")
 # Tallies are updated in place!
 print(f"TBR (tritium breeding ratio): {tally1.mean}")

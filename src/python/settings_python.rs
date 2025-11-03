@@ -12,7 +12,12 @@ pub struct PySettings {
 impl PySettings {
     #[new]
     #[pyo3(signature = (particles, batches, source, seed=None))]
-    pub fn new(particles: usize, batches: usize, source: PyIndependentSource, seed: Option<u64>) -> Self {
+    pub fn new(
+        particles: usize,
+        batches: usize,
+        source: PyIndependentSource,
+        seed: Option<u64>,
+    ) -> Self {
         PySettings {
             inner: Settings {
                 particles,
