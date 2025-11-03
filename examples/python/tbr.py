@@ -15,7 +15,7 @@ sphere2 = mc.Sphere(
     y0=0.0,
     z0=0.0,
     r=200.0,
-    boundary_type='Vacuum',
+    boundary_type='vacuum',
 )
 region1 = -sphere1
 region2 = +sphere1 & -sphere2
