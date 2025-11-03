@@ -25,7 +25,7 @@ def test_absorption_leakage_filters():
         y0=0.0,
         z0=0.0,
         r=2.0,
-        boundary_type='Vacuum',
+        boundary_type='vacuum',
     )
     region1 = -sphere1
     region2 = +sphere1 & -sphere2
@@ -180,7 +180,7 @@ def test_duplicate_filter_error():
     sphere = mc.Sphere(
         surface_id=1,
         x0=0.0, y0=0.0, z0=0.0, r=1.0,
-        boundary_type='Vacuum'
+        boundary_type='vacuum'
     )
     region = -sphere
 

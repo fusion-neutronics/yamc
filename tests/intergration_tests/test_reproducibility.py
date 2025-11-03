@@ -4,7 +4,7 @@ import materials_for_mc as mc
 def test_reproducibility_with_same_seed():
     """Test that simulations with the same seed produce identical results"""
     # Create simple geometry
-    sphere = mc.Sphere(surface_id=1, x0=0.0, y0=0.0, z0=0.0, r=2.0, boundary_type='Vacuum')
+    sphere = mc.Sphere(surface_id=1, x0=0.0, y0=0.0, z0=0.0, r=2.0, boundary_type='vacuum')
     region = -sphere
 
     # Create material
@@ -65,7 +65,7 @@ def test_reproducibility_with_same_seed():
 def test_different_seeds_produce_different_results():
     """Test that simulations with different seeds produce different results"""
     # Create simple geometry
-    sphere = mc.Sphere(surface_id=1, x0=0.0, y0=0.0, z0=0.0, r=2.0, boundary_type='Vacuum')
+    sphere = mc.Sphere(surface_id=1, x0=0.0, y0=0.0, z0=0.0, r=2.0, boundary_type='vacuum')
     region = -sphere
 
     # Create material
