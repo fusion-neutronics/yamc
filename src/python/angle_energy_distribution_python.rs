@@ -160,7 +160,7 @@ impl PyEnergyDistribution {
     }
 }
 
-// Python wrappers for Tabulated1D and TabulatedProbability
+// Python wrappers for Tabulated1D
 #[pyclass(name = "Tabulated1D")]
 #[derive(Clone)]
 pub struct PyTabulated1D {
@@ -202,36 +202,12 @@ impl From<Tabulated1D> for PyTabulated1D {
     }
 }
 
-#[pyclass(name = "TabulatedProbability")]
-#[derive(Clone)]
-pub struct PyTabulatedProbability {
-    #[pyo3(get)]
-    pub x: Vec<f64>,
-    #[pyo3(get)]
-    pub p: Vec<f64>,
-}
-
-#[pymethods]
-impl PyTabulatedProbability {
-    #[new]
-    fn new(x: Vec<f64>, p: Vec<f64>) -> Self {
-        PyTabulatedProbability { x, p }
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "TabulatedProbability(x=[{} points], p=[{} points])",
-            self.x.len(),
-            self.p.len()
-        )
-    }
-}
-
-impl From<TabulatedProbability> for PyTabulatedProbability {
+// Add From<TabulatedProbability> for PyTabulated to handle energy_out conversions
+impl From<TabulatedProbability> for PyTabulated {
     fn from(tab: TabulatedProbability) -> Self {
         match tab {
             TabulatedProbability::Tabulated { x, p } => {
-                PyTabulatedProbability { x, p }
+                PyTabulated { x, p }
             }
         }
     }

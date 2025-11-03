@@ -1,6 +1,6 @@
 #[cfg(feature = "pyo3")]
 use crate::python::angle_energy_distribution_python::{
-    PyAngleDistribution, PyEnergyDistribution, PyTabulated, PyTabulated1D, PyTabulatedProbability,
+    PyAngleDistribution, PyEnergyDistribution, PyTabulated, PyTabulated1D,
 };
 use crate::reaction_product::{
     AngleDistribution, AngleEnergyDistribution, EnergyDistribution, ParticleType, ReactionProduct,
@@ -114,7 +114,7 @@ impl PyAngleEnergyDistribution {
                     "energy_out",
                     energy_out
                         .into_iter()
-                        .map(|v| Py::new(py, PyTabulatedProbability::from(v)))
+                        .map(|v| Py::new(py, PyTabulated::from(v)))
                         .collect::<PyResult<Vec<_>>>()?,
                 )?;
                 dict.set_item(
@@ -165,7 +165,7 @@ impl PyReactionProduct {
                         energy,
                         energy_out: energy_out
                             .into_iter()
-                            .map(|v| Py::new(py, PyTabulatedProbability::from(v)).map(|p| p.into_py(py)))
+                            .map(|v| Py::new(py, PyTabulated::from(v)).map(|p| p.into_py(py)))
                             .collect::<PyResult<Vec<_>>>()?,
                         slope: slope
                             .into_iter()
