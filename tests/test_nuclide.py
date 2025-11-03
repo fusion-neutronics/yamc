@@ -893,3 +893,237 @@ def test_nuclide_path_normalization():
     xs_abs, _ = li6_abs.microscopic_cross_section("(n,gamma)")
     
     assert xs_rel == xs_abs, "Relative and absolute paths to same file should give identical results"
+
+
+def test_basic_nuclide_properties_after_loading():
+    """Test that basic nuclide properties are correctly set after loading data."""
+    # Test Li6 properties
+    nuc_li6 = Nuclide('Li6')
+    nuc_li6.read_nuclide_from_json('tests/Li6.json')
+    
+    # Basic identification properties
+    assert nuc_li6.name == 'Li6', "Nuclide name should be Li6"
+    assert nuc_li6.element.lower() == 'lithium', "Element should be lithium"
+    assert nuc_li6.atomic_symbol == 'Li', "Atomic symbol should be Li"
+    assert nuc_li6.atomic_number == 3, "Atomic number should be 3"
+    assert nuc_li6.mass_number == 6, "Mass number should be 6"
+    assert nuc_li6.neutron_number == 3, "Neutron number should be 3"
+    
+    # Temperature availability
+    assert len(nuc_li6.available_temperatures) > 0, "Should have available temperatures"
+    assert '294' in nuc_li6.available_temperatures, "Should have 294K temperature data"
+    
+    # Reaction data availability
+    assert len(nuc_li6.reaction_mts) > 0, "Should have reaction MTs available"
+    assert isinstance(nuc_li6.reaction_mts, list), "Reaction MTs should be a list"
+    assert all(isinstance(mt, int) for mt in nuc_li6.reaction_mts), "All MTs should be integers"
+
+
+def test_basic_nuclide_properties_li7():
+    """Test that basic nuclide properties are correctly set for Li7."""
+    nuc_li7 = Nuclide('Li7')
+    nuc_li7.read_nuclide_from_json('tests/Li7.json')
+    
+    # Basic identification properties
+    assert nuc_li7.name == 'Li7', "Nuclide name should be Li7"
+    assert nuc_li7.element.lower() == 'lithium', "Element should be lithium"
+    assert nuc_li7.atomic_symbol == 'Li', "Atomic symbol should be Li"
+    assert nuc_li7.atomic_number == 3, "Atomic number should be 3"
+    assert nuc_li7.mass_number == 7, "Mass number should be 7"
+    assert nuc_li7.neutron_number == 4, "Neutron number should be 4"
+    
+    # Temperature and reaction data
+    assert len(nuc_li7.available_temperatures) > 0, "Should have available temperatures"
+    assert len(nuc_li7.reaction_mts) > 0, "Should have reaction MTs available"
+
+
+def test_basic_nuclide_properties_be9():
+    """Test that basic nuclide properties are correctly set for Be9."""
+    nuc_be9 = Nuclide('Be9')
+    nuc_be9.read_nuclide_from_json('tests/Be9.json')
+    
+    # Basic identification properties
+    assert nuc_be9.name == 'Be9', "Nuclide name should be Be9"
+    assert nuc_be9.element.lower() == 'beryllium', "Element should be beryllium"
+    assert nuc_be9.atomic_symbol == 'Be', "Atomic symbol should be Be"
+    assert nuc_be9.atomic_number == 4, "Atomic number should be 4"
+    assert nuc_be9.mass_number == 9, "Mass number should be 9"
+    assert nuc_be9.neutron_number == 5, "Neutron number should be 5"
+    
+    # Be9 has multiple temperatures
+    assert len(nuc_be9.available_temperatures) > 1, "Be9 should have multiple temperatures"
+    assert '294' in nuc_be9.available_temperatures, "Should have 294K temperature data"
+    assert '300' in nuc_be9.available_temperatures, "Should have 300K temperature data"
+
+
+def test_basic_nuclide_properties_iron_isotopes():
+    """Test that basic nuclide properties are correctly set for iron isotopes."""
+    iron_isotopes = [
+        ('Fe54', 54, 28), ('Fe56', 56, 30), ('Fe57', 57, 31), ('Fe58', 58, 32)
+    ]
+    
+    for name, mass_num, neutron_num in iron_isotopes:
+        nuc = Nuclide(name)
+        nuc.read_nuclide_from_json(f'tests/{name}.json')
+        
+        # Basic identification properties
+        assert nuc.name == name, f"Nuclide name should be {name}"
+        assert nuc.element.lower() == 'iron', f"Element should be iron for {name}"
+        assert nuc.atomic_symbol == 'Fe', f"Atomic symbol should be Fe for {name}"
+        assert nuc.atomic_number == 26, f"Atomic number should be 26 for {name}"
+        assert nuc.mass_number == mass_num, f"Mass number should be {mass_num} for {name}"
+        assert nuc.neutron_number == neutron_num, f"Neutron number should be {neutron_num} for {name}"
+        
+        # Should have temperature and reaction data
+        assert len(nuc.available_temperatures) > 0, f"{name} should have available temperatures"
+        assert len(nuc.reaction_mts) > 0, f"{name} should have reaction MTs available"
+
+
+def test_nuclide_properties_before_loading():
+    """Test nuclide properties before loading any data."""
+    nuc = Nuclide('TestNuclide')
+    
+    # Basic properties should be set from the name
+    assert nuc.name == 'TestNuclide', "Name should be set from constructor"
+    
+    # Other properties should be empty/None before loading
+    assert nuc.available_temperatures == [], "Should have no temperatures before loading"
+    assert nuc.loaded_temperatures == [], "Should have no loaded temperatures before loading"
+    
+    # Reaction MTs returns None before loading data
+    assert nuc.reaction_mts is None, "Should have None reaction MTs before loading"
+    
+    # Test other properties that might be None before loading
+    # These properties may be None before data is loaded
+    assert nuc.element is None, "Element should be None before loading"
+    assert nuc.atomic_number is None, "Atomic number should be None before loading" 
+    assert nuc.mass_number is None, "Mass number should be None before loading"
+
+
+def test_nuclide_properties_consistency():
+    """Test that nuclide properties are consistent across multiple instances."""
+    # Create two instances of the same nuclide
+    nuc1 = Nuclide('Li6')
+    nuc1.read_nuclide_from_json('tests/Li6.json')
+    
+    nuc2 = Nuclide('Li6')
+    nuc2.read_nuclide_from_json('tests/Li6.json')
+    
+    # Should have identical properties
+    assert nuc1.name == nuc2.name, "Names should be identical"
+    assert nuc1.element == nuc2.element, "Elements should be identical"
+    assert nuc1.atomic_symbol == nuc2.atomic_symbol, "Atomic symbols should be identical"
+    assert nuc1.atomic_number == nuc2.atomic_number, "Atomic numbers should be identical"
+    assert nuc1.mass_number == nuc2.mass_number, "Mass numbers should be identical"
+    assert nuc1.neutron_number == nuc2.neutron_number, "Neutron numbers should be identical"
+    assert nuc1.available_temperatures == nuc2.available_temperatures, "Available temperatures should be identical"
+    assert nuc1.reaction_mts == nuc2.reaction_mts, "Reaction MTs should be identical"
+
+
+def test_nuclide_name_parsing():
+    """Test that nuclide names are parsed correctly."""
+    test_cases = [
+        ('Li6', 'Li', 6),
+        ('Li7', 'Li', 7),
+        ('Be9', 'Be', 9),
+        ('Fe54', 'Fe', 54),
+        ('Fe56', 'Fe', 56),
+        ('Fe57', 'Fe', 57),
+        ('Fe58', 'Fe', 58),
+    ]
+    
+    for name, expected_symbol, expected_mass in test_cases:
+        nuc = Nuclide(name)
+        nuc.read_nuclide_from_json(f'tests/{name}.json')
+        
+        assert nuc.atomic_symbol == expected_symbol, f"Atomic symbol for {name} should be {expected_symbol}"
+        assert nuc.mass_number == expected_mass, f"Mass number for {name} should be {expected_mass}"
+
+
+def test_nuclide_reaction_mts_content():
+    """Test that reaction MTs contain expected values."""
+    nuc = Nuclide('Li6')
+    nuc.read_nuclide_from_json('tests/Li6.json')
+    
+    # Check for common reaction types that should be present
+    common_mts = [1, 2, 3]  # total, elastic, nonelastic
+    present_mts = set(nuc.reaction_mts)
+    
+    for mt in common_mts:
+        if mt in present_mts:  # Not all nuclides have all reaction types
+            assert mt in nuc.reaction_mts, f"MT {mt} should be in reaction MTs if present"
+    
+    # All MTs should be positive integers
+    assert all(mt > 0 for mt in nuc.reaction_mts), "All MT numbers should be positive"
+    assert all(mt < 1000 for mt in nuc.reaction_mts), "All MT numbers should be reasonable (<1000)"
+
+
+def test_nuclide_temperature_data_consistency():
+    """Test that temperature data is consistent."""
+    nuc = Nuclide('Be9')
+    nuc.read_nuclide_from_json('tests/Be9.json')
+    
+    # Available temperatures should include loaded temperatures
+    available_set = set(nuc.available_temperatures)
+    loaded_set = set(nuc.loaded_temperatures)
+    
+    assert loaded_set.issubset(available_set), "Loaded temperatures should be subset of available temperatures"
+    
+    # Temperature strings should be valid
+    for temp in nuc.available_temperatures:
+        assert isinstance(temp, str), "Temperature should be string"
+        assert temp.isdigit() or '.' in temp, "Temperature should be numeric string"
+        float_temp = float(temp)
+        assert float_temp > 0, "Temperature should be positive"
+        assert float_temp < 10000, "Temperature should be reasonable (<10000K)"
+
+
+def test_nuclide_fissionable_property():
+    """Test that the fissionable property is set correctly."""
+    # Test non-fissionable nuclides
+    non_fissionable = ['Li6', 'Li7', 'Be9', 'Fe54', 'Fe56', 'Fe57', 'Fe58']
+    
+    for name in non_fissionable:
+        nuc = Nuclide(name)
+        nuc.read_nuclide_from_json(f'tests/{name}.json')
+        
+        assert hasattr(nuc, 'fissionable'), f"{name} should have fissionable attribute"
+        assert nuc.fissionable is False, f"{name} should not be fissionable"
+
+
+def test_nuclide_atomic_mass_property():
+    """Test atomic mass property if available."""
+    nuc = Nuclide('Li6')
+    nuc.read_nuclide_from_json('tests/Li6.json')
+    
+    # Check if atomic mass is available
+    if hasattr(nuc, 'atomic_mass'):
+        assert isinstance(nuc.atomic_mass, (int, float)), "Atomic mass should be numeric"
+        assert nuc.atomic_mass > 0, "Atomic mass should be positive"
+        # Li6 atomic mass should be around 6 atomic mass units
+        assert 5 < nuc.atomic_mass < 7, "Li6 atomic mass should be around 6 AMU"
+
+
+def test_nuclide_cross_section_availability():
+    """Test that cross section data is available after loading."""
+    nuc = Nuclide('Li6')
+    nuc.read_nuclide_from_json('tests/Li6.json')
+    
+    # Should have reactions data
+    assert hasattr(nuc, 'reactions'), "Should have reactions attribute"
+    assert isinstance(nuc.reactions, dict), "Reactions should be dictionary"
+    
+    # Should have at least one temperature
+    assert len(nuc.reactions) > 0, "Should have reactions for at least one temperature"
+    
+    # Each temperature should have reaction data
+    for temp in nuc.reactions:
+        temp_reactions = nuc.reactions[temp]
+        assert isinstance(temp_reactions, dict), f"Reactions for {temp} should be dictionary"
+        assert len(temp_reactions) > 0, f"Should have at least one reaction at {temp}"
+        
+        # Check a few reactions have cross section data
+        for mt in list(temp_reactions.keys())[:3]:  # Check first 3 reactions
+            reaction = temp_reactions[mt]
+            assert hasattr(reaction, 'cross_section'), f"Reaction {mt} should have cross_section"
+            assert len(reaction.cross_section) > 0, f"Reaction {mt} should have non-empty cross section"

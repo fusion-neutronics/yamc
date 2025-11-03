@@ -1,4 +1,5 @@
 #[cfg(feature = "pyo3")]
+use crate::python::angle_energy_distribution_python::{PyAngleDistribution, PyEnergyDistribution, PyTabulated};
 use serde_json::Value;
 #[cfg(feature = "pyo3")]
 use crate::python::serde_json_utils_python::*;
@@ -12,117 +13,53 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 #[cfg(feature = "pyo3")]
-#[pyclass(name = "Tabulated")]
+#[pyclass(name = "ReactionProduct")]
 #[derive(Clone, Debug)]
-pub struct PyTabulated {
+pub struct PyReactionProduct {
     #[pyo3(get)]
-    pub x: Vec<f64>,
+    pub particle: String,
     #[pyo3(get)]
-    pub p: Vec<f64>,
+    pub emission_mode: Option<String>,
+    #[pyo3(get)]
+    pub decay_rate: Option<f64>,
+    #[pyo3(get)]
+    pub applicability: Vec<PyObject>,
+    #[pyo3(get)]
+    pub distribution: Vec<PyObject>,
 }
 
 #[cfg(feature = "pyo3")]
 #[pymethods]
-impl PyTabulated {
+impl PyReactionProduct {
     #[new]
-    fn new(x: Vec<f64>, p: Vec<f64>) -> Self {
-        PyTabulated { x, p }
+    fn new(
+        particle: String,
+        emission_mode: Option<String>,
+        decay_rate: Option<f64>,
+        applicability: Vec<PyObject>,
+        distribution: Vec<PyObject>,
+    ) -> Self {
+        PyReactionProduct {
+            particle,
+            emission_mode,
+            decay_rate,
+            applicability,
+            distribution,
+        }
     }
 
-    fn __repr__(&self) -> String {
-        format!("Tabulated(x=[{} points], p=[{} points])", self.x.len(), self.p.len())
-    }
-}
-
-#[cfg(feature = "pyo3")]
-impl From<Tabulated> for PyTabulated {
-    fn from(tab: Tabulated) -> Self {
-        PyTabulated { x: tab.x, p: tab.p }
-    }
-}
-
-#[cfg(feature = "pyo3")]
-#[pyclass(name = "AngleDistribution")]
-#[derive(Clone, Debug)]
-pub struct PyAngleDistribution {
-    #[pyo3(get)]
-    pub energy: Vec<f64>,
-    #[pyo3(get)]
-    pub mu: Vec<PyTabulated>,
-}
-
-#[cfg(feature = "pyo3")]
-#[pymethods]
-impl PyAngleDistribution {
     fn __repr__(&self) -> String {
         format!(
-            "AngleDistribution(energy=[{} points], mu=[{} distributions])",
-            self.energy.len(),
-            self.mu.len()
+            "ReactionProduct(particle='{}', distribution=[{} items])",
+            self.particle,
+            self.distribution.len()
         )
     }
 }
 
 #[cfg(feature = "pyo3")]
-impl From<AngleDistribution> for PyAngleDistribution {
-    fn from(angle_dist: AngleDistribution) -> Self {
-        PyAngleDistribution {
-            energy: angle_dist.energy,
-            mu: angle_dist.mu.into_iter().map(PyTabulated::from).collect(),
-        }
-    }
-}
 
-#[cfg(feature = "pyo3")]
-#[pyclass(name = "EnergyDistribution")]
-#[derive(Clone, Debug)]
-pub struct PyEnergyDistribution {
-    pub distribution_type: String,
-    pub data: PyObject,
-}
 
-#[cfg(feature = "pyo3")]
-#[pymethods]
-impl PyEnergyDistribution {
-    #[getter]
-    fn distribution_type(&self) -> &str {
-        &self.distribution_type
-    }
-
-    #[getter]
-    fn data(&self) -> PyObject {
-        self.data.clone()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("EnergyDistribution(type='{}')", self.distribution_type)
-    }
-}
-
-#[cfg(feature = "pyo3")]
-impl PyEnergyDistribution {
-    fn from_energy_distribution(energy_dist: EnergyDistribution, py: Python) -> PyResult<Self> {
-        use pyo3::types::PyDict;
-        
-        let (dist_type, data) = match energy_dist {
-            EnergyDistribution::LevelInelastic {} => {
-                let dict = PyDict::new(py);
-                ("LevelInelastic".to_string(), dict.into())
-            }
-            EnergyDistribution::Tabulated { energy, energy_out } => {
-                let dict = PyDict::new(py);
-                dict.set_item("energy", energy)?;
-                dict.set_item("energy_out", energy_out)?;
-                ("Tabulated".to_string(), dict.into())
-            }
-        };
-        
-        Ok(PyEnergyDistribution {
-            distribution_type: dist_type,
-            data,
-        })
-    }
-}
 
 #[cfg(feature = "pyo3")]
 #[pyclass(name = "AngleEnergyDistribution")]
@@ -157,7 +94,7 @@ impl PyAngleEnergyDistribution {
         py: Python,
     ) -> PyResult<Self> {
         use pyo3::types::PyDict;
-        
+
         let (dist_type, data) = match angle_energy_dist {
             AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
                 let dict = PyDict::new(py);
@@ -173,78 +110,16 @@ impl PyAngleEnergyDistribution {
                 slope,
             } => {
                 let dict = PyDict::new(py);
-                    let py_list = pyo3::types::PyList::empty(py);
-                    for v in &energy {
-                        py_list.append(v).unwrap();
-                    }
-                    dict.set_item("energy", py_list)?;
-                    dict.set_item::<&str, pyo3::PyObject>("energy_out", {
-                    let py_list = pyo3::types::PyList::empty(py);
-                    for v in &energy_out {
-                        py_list.append(crate::python::serde_json_utils_python::value_to_pyobject(v, py)).unwrap();
-                    }
-                    py_list.into_py(py)
-                })?;
-                    dict.set_item::<&str, pyo3::PyObject>("slope", {
-                    let py_list = pyo3::types::PyList::empty(py);
-                    for v in &slope {
-                        py_list.append(crate::python::serde_json_utils_python::value_to_pyobject(v, py)).unwrap();
-                    }
-                    py_list.into_py(py)
-                })?;
+                dict.set_item("energy", energy)?;
+                dict.set_item("energy_out", energy_out.into_iter().map(|v| value_to_pyobject(&v, py)).collect::<Vec<_>>())?;
+                dict.set_item("slope", slope.into_iter().map(|v| value_to_pyobject(&v, py)).collect::<Vec<_>>())?;
                 ("KalbachMann".to_string(), dict.into())
             }
         };
-        
         Ok(PyAngleEnergyDistribution {
             distribution_type: dist_type,
             data,
         })
-    }
-}
-
-#[cfg(feature = "pyo3")]
-#[pyclass(name = "ReactionProduct")]
-#[derive(Clone, Debug)]
-pub struct PyReactionProduct {
-    #[pyo3(get)]
-    pub particle: String,
-    #[pyo3(get)]
-    pub emission_mode: String,
-    #[pyo3(get)]
-    pub decay_rate: f64,
-    #[pyo3(get)]
-    pub applicability: Vec<PyObject>,
-    #[pyo3(get)]
-    pub distribution: Vec<PyAngleEnergyDistribution>,
-}
-
-#[cfg(feature = "pyo3")]
-#[pymethods]
-impl PyReactionProduct {
-    #[new]
-    fn new(
-        particle: String,
-        emission_mode: String,
-        decay_rate: f64,
-        applicability: Vec<PyObject>,
-        distribution: Vec<PyAngleEnergyDistribution>,
-    ) -> Self {
-        PyReactionProduct {
-            particle,
-            emission_mode,
-            decay_rate,
-            applicability,
-            distribution,
-        }
-    }
-    fn __repr__(&self) -> String {
-        format!(
-            "ReactionProduct(particle='{}', emission_mode='{}', distributions={})",
-            self.particle,
-            self.emission_mode,
-            self.distribution.len()
-        )
     }
 }
 
@@ -256,11 +131,35 @@ impl PyReactionProduct {
             ParticleType::Photon => "photon".to_string(),
         };
 
-        let distribution = product
-            .distribution
-            .into_iter()
-            .map(|dist| PyAngleEnergyDistribution::from_angle_energy_distribution(dist, py))
-            .collect::<PyResult<Vec<_>>>()?;
+        let mut distribution = Vec::new();
+        for dist in product.distribution {
+            match dist {
+                AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
+                    let py_dist = pyo3::Py::new(py, crate::python::angle_energy_distribution_python::PyUncorrelatedAngleEnergy {
+                        angle: PyAngleDistribution {
+                            energy: angle.energy.clone(),
+                            mu: angle.mu.into_iter().map(|tab| PyTabulated { x: tab.x, p: tab.p }).collect(),
+                        },
+                        energy: energy.map(|e| PyEnergyDistribution {
+                            distribution_type: match e {
+                                EnergyDistribution::LevelInelastic { .. } => "LevelInelastic".to_string(),
+                                EnergyDistribution::Tabulated { .. } => "Tabulated".to_string(),
+                            },
+                            data: py.None(), // Expand to hold actual data if needed
+                        }),
+                    })?;
+                    distribution.push(py_dist.into_py(py));
+                }
+                AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
+                    let py_dist = pyo3::Py::new(py, crate::python::angle_energy_distribution_python::PyKalbachMann {
+                        energy,
+                        energy_out: energy_out.into_iter().map(|v| value_to_pyobject(&v, py)).collect(),
+                        slope: slope.into_iter().map(|v| value_to_pyobject(&v, py)).collect(),
+                    })?;
+                    distribution.push(py_dist.into_py(py));
+                }
+            }
+        }
 
         // Convert applicability (currently just raw JSON values)
         let applicability = product
@@ -271,8 +170,8 @@ impl PyReactionProduct {
 
         Ok(PyReactionProduct {
             particle,
-            emission_mode: product.emission_mode,
-            decay_rate: product.decay_rate,
+            emission_mode: Some(product.emission_mode),
+            decay_rate: Some(product.decay_rate),
             applicability,
             distribution,
         })
