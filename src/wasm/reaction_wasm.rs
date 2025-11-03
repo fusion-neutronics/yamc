@@ -27,6 +27,7 @@ impl WasmReaction {
                 interpolation: Vec::new(),
                 energy: Vec::new(),
                 mt_number: 0, // Default MT number
+                products: Vec::new(), // Fix: add missing field
             },
         }
     }
