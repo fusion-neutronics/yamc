@@ -1,4 +1,5 @@
 import materials_for_mc as mc
+import time
     
 # Create two-cell geometry: inner sphere (Li6) and outer annular region (Be9)
 sphere1 = mc.Sphere(
@@ -15,7 +16,7 @@ sphere2 = mc.Sphere(
     y0=0.0,
     z0=0.0,
     r=200.0,
-    boundary_type='Vacuum',
+    boundary_type='vacuum',
 )
 region1 = -sphere1
 region2 = +sphere1 & -sphere2
@@ -52,12 +53,14 @@ settings = mc.Settings(particles=500, batches=200, source=source, seed=1)  # Inc
 cell_filter2 = mc.CellFilter(cell2)
 tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
-tally1.score = 105  # n,t
+tally1.scores = [105]  # n,t
 tally1.name = "tbr"
 tallies = [tally1]
 
 model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
-model.run()
 
+time.start = time.time()
+model.run()
+print(f"Simulation completed in {time.time() - time.start} seconds.")
 # Tallies are updated in place!
 print(f"TBR (tritium breeding ratio): {tally1.mean}")

@@ -1,9 +1,9 @@
 #[cfg(feature = "pyo3")]
+use crate::tally::Tally;
+#[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 #[cfg(feature = "pyo3")]
 use pyo3::types::PyAny;
-#[cfg(feature = "pyo3")]
-use crate::tally::Tally;
 #[cfg(feature = "pyo3")]
 use std::sync::Arc;
 
@@ -23,16 +23,29 @@ impl PyTally {
             inner: Arc::new(Tally::new()),
         }
     }
-    
+
     #[getter]
-    pub fn score(&self) -> i32 {
-        self.inner.score
+    pub fn scores(&self) -> Vec<i32> {
+        self.inner.scores.clone()
     }
-    
+
     #[setter]
-    pub fn set_score(&mut self, score: i32) {
+    pub fn set_scores(&mut self, scores: Vec<i32>) {
         if let Some(tally) = Arc::get_mut(&mut self.inner) {
-            tally.score = score;
+            tally.scores = scores.clone();
+            // Pre-allocate vecs (but don't initialize batch_data yet - we don't know n_batches)
+            tally.batch_data = (0..scores.len())
+                .map(|_| std::sync::Mutex::new(std::sync::Arc::new(Vec::new())))
+                .collect();
+            tally.mean = (0..scores.len())
+                .map(|_| std::sync::atomic::AtomicU64::new(0))
+                .collect();
+            tally.std_dev = (0..scores.len())
+                .map(|_| std::sync::atomic::AtomicU64::new(0))
+                .collect();
+            tally.rel_error = (0..scores.len())
+                .map(|_| std::sync::atomic::AtomicU64::new(0))
+                .collect();
         } else {
             panic!("Cannot modify tally: multiple references exist");
         }
@@ -70,19 +83,19 @@ impl PyTally {
     pub fn units(&self) -> String {
         self.inner.units.clone()
     }
-    
+
     #[getter]
-    pub fn mean(&self) -> f64 {
+    pub fn mean(&self) -> Vec<f64> {
         self.inner.get_mean()
     }
 
     #[getter]
-    pub fn std_dev(&self) -> f64 {
+    pub fn std_dev(&self) -> Vec<f64> {
         self.inner.get_std_dev()
     }
 
     #[getter]
-    pub fn rel_error(&self) -> f64 {
+    pub fn rel_error(&self) -> Vec<f64> {
         self.inner.get_rel_error()
     }
 
@@ -99,79 +112,66 @@ impl PyTally {
     }
 
     #[getter]
-    pub fn batch_data(&self) -> Vec<u64> {
+    pub fn batch_data(&self) -> Vec<Vec<u64>> {
         use std::sync::atomic::Ordering;
-        self.inner.batch_data.lock().unwrap()
+        self.inner
+            .batch_data
             .iter()
-            .map(|a| a.load(Ordering::Relaxed))
+            .map(|batch_mutex| {
+                batch_mutex
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|a| a.load(Ordering::Relaxed))
+                    .collect()
+            })
             .collect()
     }
-    
+
     #[getter]
     pub fn filters(&self) -> Vec<PyObject> {
-        // Convert internal Filters to appropriate Python filter objects
+        use crate::python::filter_python::rust_filter_to_py;
         use pyo3::Python;
         Python::with_gil(|py| {
-            self.inner.filters
+            self.inner
+                .filters
                 .iter()
-                .map(|f| match f {
-                    crate::tally::Filter::Cell(cell_filter) => {
-                        let py_cell_filter = crate::python::filters_python::PyCellFilter {
-                            internal: cell_filter.clone(),
-                        };
-                        py_cell_filter.into_py(py)
-                    }
-                    crate::tally::Filter::Material(material_filter) => {
-                        let py_material_filter = crate::python::filters_python::PyMaterialFilter {
-                            internal: material_filter.clone(),
-                        };
-                        py_material_filter.into_py(py)
-                    }
-                })
+                .map(|f| rust_filter_to_py(py, f))
                 .collect()
         })
     }
-    
+
     #[setter]
     pub fn set_filters(&mut self, filters: Vec<&PyAny>) -> PyResult<()> {
+        use crate::python::filter_python::py_filter_to_rust;
         let mut filter_objects = Vec::new();
-        
         for filter_obj in filters {
-            if let Ok(cell_filter) = filter_obj.extract::<crate::python::filters_python::PyCellFilter>() {
-                filter_objects.push(crate::tally::Filter::Cell(cell_filter.internal));
-            } else if let Ok(material_filter) = filter_obj.extract::<crate::python::filters_python::PyMaterialFilter>() {
-                filter_objects.push(crate::tally::Filter::Material(material_filter.internal));
-            } else {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "Filter must be either CellFilter or MaterialFilter"
-                ));
-            }
+            filter_objects.push(py_filter_to_rust(filter_obj)?);
         }
-        
         if let Some(tally) = Arc::get_mut(&mut self.inner) {
             tally.filters = filter_objects;
-
-            // Validate the tally configuration
             if let Err(err) = tally.validate() {
                 return Err(pyo3::exceptions::PyValueError::new_err(err));
             }
         } else {
             return Err(pyo3::exceptions::PyRuntimeError::new_err(
-                "Cannot modify tally: multiple references exist"
+                "Cannot modify tally: multiple references exist",
             ));
         }
-        
         Ok(())
     }
-    
-    pub fn total_count(&self) -> u64 {
+
+    pub fn total_count(&self) -> Vec<u64> {
         self.inner.total_count()
     }
-    
+
     fn __repr__(&self) -> String {
-        format!("Tally(score={}, name={:?}, id={:?})", self.inner.score, self.inner.name, self.inner.id)
+        format!(
+            "Tally(scores={:?}, name={:?}, id={:?})",
+            self.inner.scores, self.inner.name, self.inner.id
+        )
     }
-    
+
     fn __str__(&self) -> String {
         self.inner.to_string()
     }
@@ -180,7 +180,9 @@ impl PyTally {
 #[cfg(feature = "pyo3")]
 impl From<Tally> for PyTally {
     fn from(tally: Tally) -> Self {
-        PyTally { inner: Arc::new(tally) }
+        PyTally {
+            inner: Arc::new(tally),
+        }
     }
 }
 

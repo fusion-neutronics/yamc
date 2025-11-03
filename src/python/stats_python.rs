@@ -38,7 +38,11 @@ impl PyMonodirectional {
     #[new]
     pub fn new(reference_uvw: [f64; 3]) -> Self {
         PyMonodirectional {
-            inner: AngularDistribution::new_monodirectional(reference_uvw[0], reference_uvw[1], reference_uvw[2]),
+            inner: AngularDistribution::new_monodirectional(
+                reference_uvw[0],
+                reference_uvw[1],
+                reference_uvw[2],
+            ),
         }
     }
 
@@ -58,15 +62,21 @@ impl PyMonodirectional {
 
     #[setter]
     pub fn set_reference_uvw(&mut self, reference_uvw: [f64; 3]) {
-        self.inner = AngularDistribution::new_monodirectional(reference_uvw[0], reference_uvw[1], reference_uvw[2]);
+        self.inner = AngularDistribution::new_monodirectional(
+            reference_uvw[0],
+            reference_uvw[1],
+            reference_uvw[2],
+        );
     }
 
     pub fn __repr__(&self) -> String {
         match &self.inner {
             AngularDistribution::Monodirectional { reference_uvw } => {
                 format!("Monodirectional(reference_uvw={:?})", reference_uvw)
-            },
-            AngularDistribution::Isotropic => panic!("Invalid state: Monodirectional wrapper contains Isotropic"),
+            }
+            AngularDistribution::Isotropic => {
+                panic!("Invalid state: Monodirectional wrapper contains Isotropic")
+            }
         }
     }
 }

@@ -13,7 +13,6 @@ pub static ATOMIC_WEIGHT_RATIO: Lazy<HashMap<&'static str, f64>> = Lazy::new(|| 
     m
 });
 
-
 /// Map from element symbol to sorted vector of nuclide (isotope) identifiers.
 ///
 /// Keys are element symbols (e.g. `"Li"`) and values are the sorted list of

@@ -14,7 +14,7 @@ def test_duplicate_filter_validation():
     sphere = mc.Sphere(
         surface_id=1,
         x0=0.0, y0=0.0, z0=0.0, r=1.0,
-        boundary_type='Vacuum'
+        boundary_type='vacuum'
     )
     region = -sphere
 
@@ -35,7 +35,7 @@ def test_duplicate_filter_validation():
     
     # Test 1: Multiple CellFilters should raise ValueError
     tally1 = mc.Tally()
-    tally1.score = 101  # absorption
+    tally1.scores = [101]  # absorption
     tally1.name = "tally with duplicate cell filters"
     
     cell_filter1 = mc.CellFilter(cell1)
@@ -49,7 +49,7 @@ def test_duplicate_filter_validation():
     
     # Test 2: Multiple MaterialFilters should raise ValueError  
     tally2 = mc.Tally()
-    tally2.score = 101  # absorption
+    tally2.scores = [101]  # absorption
     tally2.name = "tally with duplicate material filters"
     
     material_filter1 = mc.MaterialFilter(material1)
@@ -63,7 +63,7 @@ def test_duplicate_filter_validation():
     
     # Test 3: Mixed filter types (different types) should be allowed
     tally3 = mc.Tally()
-    tally3.score = 101  # absorption
+    tally3.scores = [101]  # absorption
     tally3.name = "tally with mixed filter types"
     
     # This should work without raising an exception
@@ -72,13 +72,13 @@ def test_duplicate_filter_validation():
     
     # Test 4: Single filter of each type should work
     tally4 = mc.Tally()
-    tally4.score = 101
+    tally4.scores = [101]
     tally4.name = "tally with single cell filter"
     tally4.filters = [cell_filter1]
     assert len(tally4.filters) == 1
     
     tally5 = mc.Tally()
-    tally5.score = 101
+    tally5.scores = [101]
     tally5.name = "tally with single material filter"
     tally5.filters = [material_filter1]
     assert len(tally5.filters) == 1

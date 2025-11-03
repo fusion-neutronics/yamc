@@ -902,25 +902,32 @@ mod tests {
     #[test]
     fn test_material_id_default() {
         let mat = Material::new();
-        assert_eq!(mat.get_material_id(), None, "Default material_id should be None");
-        assert_eq!(mat.material_id, None, "Default material_id field should be None");
+        assert_eq!(
+            mat.get_material_id(),
+            None,
+            "Default material_id should be None"
+        );
+        assert_eq!(
+            mat.material_id, None,
+            "Default material_id field should be None"
+        );
     }
 
     #[test]
     fn test_set_and_get_material_id() {
         let mut mat = Material::new();
-        
+
         // Test default value
         assert_eq!(mat.get_material_id(), None);
-        
+
         // Test setting and getting material_id
         mat.set_material_id(42);
         assert_eq!(mat.get_material_id(), Some(42));
-        
+
         // Test setting a different value
         mat.set_material_id(999);
         assert_eq!(mat.get_material_id(), Some(999));
-        
+
         // Test setting to 0
         mat.set_material_id(0);
         assert_eq!(mat.get_material_id(), Some(0));
@@ -932,12 +939,16 @@ mod tests {
         let mat1 = Material::with_id(100);
         assert_eq!(mat1.get_material_id(), Some(100));
         assert_eq!(mat1.material_id, Some(100));
-        assert_eq!(mat1.get_name(), None, "with_id constructor should not set name");
-        
+        assert_eq!(
+            mat1.get_name(),
+            None,
+            "with_id constructor should not set name"
+        );
+
         // Test creating material with ID 0
         let mat2 = Material::with_id(0);
         assert_eq!(mat2.get_material_id(), Some(0));
-        
+
         // Test creating material with large ID
         let mat3 = Material::with_id(u32::MAX);
         assert_eq!(mat3.get_material_id(), Some(u32::MAX));
@@ -948,17 +959,21 @@ mod tests {
         // Test that different materials have independent IDs
         let mut mat1 = Material::new();
         let mut mat2 = Material::with_id(50);
-        
+
         mat1.set_material_id(10);
         mat2.set_material_id(20);
-        
+
         assert_eq!(mat1.get_material_id(), Some(10));
         assert_eq!(mat2.get_material_id(), Some(20));
-        
+
         // Ensure they don't affect each other
         mat1.set_material_id(999);
         assert_eq!(mat1.get_material_id(), Some(999));
-        assert_eq!(mat2.get_material_id(), Some(20), "Other material's ID should not change");
+        assert_eq!(
+            mat2.get_material_id(),
+            Some(20),
+            "Other material's ID should not change"
+        );
     }
 
     #[test]

@@ -35,9 +35,7 @@ impl PyCell {
         let dir_arr = [direction.0, direction.1, direction.2];
         if let Some((surf_arc, dist)) = self.inner.closest_surface(point_arr, dir_arr) {
             return Some((
-                crate::python::surface_python::PySurface {
-                    inner: surf_arc,
-                },
+                crate::python::surface_python::PySurface { inner: surf_arc },
                 dist,
             ));
         }
