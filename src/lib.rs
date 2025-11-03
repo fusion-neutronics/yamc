@@ -132,6 +132,8 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<angle_energy_distribution_python::PyAngleDistribution>()?;
     m.add_class::<angle_energy_distribution_python::PyEnergyDistribution>()?;
     m.add_class::<angle_energy_distribution_python::PyTabulated>()?;
+    m.add_class::<angle_energy_distribution_python::PyTabulated1D>()?;
+    m.add_class::<angle_energy_distribution_python::PyTabulatedProbability>()?;
     use crate::python::energy_distribution_python;
     m.add_class::<energy_distribution_python::PyLevelInelastic>()?;
     m.add_class::<energy_distribution_python::PyTabulatedEnergyDistribution>()?;

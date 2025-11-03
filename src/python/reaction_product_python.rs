@@ -1,8 +1,7 @@
 #[cfg(feature = "pyo3")]
-use crate::python::angle_energy_distribution_python::{PyAngleDistribution, PyEnergyDistribution, PyTabulated};
-use serde_json::Value;
-#[cfg(feature = "pyo3")]
-use crate::python::serde_json_utils_python::*;
+use crate::python::angle_energy_distribution_python::{
+    PyAngleDistribution, PyEnergyDistribution, PyTabulated, PyTabulated1D, PyTabulatedProbability,
+};
 use crate::reaction_product::{
     AngleDistribution, AngleEnergyDistribution, EnergyDistribution, ParticleType, ReactionProduct,
     Tabulated,
@@ -111,8 +110,20 @@ impl PyAngleEnergyDistribution {
             } => {
                 let dict = PyDict::new(py);
                 dict.set_item("energy", energy)?;
-                dict.set_item("energy_out", energy_out.into_iter().map(|v| value_to_pyobject(&v, py)).collect::<Vec<_>>())?;
-                dict.set_item("slope", slope.into_iter().map(|v| value_to_pyobject(&v, py)).collect::<Vec<_>>())?;
+                dict.set_item(
+                    "energy_out",
+                    energy_out
+                        .into_iter()
+                        .map(|v| Py::new(py, PyTabulatedProbability::from(v)))
+                        .collect::<PyResult<Vec<_>>>()?,
+                )?;
+                dict.set_item(
+                    "slope",
+                    slope
+                        .into_iter()
+                        .map(|v| Py::new(py, PyTabulated1D::from(v)))
+                        .collect::<PyResult<Vec<_>>>()?,
+                )?;
                 ("KalbachMann".to_string(), dict.into())
             }
         };
@@ -152,20 +163,26 @@ impl PyReactionProduct {
                 AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
                     let py_dist = pyo3::Py::new(py, crate::python::angle_energy_distribution_python::PyKalbachMann {
                         energy,
-                        energy_out: energy_out.into_iter().map(|v| value_to_pyobject(&v, py)).collect(),
-                        slope: slope.into_iter().map(|v| value_to_pyobject(&v, py)).collect(),
+                        energy_out: energy_out
+                            .into_iter()
+                            .map(|v| Py::new(py, PyTabulatedProbability::from(v)).map(|p| p.into_py(py)))
+                            .collect::<PyResult<Vec<_>>>()?,
+                        slope: slope
+                            .into_iter()
+                            .map(|v| Py::new(py, PyTabulated1D::from(v)).map(|p| p.into_py(py)))
+                            .collect::<PyResult<Vec<_>>>()?,
                     })?;
                     distribution.push(py_dist.into_py(py));
                 }
             }
         }
 
-        // Convert applicability (currently just raw JSON values)
+        // Convert applicability
         let applicability = product
             .applicability
             .into_iter()
-                .map(|val| value_to_pyobject(&val, py))
-            .collect();
+            .map(|val| Py::new(py, PyTabulated1D::from(val)).map(|p| p.into_py(py)))
+            .collect::<PyResult<Vec<_>>>()?;
 
         Ok(PyReactionProduct {
             particle,

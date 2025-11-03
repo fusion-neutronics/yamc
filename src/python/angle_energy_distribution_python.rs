@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use crate::reaction_product::{AngleDistribution, EnergyDistribution};
+use crate::reaction_product::{AngleDistribution, EnergyDistribution, Tabulated1D, TabulatedProbability};
 
 #[pyclass(name = "UncorrelatedAngleEnergy")]
 pub struct PyUncorrelatedAngleEnergy {
@@ -139,7 +139,7 @@ impl PyEnergyDistribution {
 impl PyEnergyDistribution {
     pub fn from_energy_distribution(energy_dist: EnergyDistribution, py: Python) -> PyResult<Self> {
         use pyo3::types::PyDict;
-        
+
         let (dist_type, data) = match energy_dist {
             EnergyDistribution::LevelInelastic {} => {
                 let dict = PyDict::new(py);
@@ -152,10 +152,87 @@ impl PyEnergyDistribution {
                 ("Tabulated".to_string(), dict.into())
             }
         };
-        
+
         Ok(PyEnergyDistribution {
             distribution_type: dist_type,
             data,
         })
+    }
+}
+
+// Python wrappers for Tabulated1D and TabulatedProbability
+#[pyclass(name = "Tabulated1D")]
+#[derive(Clone)]
+pub struct PyTabulated1D {
+    #[pyo3(get)]
+    pub x: Vec<f64>,
+    #[pyo3(get)]
+    pub y: Vec<f64>,
+    #[pyo3(get)]
+    pub breakpoints: Vec<i32>,
+    #[pyo3(get)]
+    pub interpolation: Vec<i32>,
+}
+
+#[pymethods]
+impl PyTabulated1D {
+    #[new]
+    fn new(x: Vec<f64>, y: Vec<f64>, breakpoints: Vec<i32>, interpolation: Vec<i32>) -> Self {
+        PyTabulated1D { x, y, breakpoints, interpolation }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Tabulated1D(x=[{} points], y=[{} points], breakpoints=[{}], interpolation=[{}])",
+            self.x.len(),
+            self.y.len(),
+            self.breakpoints.len(),
+            self.interpolation.len()
+        )
+    }
+}
+
+impl From<Tabulated1D> for PyTabulated1D {
+    fn from(tab: Tabulated1D) -> Self {
+        match tab {
+            Tabulated1D::Tabulated1D { x, y, breakpoints, interpolation } => {
+                PyTabulated1D { x, y, breakpoints, interpolation }
+            }
+        }
+    }
+}
+
+#[pyclass(name = "TabulatedProbability")]
+#[derive(Clone)]
+pub struct PyTabulatedProbability {
+    #[pyo3(get)]
+    pub x: Vec<f64>,
+    #[pyo3(get)]
+    pub p: Vec<f64>,
+}
+
+#[pymethods]
+impl PyTabulatedProbability {
+    #[new]
+    fn new(x: Vec<f64>, p: Vec<f64>) -> Self {
+        PyTabulatedProbability { x, p }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "TabulatedProbability(x=[{} points], p=[{} points])",
+            self.x.len(),
+            self.p.len()
+        )
+    }
+}
+
+impl From<TabulatedProbability> for PyTabulatedProbability {
+    fn from(tab: TabulatedProbability) -> Self {
+        match tab {
+            TabulatedProbability::Tabulated { x, p } => {
+                PyTabulatedProbability { x, p }
+            }
+        }
     }
 }

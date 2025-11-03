@@ -16,6 +16,27 @@ pub struct Tabulated {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum Tabulated1D {
+    #[serde(rename = "Tabulated1D")]
+    Tabulated1D {
+        x: Vec<f64>,
+        y: Vec<f64>,
+        breakpoints: Vec<i32>,
+        interpolation: Vec<i32>,
+    },
+    // Add other 1D distribution types as needed
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum TabulatedProbability {
+    #[serde(rename = "Tabulated")]
+    Tabulated { x: Vec<f64>, p: Vec<f64> },
+    // Add other probability distribution types as needed
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AngleDistribution {
     pub energy: Vec<f64>,
     pub mu: Vec<Tabulated>,
@@ -43,8 +64,8 @@ pub enum AngleEnergyDistribution {
     },
     KalbachMann {
         energy: Vec<f64>,
-        energy_out: Vec<serde_json::Value>,
-        slope: Vec<serde_json::Value>,
+        energy_out: Vec<TabulatedProbability>,
+        slope: Vec<Tabulated1D>,
     },
     // Add other distribution types as needed (CorrelatedAngleEnergy, etc.)
 }
@@ -57,8 +78,8 @@ pub struct ReactionProduct {
     pub emission_mode: String,
     /// Decay rate (for delayed neutron precursors) in [1/s]
     pub decay_rate: f64,
-    /// Applicability of distribution (empty for now)
-    pub applicability: Vec<serde_json::Value>, // Placeholder for applicability data
+    /// Applicability of distribution (energy-dependent probability)
+    pub applicability: Vec<Tabulated1D>,
     /// Distributions of energy and angle of product
     pub distribution: Vec<AngleEnergyDistribution>,
 }
