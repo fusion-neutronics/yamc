@@ -79,7 +79,7 @@ impl Model {
                             let nuclide_name =
                                 material.sample_interacting_nuclide(particle.energy, &mut rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
-                                let reaction = nuclide.sample_reaction(
+                                let reaction = nuclide.sample_reaction_no_autoload(
                                     particle.energy,
                                     &material.temperature,
                                     &mut rng,

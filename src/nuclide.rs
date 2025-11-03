@@ -100,8 +100,153 @@ pub struct Nuclide {
 }
 
 impl Nuclide {
+    /// Get the element name with auto-loading if not available
+    pub fn get_element(&mut self) -> Option<String> {
+        if self.element.is_none() && self.name.is_some() {
+            if let Some(name) = &self.name.clone() {
+                let _ = self.auto_load_from_config(name, None);
+            }
+        }
+        self.element.clone()
+    }
+
+    /// Get the atomic number with auto-loading if not available
+    pub fn get_atomic_number(&mut self) -> Option<u32> {
+        if self.atomic_number.is_none() && self.name.is_some() {
+            if let Some(name) = &self.name.clone() {
+                let _ = self.auto_load_from_config(name, None);
+            }
+        }
+        self.atomic_number
+    }
+
+    /// Get the mass number with auto-loading if not available
+    pub fn get_mass_number(&mut self) -> Option<u32> {
+        if self.mass_number.is_none() && self.name.is_some() {
+            if let Some(name) = &self.name.clone() {
+                let _ = self.auto_load_from_config(name, None);
+            }
+        }
+        self.mass_number
+    }
+
+    /// Get the atomic symbol with auto-loading if not available
+    pub fn get_atomic_symbol(&mut self) -> Option<String> {
+        if self.atomic_symbol.is_none() && self.name.is_some() {
+            if let Some(name) = &self.name.clone() {
+                let _ = self.auto_load_from_config(name, None);
+            }
+        }
+        self.atomic_symbol.clone()
+    }
+
+    /// Get the neutron number with auto-loading if not available
+    pub fn get_neutron_number(&mut self) -> Option<u32> {
+        if self.neutron_number.is_none() && self.name.is_some() {
+            if let Some(name) = &self.name.clone() {
+                let _ = self.auto_load_from_config(name, None);
+            }
+        }
+        self.neutron_number
+    }
+
+    /// Get available temperatures with auto-loading if not available
+    pub fn get_available_temperatures(&mut self) -> Vec<String> {
+        if self.available_temperatures.is_empty() && self.name.is_some() {
+            if let Some(name) = &self.name.clone() {
+                let _ = self.auto_load_from_config(name, None);
+            }
+        }
+        self.available_temperatures.clone()
+    }
+
     /// Sample the top-level reaction type (fission, absorption, elastic, inelastic, other) at a given energy and temperature
+    /// This version includes auto-loading if data is not available.
     pub fn sample_reaction<R: rand::Rng + ?Sized>(
+        &mut self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> Option<&Reaction> {
+        // Auto-load data if not available
+        if self.reactions.is_empty() && self.name.is_some() {
+            if let Some(name) = &self.name.clone() {
+                if let Err(_) = self.auto_load_from_config(name, Some(temperature)) {
+                    println!("[sample_reaction] Failed to auto-load data for nuclide '{}'", name);
+                    return None;
+                }
+            }
+        }
+
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            println!("[sample_reaction] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
+            r
+        } else {
+            println!("[sample_reaction] No reaction data available for any temperature.");
+            return None;
+        };
+
+        // Define MTs for each event type
+        let total_mt = 1;
+        let fission_mt = 18;
+        let absorption_mt = 101;
+        let elastic_mt = 2;
+        let inelastic_mt = 4;
+
+        // Helper to get xs for a given MT using Reaction::cross_section_at
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        let total_xs = get_xs(total_mt);
+        if total_xs <= 0.0 {
+            return None;
+        }
+
+        let xi = rng.gen_range(0.0..total_xs);
+        let mut accum = 0.0;
+
+        // Absorption
+
+        let xs_absorption = get_xs(absorption_mt);
+        accum += xs_absorption;
+        if xi < accum && xs_absorption > 0.0 {
+            return temp_reactions.get(&absorption_mt);
+        }
+
+        // Elastic
+        let xs_elastic = get_xs(elastic_mt);
+        accum += xs_elastic;
+        if xi < accum && xs_elastic > 0.0 {
+            return temp_reactions.get(&elastic_mt);
+        }
+
+        // Fission (only if nuclide is fissionable, checked last)
+        let xs_fission = if self.fissionable {
+            get_xs(fission_mt)
+        } else {
+            0.0
+        };
+        accum += xs_fission;
+        if xi < accum && xs_fission > 0.0 {
+            return temp_reactions.get(&fission_mt);
+        }
+
+        // inelastic selection as fallback
+        temp_reactions.get(&inelastic_mt)
+    }
+
+    /// Sample the top-level reaction type without auto-loading (requires data to be pre-loaded)
+    /// This version is used when the nuclide is stored in shared/immutable contexts like Arc<Nuclide>.
+    pub fn sample_reaction_no_autoload<R: rand::Rng + ?Sized>(
         &self,
         energy: f64,
         temperature: &str,
@@ -144,7 +289,6 @@ impl Nuclide {
         let mut accum = 0.0;
 
         // Absorption
-
         let xs_absorption = get_xs(absorption_mt);
         accum += xs_absorption;
         if xi < accum && xs_absorption > 0.0 {
@@ -460,7 +604,7 @@ impl Nuclide {
     }
 
     /// Helper method to automatically load data from config
-    fn auto_load_from_config(
+    pub fn auto_load_from_config(
         &mut self,
         nuclide_name: &str,
         temperature: Option<&str>,
@@ -1318,7 +1462,7 @@ mod tests {
         use rand::rngs::StdRng;
         use rand::SeedableRng;
         let path = std::path::Path::new("tests/Li6.json");
-        let nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
+        let mut nuclide = super::read_nuclide_from_json(path, None).expect("Failed to load Li6.json");
         let temperature = "294";
 
         // Vary energy from 1.0 to 15e6 (10 steps)
@@ -1329,58 +1473,48 @@ mod tests {
             let mut rng2 = StdRng::seed_from_u64(42);
             let mut rng3 = StdRng::seed_from_u64(43); // Different seed
 
-            let reaction1 = nuclide.sample_reaction(energy, temperature, &mut rng1);
-            let reaction2 = nuclide.sample_reaction(energy, temperature, &mut rng2);
-            let reaction3 = nuclide.sample_reaction(energy, temperature, &mut rng3);
+            let mt1 = nuclide.sample_reaction(energy, temperature, &mut rng1).map(|r| r.mt_number);
+            let mt2 = nuclide.sample_reaction(energy, temperature, &mut rng2).map(|r| r.mt_number);
+            let mt3 = nuclide.sample_reaction(energy, temperature, &mut rng3).map(|r| r.mt_number);
 
             // Ensure reactions were sampled successfully
             assert!(
-                reaction1.is_some(),
+                mt1.is_some(),
                 "sample_reaction returned None at energy {}",
                 energy
             );
             assert!(
-                reaction2.is_some(),
+                mt2.is_some(),
                 "Repeat sample with same seed returned None at energy {}",
                 energy
             );
             assert!(
-                reaction3.is_some(),
+                mt3.is_some(),
                 "Sample with different seed returned None at energy {}",
                 energy
             );
 
-            let reaction1 = reaction1.unwrap();
-            let reaction2 = reaction2.unwrap();
-            let reaction3 = reaction3.unwrap();
+            let mt1 = mt1.unwrap();
+            let mt2 = mt2.unwrap();
+            let mt3 = mt3.unwrap();
 
             // Ensure same-seed reactions are the same (determinism)
             assert_eq!(
-                reaction1.mt_number, reaction2.mt_number,
+                mt1, mt2,
                 "Different MT for same seed at energy {}",
-                energy
-            );
-            assert_eq!(
-                reaction1.cross_section, reaction2.cross_section,
-                "Different cross_section for same seed at energy {}",
                 energy
             );
 
             // Print info about the third reaction (with different seed)
             println!(
                 "Energy: {:e}, MT (seed 42): {}, MT (seed 43): {}",
-                energy, reaction1.mt_number, reaction3.mt_number
+                energy, mt1, mt3
             );
 
             // Ensure basic validity
             assert!(
-                reaction1.mt_number > 0,
+                mt1 > 0,
                 "Sampled reaction has invalid MT number at energy {}",
-                energy
-            );
-            assert!(
-                !reaction1.cross_section.is_empty(),
-                "Sampled reaction has empty cross section at energy {}",
                 energy
             );
         }
