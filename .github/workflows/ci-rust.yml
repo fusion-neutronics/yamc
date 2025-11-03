@@ -32,9 +32,9 @@ jobs:
         run: cargo doc --no-deps
       - name: Test examples
         run: |
-          cd examples/rust
-          cargo build --verbose
-          cargo run
+          cargo run --example test_sampling
+          cargo run --example test_real_sampling
+          cargo run --example materials_demo
           
       - name: Test ARM cross-compilation
         run: |

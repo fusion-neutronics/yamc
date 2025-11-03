@@ -6,8 +6,8 @@ use pyo3::prelude::*;
 use rand::{thread_rng, Rng};
 
 #[cfg(feature = "pyo3")]
-#[pyclass(name = "ReactionProduct")]
-#[derive(Clone, Debug)]
+#[pyclass]
+#[derive(Clone)]
 pub struct PyReactionProduct {
     pub inner: ReactionProduct,
 }
@@ -100,14 +100,6 @@ impl PyReactionProduct {
 }
 
 #[cfg(feature = "pyo3")]
-impl PyReactionProduct {
-    /// Create PyReactionProduct from a Rust ReactionProduct
-    pub fn from_reaction_product(product: ReactionProduct, _py: pyo3::Python) -> pyo3::PyResult<Self> {
-        Ok(PyReactionProduct { inner: product })
-    }
-}
-
-#[cfg(feature = "pyo3")]
 #[pyclass]
 #[derive(Clone)]
 pub struct PyAngleDistribution {
@@ -179,6 +171,8 @@ impl PyTabulated {
     }
 }
 
+
+
 /// Convenience function to sample isotropic scattering
 #[cfg(feature = "pyo3")]
 #[pyfunction]
@@ -202,6 +196,7 @@ pub fn sample_tabulated(x: Vec<f64>, p: Vec<f64>) -> f64 {
 #[pyfunction]
 pub fn create_test_reaction_product() -> PyReactionProduct {
     // Create a simple test product with elastic scattering (energy unchanged)
+    use crate::reaction_product::{AngleEnergyDistribution};
     
     // Create simple angular distribution (isotropic-ish)
     let mu_dist = Tabulated {
@@ -230,3 +225,4 @@ pub fn create_test_reaction_product() -> PyReactionProduct {
     
     PyReactionProduct { inner: product }
 }
+

@@ -4,24 +4,20 @@ use rand::rngs::StdRng;
 use materials_for_mc::surface::Surface;
 use materials_for_mc::region::{Region, HalfspaceType};
 use std::sync::Arc;
+use std::collections::HashMap;
 
 fn main() {
+    println!("=== Materials for MC Demo ===");
 
-    // Set the path to the cross section data one nuclide at a time using a json file
-    // Config::global().set_cross_section("Fe56", "../../tests/Fe56.json");
-    // Set the path to the cross section data one nuclide at a time using a library name as the keyword
-    // Config::global().set_cross_section("Fe56", "tendl-21");
+    // Set the path to the cross section data using local test files
+    let cross_sections = HashMap::from([
+        ("Li6".to_string(), "tests/Li6.json".to_string()),
+        ("Li7".to_string(), "tests/Li7.json".to_string()),
+        ("Fe56".to_string(), "tests/Fe56.json".to_string()),
+    ]);
+    Config::global().set_cross_sections(cross_sections);
 
-    // set the path to the cross section data multiple nuclides at once and using either paths or libary keywords
-    // let cross_sections = std::collections::HashMap::from([
-    //     ("Li7".to_string(), "../../tests/Li7.json".to_string()),
-    //     ("Li6".to_string(), "tendl-21".to_string()),
-    // ]);
-    // Config::global().set_cross_sections(cross_sections);
-
-    // Set the cross sections of every isotope to use the keyword
-    Config::global().set_cross_sections("tendl-21");
-
+    println!("Creating first material with Li6...");
     let mut mat = Material::new();
     mat.add_nuclide("Li6", 0.05).unwrap();
     mat.set_density("g/cm3", 19.1).unwrap();
@@ -32,6 +28,7 @@ fn main() {
     // mat.calculate_macroscopic_xs(None);
 
     // Create a second material and add element Li (lithium) with natural abundances
+    println!("Creating lithium material...");
     let mut lithium_mat = Material::new();
     lithium_mat.add_element("Li", 1.0).unwrap();
     lithium_mat.add_nuclide("Fe56", 1.0).unwrap();
@@ -44,7 +41,7 @@ fn main() {
 
     lithium_mat.calculate_macroscopic_xs(&vec![1], true);
 
-
+    println!("Testing nuclide sampling...");
     let mut rng = StdRng::seed_from_u64(123456);
     let energy = 1.0e3; // 1 MeV
     // Sample nuclide
@@ -61,6 +58,7 @@ fn main() {
     // ------------------------------------------------------------
     // Performance timing: mean free path sampling across energies
     // ------------------------------------------------------------
+    println!("Running performance benchmark...");
     use std::time::Instant;
     let n_energies = 100; // number of distinct energies
     let n_samples_per_energy = 1000; // number of samples per energy
@@ -100,7 +98,7 @@ fn main() {
         accum_mfp
     );
 
-
+    println!("Testing geometry features...");
     println!("Creating cube surfaces...");
     // Cube from x=0..1, y=0..1, z=0..1
     let sx0 = Arc::new(Surface::x_plane(0.0, Some(1), None));
@@ -141,4 +139,6 @@ fn main() {
     println!("Point {:?} in union: {}", pt_inside, union.contains(pt_inside));
     println!("Point {:?} in intersection: {}", pt_outside, intersection.contains(pt_outside));
     println!("Point {:?} in union: {}", pt_outside, union.contains(pt_outside));
+    
+    println!("=== Demo completed successfully! ===");
 }
