@@ -135,18 +135,17 @@ impl PyReactionProduct {
         for dist in product.distribution {
             match dist {
                 AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
+                    let py_angle = PyAngleDistribution {
+                        energy: angle.energy.clone(),
+                        mu: angle.mu.into_iter().map(|tab| PyTabulated { x: tab.x, p: tab.p }).collect(),
+                    };
+                    let py_energy = match energy {
+                        Some(e) => Some(PyEnergyDistribution::from_energy_distribution(e, py)?),
+                        None => None,
+                    };
                     let py_dist = pyo3::Py::new(py, crate::python::angle_energy_distribution_python::PyUncorrelatedAngleEnergy {
-                        angle: PyAngleDistribution {
-                            energy: angle.energy.clone(),
-                            mu: angle.mu.into_iter().map(|tab| PyTabulated { x: tab.x, p: tab.p }).collect(),
-                        },
-                        energy: energy.map(|e| PyEnergyDistribution {
-                            distribution_type: match e {
-                                EnergyDistribution::LevelInelastic { .. } => "LevelInelastic".to_string(),
-                                EnergyDistribution::Tabulated { .. } => "Tabulated".to_string(),
-                            },
-                            data: py.None(), // Expand to hold actual data if needed
-                        }),
+                        angle: py_angle,
+                        energy: py_energy,
                     })?;
                     distribution.push(py_dist.into_py(py));
                 }
