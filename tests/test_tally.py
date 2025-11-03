@@ -11,28 +11,27 @@ class TestTally:
     def test_tally_creation(self):
         """Test creating a new tally."""
         tally = mc.Tally()
-        assert tally.score == 0  # Default score
+        assert tally.scores == []  # Default score
         assert tally.name is None
         assert tally.id is None
         assert tally.units == ""
-        assert tally.mean == 0.0
+        assert tally.mean == []
         
     def test_tally_score_assignment(self):
         """Test setting tally score as single integer."""
         tally = mc.Tally()
         
         # Test absorption
-        tally.score = 101
-        assert tally.score == 101
-        assert isinstance(tally.score, int)
+        tally.scores = [101]
+        assert tally.scores == [101]
         
         # Test elastic scattering  
-        tally.score = 2
-        assert tally.score == 2
+        tally.scores = [2]
+        assert tally.scores == [2]
         
         # Test fission
-        tally.score = 18
-        assert tally.score == 18
+        tally.scores = [18]
+        assert tally.scores == [18]
         
     def test_tally_score_type_validation(self):
         """Test that tally score only accepts integers."""
@@ -40,13 +39,16 @@ class TestTally:
         
         # These should fail
         with pytest.raises(TypeError):
-            tally.score = [101, 2]  # No lists
+            tally.scores = ['101', '2']  # Lists allowed
+
+        with pytest.raises(TypeError):
+            tally.scores = '101'  # Should be list, not string
             
         with pytest.raises(TypeError):
-            tally.score = "101"  # No strings
-            
+            tally.scores = 101  # Should be list, not int
+
         with pytest.raises(TypeError):
-            tally.score = 101.0  # No floats
+            tally.scores = 101.0  # Should be list, not float
             
     def test_tally_name_and_id(self):
         """Test setting tally name and ID."""
@@ -69,13 +71,13 @@ class TestTally:
     def test_tally_repr(self):
         """Test tally string representation."""
         tally = mc.Tally()
-        tally.score = 101
+        tally.scores = [101]
         tally.name = "Test Tally"
         tally.id = 1
         
         repr_str = repr(tally)
         assert "Tally(" in repr_str
-        assert "score=101" in repr_str
+        assert "scores=[101]" in repr_str
         assert 'Some("Test Tally")' in repr_str  # Rust Option format
         assert "Some(1)" in repr_str
 
@@ -124,7 +126,7 @@ class TestTallySimulation:
         
         # Create absorption tally
         absorption_tally = mc.Tally()
-        absorption_tally.score = 101  # MT 101 = absorption
+        absorption_tally.scores = [101]  # MT 101 = absorption
         absorption_tally.name = "Absorption Tally"
         tallies = [absorption_tally]
         
@@ -138,9 +140,9 @@ class TestTallySimulation:
         assert absorption_tally.particles_per_batch == 100
         
         # Statistics should be calculated
-        if absorption_tally.total_count() > 0:
-            assert absorption_tally.std_dev >= 0.0
-            assert absorption_tally.rel_error >= 0.0
+        if absorption_tally.total_count()[0] > 0:
+            assert absorption_tally.std_dev[0] >= 0.0
+            assert absorption_tally.rel_error[0] >= 0.0
     
     def test_simulation_with_multiple_tallies(self, simple_model):
         """Test simulation with multiple tallies."""
@@ -148,11 +150,11 @@ class TestTallySimulation:
         
         # Create multiple tallies
         absorption_tally = mc.Tally()
-        absorption_tally.score = 101  # Absorption
+        absorption_tally.scores = [101]  # Absorption
         absorption_tally.name = "Absorption Events"
         
         elastic_tally = mc.Tally()
-        elastic_tally.score = 2  # Elastic scattering
+        elastic_tally.scores = [2]  # Elastic scattering
         elastic_tally.name = "Elastic Scattering Events"
         
         tallies = [absorption_tally, elastic_tally]
@@ -170,7 +172,7 @@ class TestTallySimulation:
         for tally_result in model.tallies:
             assert tally_result.n_batches == 5
             assert tally_result.particles_per_batch == 100
-            assert len(tally_result.batch_data) == 5
+            assert len(tally_result.batch_data[0]) == 5
             
     def test_simulation_without_user_tallies(self, simple_model):
         """Test simulation with only leakage tally (no user tallies)."""
@@ -186,7 +188,7 @@ class TestTallySimulation:
         
         # Create absorption tally
         absorption_tally = mc.Tally()
-        absorption_tally.score = 101
+        absorption_tally.scores = [101]
         absorption_tally.name = "Statistics Test"
         tallies = [absorption_tally]
         
@@ -195,21 +197,21 @@ class TestTallySimulation:
         model.run()
         
         # Test statistics consistency
-        assert absorption_tally.n_batches == len(absorption_tally.batch_data)
-        assert absorption_tally.total_count() == sum(absorption_tally.batch_data)
-        
+        assert absorption_tally.n_batches == len(absorption_tally.batch_data[0])
+        assert absorption_tally.total_count()[0] == sum(absorption_tally.batch_data[0])
+
         # If we have results, test statistical relationships
-        if absorption_tally.total_count() > 0:
+        if absorption_tally.total_count()[0] > 0:
             # Mean should be total divided by (batches * particles_per_batch)
-            expected_mean = absorption_tally.total_count() / (
+            expected_mean = absorption_tally.total_count()[0] / (
                 absorption_tally.n_batches * absorption_tally.particles_per_batch
             )
-            assert abs(absorption_tally.mean - expected_mean) < 1e-10
-            
+            assert abs(absorption_tally.mean[0] - expected_mean) < 1e-10
+
             # Relative error should be std_dev / mean (if mean > 0)
-            if absorption_tally.mean > 0:
-                expected_rel_error = absorption_tally.std_dev / absorption_tally.mean
-                assert abs(absorption_tally.rel_error - expected_rel_error) < 1e-10
+            if absorption_tally.mean[0] > 0:
+                expected_rel_error = absorption_tally.std_dev[0] / absorption_tally.mean[0]
+                assert abs(absorption_tally.rel_error[0] - expected_rel_error) < 1e-10
 
 
 class TestTallyIntegration:
@@ -218,9 +220,9 @@ class TestTallyIntegration:
     def test_tally_display_output(self):
         """Test that tally display output is reasonable."""
         tally = mc.Tally()
-        tally.score = 101
+        tally.scores = [101]
         tally.name = "Test Display"
-        
+
         # Test string output doesn't crash
         str_output = str(tally)
         assert "Test Display" in str_output
@@ -244,7 +246,7 @@ class TestTallyIntegration:
         
         # Create tally
         tally = mc.Tally()
-        tally.score = 101
+        tally.scores = [101]
         tallies = [tally]
         
         # Model should accept tallies
@@ -253,4 +255,4 @@ class TestTallyIntegration:
         
         # Should be able to access tallies
         assert len(model.tallies) == 1
-        assert model.tallies[0].score == 101
+        assert model.tallies[0].scores == [101]

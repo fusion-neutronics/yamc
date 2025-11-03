@@ -101,7 +101,7 @@ def test_tally_with_material_filter():
     tally = mmc.Tally()
     material_filter = mmc.MaterialFilter(material)
     tally.filters = [material_filter]
-    tally.score = 101  # absorption
+    tally.scores = [101]  # absorption
     
     # Verify tally has the filter
     assert len(tally.filters) == 1
@@ -130,7 +130,7 @@ def test_tally_with_mixed_filters():
     cell_filter = mmc.CellFilter(cell)
     material_filter = mmc.MaterialFilter(material2)
     tally.filters = [cell_filter, material_filter]
-    tally.score = 101  # absorption
+    tally.scores = [101]  # absorption
     
     # Verify tally has both filters
     assert len(tally.filters) == 2

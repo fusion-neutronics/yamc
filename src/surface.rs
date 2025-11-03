@@ -194,15 +194,27 @@ impl Surface {
         }
     }
 
-    pub fn x_plane(x0: f64, surface_id: Option<usize>, boundary_type: Option<BoundaryType>) -> Self {
+    pub fn x_plane(
+        x0: f64,
+        surface_id: Option<usize>,
+        boundary_type: Option<BoundaryType>,
+    ) -> Self {
         Self::new_plane(1.0, 0.0, 0.0, x0, surface_id, boundary_type)
     }
 
-    pub fn y_plane(y0: f64, surface_id: Option<usize>, boundary_type: Option<BoundaryType>) -> Self {
+    pub fn y_plane(
+        y0: f64,
+        surface_id: Option<usize>,
+        boundary_type: Option<BoundaryType>,
+    ) -> Self {
         Self::new_plane(0.0, 1.0, 0.0, y0, surface_id, boundary_type)
     }
 
-    pub fn z_plane(z0: f64, surface_id: Option<usize>, boundary_type: Option<BoundaryType>) -> Self {
+    pub fn z_plane(
+        z0: f64,
+        surface_id: Option<usize>,
+        boundary_type: Option<BoundaryType>,
+    ) -> Self {
         Self::new_plane(0.0, 0.0, 1.0, z0, surface_id, boundary_type)
     }
 
@@ -339,7 +351,15 @@ impl Surface {
             None => None,
         };
         Ok(Self::cylinder(
-            x0, y0, z0, axis_x, axis_y, axis_z, radius, Some(surface_id), boundary,
+            x0,
+            y0,
+            z0,
+            axis_x,
+            axis_y,
+            axis_z,
+            radius,
+            Some(surface_id),
+            boundary,
         ))
     }
 
@@ -627,7 +647,8 @@ mod tests {
 
     #[test]
     fn test_set_boundary_type() {
-        let mut cylinder = Surface::new_cylinder([0.0, 0.0, 1.0], [0.0, 0.0, 0.0], 1.0, Some(2), None);
+        let mut cylinder =
+            Surface::new_cylinder([0.0, 0.0, 1.0], [0.0, 0.0, 0.0], 1.0, Some(2), None);
         assert_eq!(*cylinder.boundary_type(), BoundaryType::Vacuum);
 
         cylinder.set_boundary_type(BoundaryType::Transmission);

@@ -18,7 +18,10 @@ impl PyModel {
     pub fn new(geometry: PyGeometry, settings: PySettings, tallies: Option<Vec<PyTally>>) -> Self {
         let tallies = if let Some(py_tallies) = tallies {
             // Clone the Arc from each PyTally
-            py_tallies.into_iter().map(|py_tally| py_tally.inner.clone()).collect()
+            py_tallies
+                .into_iter()
+                .map(|py_tally| py_tally.inner.clone())
+                .collect()
         } else {
             Vec::new()
         };
@@ -44,10 +47,14 @@ impl PyModel {
             inner: self.inner.settings.clone(),
         }
     }
-    
+
     #[getter]
     pub fn tallies(&self) -> Vec<PyTally> {
-        self.inner.tallies.iter().map(|t| PyTally { inner: t.clone() }).collect()
+        self.inner
+            .tallies
+            .iter()
+            .map(|t| PyTally { inner: t.clone() })
+            .collect()
     }
 
     pub fn run(&mut self) {

@@ -1,7 +1,7 @@
 use crate::python::region_python;
+use pyo3::exceptions::PyValueError;
 #[allow(non_local_definitions)]
 use pyo3::prelude::*;
-use pyo3::exceptions::PyValueError;
 // ...existing code...
 
 use crate::python::region_python::{PyBoundingBox, PyHalfspace};
@@ -140,7 +140,7 @@ impl PySurface {
                 "boundary_type must be 'transmission' or 'vacuum'",
             )
         })?;
-        
+
         if let Some(surface) = std::sync::Arc::get_mut(&mut self.inner) {
             surface.set_boundary_type(boundary);
         } else {
@@ -180,7 +180,11 @@ impl PySurface {
 #[pyfunction]
 #[allow(non_snake_case)]
 #[pyo3(signature = (x0, surface_id = None, boundary_type = None))]
-pub fn XPlane(x0: f64, surface_id: Option<usize>, boundary_type: Option<&str>) -> PyResult<PySurface> {
+pub fn XPlane(
+    x0: f64,
+    surface_id: Option<usize>,
+    boundary_type: Option<&str>,
+) -> PyResult<PySurface> {
     let boundary_validated = match boundary_type {
         Some(s) => Some(BoundaryType::from_str_option(s).ok_or_else(|| {
             PyValueError::new_err("boundary_type must be 'transmission' or 'vacuum'")
@@ -188,13 +192,19 @@ pub fn XPlane(x0: f64, surface_id: Option<usize>, boundary_type: Option<&str>) -
         None => None,
     };
     let surface = Surface::x_plane(x0, surface_id, boundary_validated);
-    Ok(PySurface { inner: std::sync::Arc::new(surface) })
+    Ok(PySurface {
+        inner: std::sync::Arc::new(surface),
+    })
 }
 
 #[pyfunction]
 #[allow(non_snake_case)]
 #[pyo3(signature = (y0, surface_id = None, boundary_type = None))]
-pub fn YPlane(y0: f64, surface_id: Option<usize>, boundary_type: Option<&str>) -> PyResult<PySurface> {
+pub fn YPlane(
+    y0: f64,
+    surface_id: Option<usize>,
+    boundary_type: Option<&str>,
+) -> PyResult<PySurface> {
     let boundary_validated = match boundary_type {
         Some(s) => Some(BoundaryType::from_str_option(s).ok_or_else(|| {
             PyValueError::new_err("boundary_type must be 'transmission' or 'vacuum'")
@@ -202,13 +212,19 @@ pub fn YPlane(y0: f64, surface_id: Option<usize>, boundary_type: Option<&str>) -
         None => None,
     };
     let surface = Surface::y_plane(y0, surface_id, boundary_validated);
-    Ok(PySurface { inner: std::sync::Arc::new(surface) })
+    Ok(PySurface {
+        inner: std::sync::Arc::new(surface),
+    })
 }
 
 #[pyfunction]
 #[allow(non_snake_case)]
 #[pyo3(signature = (z0, surface_id = None, boundary_type = None))]
-pub fn ZPlane(z0: f64, surface_id: Option<usize>, boundary_type: Option<&str>) -> PyResult<PySurface> {
+pub fn ZPlane(
+    z0: f64,
+    surface_id: Option<usize>,
+    boundary_type: Option<&str>,
+) -> PyResult<PySurface> {
     let boundary_validated = match boundary_type {
         Some(s) => Some(BoundaryType::from_str_option(s).ok_or_else(|| {
             PyValueError::new_err("boundary_type must be 'transmission' or 'vacuum'")
@@ -216,7 +232,9 @@ pub fn ZPlane(z0: f64, surface_id: Option<usize>, boundary_type: Option<&str>) -
         None => None,
     };
     let surface = Surface::z_plane(z0, surface_id, boundary_validated);
-    Ok(PySurface { inner: std::sync::Arc::new(surface) })
+    Ok(PySurface {
+        inner: std::sync::Arc::new(surface),
+    })
 }
 
 #[pyfunction]
@@ -236,7 +254,9 @@ pub fn ZCylinder(
         None => None,
     };
     let surface = Surface::z_cylinder(x0, y0, r, surface_id, boundary_validated);
-    Ok(PySurface { inner: std::sync::Arc::new(surface) })
+    Ok(PySurface {
+        inner: std::sync::Arc::new(surface),
+    })
 }
 
 #[pyfunction]
@@ -257,7 +277,9 @@ pub fn Sphere(
         None => None,
     };
     let surface = Surface::sphere(x0, y0, z0, r, surface_id, boundary_validated);
-    Ok(PySurface { inner: std::sync::Arc::new(surface) })
+    Ok(PySurface {
+        inner: std::sync::Arc::new(surface),
+    })
 }
 
 #[pyfunction]
@@ -291,7 +313,9 @@ pub fn Cylinder(
         surface_id,
         boundary_validated,
     );
-    Ok(PySurface { inner: std::sync::Arc::new(surface) })
+    Ok(PySurface {
+        inner: std::sync::Arc::new(surface),
+    })
 }
 
 #[pyfunction]
@@ -312,5 +336,7 @@ pub fn Plane(
         None => None,
     };
     let surface = Surface::new_plane(a, b, c, d, surface_id, boundary_validated);
-    Ok(PySurface { inner: std::sync::Arc::new(surface) })
+    Ok(PySurface {
+        inner: std::sync::Arc::new(surface),
+    })
 }

@@ -1,16 +1,16 @@
-pub mod physics;
-pub mod tally;
 pub mod bounding_box;
 pub mod cell;
 pub mod filters;
 pub mod geometry;
 pub mod model;
 pub mod particle;
+pub mod physics;
 pub mod region;
 pub mod settings;
 pub mod source;
 pub mod stats;
 pub mod surface;
+pub mod tally;
 pub use bounding_box::*;
 pub use cell::*;
 pub use geometry::*;
@@ -43,12 +43,12 @@ mod data;
 // First, import any modules and re-export the types for Rust usage
 mod config;
 mod element;
+pub mod filter;
 mod material;
 mod nuclide;
 mod reaction;
 mod url_cache;
 mod utilities;
-pub mod filter;
 
 pub use config::Config;
 pub use element::Element;
@@ -71,12 +71,12 @@ use pyo3::wrap_pyfunction;
 
 #[cfg(feature = "pyo3")]
 mod python {
-    pub mod tally_python;
     pub mod bounding_box_python;
     pub mod cell_python;
     pub mod config_python;
     pub mod data_python;
     pub mod element_python;
+    pub mod filter_python;
     pub mod filters_python;
     pub mod geometry_python;
     pub mod material_python;
@@ -89,7 +89,7 @@ mod python {
     pub mod source_python;
     pub mod stats_python;
     pub mod surface_python;
-    pub mod filter_python;
+    pub mod tally_python;
 }
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;

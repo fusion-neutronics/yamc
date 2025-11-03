@@ -196,15 +196,25 @@ mod tests {
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
 
         let mat = Material::new();
-    let mat_arc = Arc::new(mat.clone());
-    let cell = Cell::new(Some(1), region, Some("filled".to_string()), Some(mat_arc.clone()));
-    assert!(cell.material().is_some());
-    // The default Material::new() has an empty nuclides map
-    let material = cell.material().unwrap().as_ref();
-    assert_eq!(material.nuclides.len(), 0);
+        let mat_arc = Arc::new(mat.clone());
+        let cell = Cell::new(
+            Some(1),
+            region,
+            Some("filled".to_string()),
+            Some(mat_arc.clone()),
+        );
+        assert!(cell.material().is_some());
+        // The default Material::new() has an empty nuclides map
+        let material = cell.material().unwrap().as_ref();
+        assert_eq!(material.nuclides.len(), 0);
 
         // Optional fill
-        let cell2 = Cell::new(Some(2), cell.region.clone(), Some("empty".to_string()), None);
+        let cell2 = Cell::new(
+            Some(2),
+            cell.region.clone(),
+            Some("empty".to_string()),
+            None,
+        );
         assert!(cell2.material().is_none());
     }
     #[test]
@@ -286,7 +296,12 @@ mod tests {
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
         let region_complement = region.complement();
-        let cell = Cell::new(Some(102), region_complement, Some("complement".to_string()), None);
+        let cell = Cell::new(
+            Some(102),
+            region_complement,
+            Some("complement".to_string()),
+            None,
+        );
         assert!(!cell.contains((0.0, 0.0, 0.0))); // inside original sphere
         assert!(cell.contains((3.0, 0.0, 0.0))); // outside original sphere
     }
@@ -456,16 +471,16 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
-        
+
         let mut cell = Cell::new(None, region, None, None);
-        
+
         // Test default value
         assert_eq!(cell.get_cell_id(), None);
-        
+
         // Test setting and getting cell_id
         cell.set_cell_id(42);
         assert_eq!(cell.get_cell_id(), Some(42));
-        
+
         // Test setting a different value
         cell.set_cell_id(999);
         assert_eq!(cell.get_cell_id(), Some(999));
@@ -484,11 +499,11 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
-        
+
         // Test creating cell with specific ID
         let cell1 = Cell::new(Some(100), region.clone(), None, None);
         assert_eq!(cell1.get_cell_id(), Some(100));
-        
+
         // Test creating cell with ID 0 (should be allowed since 0 can be a valid ID)
         let cell2 = Cell::new(Some(0), region.clone(), None, None);
         assert_eq!(cell2.get_cell_id(), Some(0));
@@ -507,20 +522,24 @@ mod tests {
             boundary_type: BoundaryType::default(),
         };
         let region = Region::new_from_halfspace(HalfspaceType::Below(Arc::new(s1)));
-        
+
         // Test that different cells have independent IDs
         let mut cell1 = Cell::new(None, region.clone(), None, None);
         let mut cell2 = Cell::new(Some(50), region.clone(), None, None);
-        
+
         cell1.set_cell_id(10);
         cell2.set_cell_id(20);
-        
+
         assert_eq!(cell1.get_cell_id(), Some(10));
         assert_eq!(cell2.get_cell_id(), Some(20));
-        
+
         // Ensure they don't affect each other
         cell1.set_cell_id(999);
         assert_eq!(cell1.get_cell_id(), Some(999));
-        assert_eq!(cell2.get_cell_id(), Some(20), "Other cell's ID should not change");
+        assert_eq!(
+            cell2.get_cell_id(),
+            Some(20),
+            "Other cell's ID should not change"
+        );
     }
 }

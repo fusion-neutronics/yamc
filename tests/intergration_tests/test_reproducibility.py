@@ -24,15 +24,15 @@ def test_reproducibility_with_same_seed():
 
     # Create separate tallies for each run
     tally1 = mc.Tally()
-    tally1.score = 101  # absorption
+    tally1.scores = [101]  # absorption
     tally1.name = "test_absorption_1"
 
     tally2 = mc.Tally()
-    tally2.score = 101  # absorption
+    tally2.scores = [101]  # absorption
     tally2.name = "test_absorption_2"
 
     tally3 = mc.Tally()
-    tally3.score = 101  # absorption
+    tally3.scores = [101]  # absorption
     tally3.name = "test_absorption_3"
 
     # Run simulation 1
@@ -51,15 +51,22 @@ def test_reproducibility_with_same_seed():
     # Tallies are updated in place - access results directly
 
     # Check absorption (no more leakage tally)
-    assert tally1.mean == tally2.mean, f"Absorption should be identical with same seed: {tally1.mean} vs {tally2.mean}"
-    assert tally1.mean == tally3.mean, f"Absorption should be identical with same seed: {tally1.mean} vs {tally3.mean}"
-    assert tally1.batch_data == tally2.batch_data, "Absorption batch data should be identical"
-    assert tally1.batch_data == tally3.batch_data, "Absorption batch data should be identical"
+    mean1 = tally1.mean[0]
+    mean2 = tally2.mean[0]
+    mean3 = tally3.mean[0]
+    batch_data1 = tally1.batch_data[0]
+    batch_data2 = tally2.batch_data[0]
+    batch_data3 = tally3.batch_data[0]
+
+    assert mean1 == mean2, f"Absorption should be identical with same seed: {mean1} vs {mean2}"
+    assert mean1 == mean3, f"Absorption should be identical with same seed: {mean1} vs {mean3}"
+    assert batch_data1 == batch_data2, "Absorption batch data should be identical"
+    assert batch_data1 == batch_data3, "Absorption batch data should be identical"
 
     print(f"✓ Python reproducibility test passed!")
-    print(f"  Run 1 - Absorption: {tally1.mean:.6f}")
-    print(f"  Run 2 - Absorption: {tally2.mean:.6f}")
-    print(f"  Run 3 - Absorption: {tally3.mean:.6f}")
+    print(f"  Run 1 - Absorption: {mean1:.6f}")
+    print(f"  Run 2 - Absorption: {mean2:.6f}")
+    print(f"  Run 3 - Absorption: {mean3:.6f}")
 
 
 def test_different_seeds_produce_different_results():
@@ -88,11 +95,11 @@ def test_different_seeds_produce_different_results():
 
     # Create separate tallies for each run
     tally1 = mc.Tally()
-    tally1.score = 101  # absorption
+    tally1.scores = [101]  # absorption
     tally1.name = "test_absorption_1"
 
     tally2 = mc.Tally()
-    tally2.score = 101  # absorption
+    tally2.scores = [101]  # absorption
     tally2.name = "test_absorption_2"
 
     # Run simulation with seed 42
@@ -105,15 +112,20 @@ def test_different_seeds_produce_different_results():
 
     # Tallies are updated in place - access results directly
     # Verify different seeds produce different results (with high probability)
-    different_absorption = tally1.mean != tally2.mean
-    different_batch_data = tally1.batch_data != tally2.batch_data
+    mean1 = tally1.mean[0]
+    mean2 = tally2.mean[0]
+    batch_data1 = tally1.batch_data[0]
+    batch_data2 = tally2.batch_data[0]
+
+    different_absorption = mean1 != mean2
+    different_batch_data = batch_data1 != batch_data2
 
     assert different_absorption or different_batch_data, \
-        f"Different seeds should produce different results (absorption: {tally1.mean} vs {tally2.mean})"
+        f"Different seeds should produce different results (absorption: {mean1} vs {mean2})"
 
     print(f"✓ Different seeds test passed!")
-    print(f"  Seed 42  - Absorption: {tally1.mean:.6f}")
-    print(f"  Seed 123 - Absorption: {tally2.mean:.6f}")
+    print(f"  Seed 42  - Absorption: {mean1:.6f}")
+    print(f"  Seed 123 - Absorption: {mean2:.6f}")
 
 
 if __name__ == "__main__":
