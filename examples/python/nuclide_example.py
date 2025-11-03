@@ -55,11 +55,23 @@ for i, (mt, reaction) in enumerate(reactions_with_products[:5]):
         product = reaction.products[0]
         print(f"  Particle: {product.particle}")
         print(f"  Emission mode: {product.emission_mode}")
-        print(f"  Decay rate: {product.decay_rate} /s")
-        print(f"  Number of distributions: {len(product.distribution)}")
+        print(f"  Decay rate: {product.get_decay_rate()} /s")
+        print(f"  Number of distributions: {product.num_distributions}")
 
-        # Examine the distribution
-        for j, dist in enumerate(product.distribution):
+        # For now, we'll demonstrate sampling instead of examining distributions directly
+        # since our Python wrapper doesn't expose the full distribution structure yet
+        try:
+            # Sample from the reaction product
+            outgoing_energy, mu = product.sample(1e6)  # 1 MeV incoming
+            print(f"  Sample result at 1 MeV: E_out = {outgoing_energy:.2e} eV, mu = {mu:.3f}")
+        except Exception as e:
+            print(f"  Sampling failed: {e}")
+
+        continue  # Skip the distribution examination for now
+        
+        # Note: The following code is commented out because our Python wrapper
+        # doesn't currently expose the full distribution structure
+        for j, dist in enumerate([]):
             dist_type = type(dist).__name__
             print(f"  Distribution {j+1}: {dist_type}")
 
@@ -113,3 +125,30 @@ for energy in energies_to_test:
         print(f"  Energy {energy:.1e} eV -> MT {reaction['mt_number']}")
     else:
         print(f"  Energy {energy:.1e} eV -> No reaction sampled")
+
+print("\n=== Product Sampling Demonstration ===")
+# Demonstrate our new sampling functionality with a simple test product
+print("Creating and sampling from reaction products:")
+
+# Create test reaction products using our Python API
+test_product = m4mc.create_test_reaction_product()
+print(f"Test product particle type: {test_product.particle}")
+
+# Sample from it at different energies
+for energy in [1e5, 1e6, 5e6]:
+    try:
+        e_out, mu = test_product.sample(energy)
+        print(f"  Input: {energy:.0e} eV -> Output: E={e_out:.2e} eV, mu={mu:.3f}")
+    except Exception as e:
+        print(f"  Sampling at {energy:.0e} eV failed: {e}")
+
+# Demonstrate sampling functions
+print("\nSampling functions:")
+mu_isotropic = m4mc.sample_isotropic()
+print(f"Isotropic mu sample: {mu_isotropic:.3f}")
+
+# Test tabulated sampling
+x_vals = [-1.0, 0.0, 1.0]
+p_vals = [0.0, 0.5, 1.0]  # CDF
+mu_tabulated = m4mc.sample_tabulated(x_vals, p_vals)
+print(f"Tabulated mu sample: {mu_tabulated:.3f}")
