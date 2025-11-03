@@ -2,9 +2,11 @@
   "atomic_number": 3,
   "atomic_symbol": "Li",
   "atomic_weight_ratio": 6.955732,
+  "element": "lithium",
   "mass_number": 7,
   "metastable": 0,
-  "nuclide": "Li7",
+  "name": "Li7",
+  "neutron_number": 4,
   "temperatures": ["294"],
   "reactions": { "294": {
     "1": {

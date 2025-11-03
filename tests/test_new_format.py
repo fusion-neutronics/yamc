@@ -24,8 +24,8 @@ def test_read_li6_nuclide_new_format():
     assert all(isinstance(e, float) for e in energy_grid)
     
     # Get the reaction data
-    xs = nuc1.reactions['294'][2]['cross_section']
-    threshold_idx = nuc1.reactions['294'][2]['threshold_idx']
+    xs = nuc1.reactions['294'][2].cross_section
+    threshold_idx = nuc1.reactions['294'][2].threshold_idx
     
     # Check threshold index
     assert threshold_idx == 0  # MT=2 starts at the beginning (idx=0)

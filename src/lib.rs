@@ -10,6 +10,7 @@ pub mod settings;
 pub mod source;
 pub mod stats;
 pub mod surface;
+pub mod reaction_product;
 pub mod tally;
 pub use bounding_box::*;
 pub use cell::*;
@@ -45,7 +46,7 @@ mod config;
 mod element;
 pub mod filter;
 mod material;
-mod nuclide;
+pub mod nuclide;
 mod reaction;
 mod url_cache;
 mod utilities;
@@ -83,6 +84,10 @@ mod python {
     pub mod model_python;
     pub mod nuclide_python;
     pub mod particle_python;
+    pub mod serde_json_utils_python;
+    pub mod reaction_product_python;
+    pub mod angle_energy_distribution_python;
+    pub mod energy_distribution_python;
     pub mod reaction_python;
     pub mod region_python;
     pub mod settings_python;
@@ -118,6 +123,19 @@ pub use wasm::reaction_wasm::*;
 #[cfg(feature = "pyo3")]
 #[pymodule]
 fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    use crate::python::reaction_product_python;
+    m.add_class::<reaction_product_python::PyReactionProduct>()?;
+    m.add_class::<reaction_product_python::PyAngleEnergyDistribution>()?;
+    use crate::python::angle_energy_distribution_python;
+    m.add_class::<angle_energy_distribution_python::PyUncorrelatedAngleEnergy>()?;
+    m.add_class::<angle_energy_distribution_python::PyKalbachMann>()?;
+    m.add_class::<angle_energy_distribution_python::PyAngleDistribution>()?;
+    m.add_class::<angle_energy_distribution_python::PyEnergyDistribution>()?;
+    m.add_class::<angle_energy_distribution_python::PyTabulated>()?;
+    m.add_class::<angle_energy_distribution_python::PyTabulated1D>()?;
+    use crate::python::energy_distribution_python;
+    m.add_class::<energy_distribution_python::PyLevelInelastic>()?;
+    m.add_class::<energy_distribution_python::PyTabulatedEnergyDistribution>()?;
     use crate::python::geometry_python;
     m.add_class::<geometry_python::PyGeometry>()?;
     use crate::python::settings_python;

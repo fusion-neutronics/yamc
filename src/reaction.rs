@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::reaction_product::ReactionProduct;
 
 /// Represents a single reaction channel (identified by ENDF/MT number) for a
 /// specific nuclide at a given temperature.
@@ -20,6 +21,9 @@ pub struct Reaction {
     pub energy: Vec<f64>, // Reaction-specific energy grid
     /// ENDF/MT reaction identifier.
     pub mt_number: i32, // The MT number for this reaction
+    /// Products emitted by this reaction (e.g., neutrons, photons, fragments)
+    #[serde(default)]
+    pub products: Vec<ReactionProduct>,
 }
 
 impl Reaction {
@@ -60,6 +64,7 @@ mod tests {
             interpolation: vec![],
             energy: vec![0.5, 1.0, 2.0, 5.0],
             mt_number: 102,
+            products: vec![],
         };
 
         // Below grid

@@ -246,23 +246,15 @@ impl PyNuclide {
     #[getter]
     pub fn reactions(&self, py: Python) -> PyResult<PyObject> {
         let py_dict = PyDict::new(py);
-
-        // Create a dictionary of temperature -> mt -> reaction
         for (temp, mt_map) in &self.reactions {
             let mt_dict = PyDict::new(py);
             for (mt, reaction) in mt_map {
-                let reaction_dict = PyDict::new(py);
-                reaction_dict.set_item("cross_section", &reaction.cross_section)?;
-                reaction_dict.set_item("threshold_idx", reaction.threshold_idx)?;
-                reaction_dict.set_item("interpolation", &reaction.interpolation)?;
-                if !reaction.energy.is_empty() {
-                    reaction_dict.set_item("energy", &reaction.energy)?;
-                }
-                mt_dict.set_item(mt, reaction_dict)?;
+                let py_reaction = crate::python::reaction_python::PyReaction::from_reaction(reaction, py)?;
+                let py_reaction_obj = Py::new(py, py_reaction)?;
+                mt_dict.set_item(mt, py_reaction_obj)?;
             }
             py_dict.set_item(temp, mt_dict)?;
         }
-
         Ok(py_dict.into())
     }
 
