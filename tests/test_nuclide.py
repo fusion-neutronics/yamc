@@ -26,7 +26,7 @@ def test_read_li6_nuclide():
     # We don't expect any specific order of MT numbers, just check they're all ints
     assert all(isinstance(mt, int) for mt in nuc1.reaction_mts)
 
-    cs = nuc1.reactions['294'][2]['cross_section']
+    cs = nuc1.reactions['294'][2].cross_section
 
     for entry in cs:
         assert isinstance(entry, float)
@@ -47,7 +47,7 @@ def test_read_li7_nuclide():
     # We don't expect any specific order of MT numbers, just check they're all ints
     assert all(isinstance(mt, int) for mt in nuc1.reaction_mts)
 
-    cs = nuc1.reactions['294'][2]['cross_section']
+    cs = nuc1.reactions['294'][2].cross_section
     
     for entry in cs:
         assert isinstance(entry, float)

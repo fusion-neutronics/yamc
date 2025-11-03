@@ -1,3 +1,7 @@
+#[cfg(feature = "pyo3")]
+use serde_json::Value;
+#[cfg(feature = "pyo3")]
+use crate::python::serde_json_utils_python::*;
 use crate::reaction_product::{
     AngleDistribution, AngleEnergyDistribution, EnergyDistribution, ParticleType, ReactionProduct,
     Tabulated,
@@ -157,9 +161,9 @@ impl PyAngleEnergyDistribution {
         let (dist_type, data) = match angle_energy_dist {
             AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
                 let dict = PyDict::new(py);
-                dict.set_item("angle", PyAngleDistribution::from(angle))?;
+                dict.set_item("angle", Py::new(py, PyAngleDistribution::from(angle))?)?;
                 if let Some(energy_dist) = energy {
-                    dict.set_item("energy", PyEnergyDistribution::from_energy_distribution(energy_dist, py)?)?;
+                    dict.set_item("energy", Py::new(py, PyEnergyDistribution::from_energy_distribution(energy_dist, py)?)?)?;
                 }
                 ("UncorrelatedAngleEnergy".to_string(), dict.into())
             }
@@ -169,9 +173,25 @@ impl PyAngleEnergyDistribution {
                 slope,
             } => {
                 let dict = PyDict::new(py);
-                dict.set_item("energy", energy)?;
-                dict.set_item("energy_out", energy_out)?;
-                dict.set_item("slope", slope)?;
+                    let py_list = pyo3::types::PyList::empty(py);
+                    for v in &energy {
+                        py_list.append(v).unwrap();
+                    }
+                    dict.set_item("energy", py_list)?;
+                    dict.set_item::<&str, pyo3::PyObject>("energy_out", {
+                    let py_list = pyo3::types::PyList::empty(py);
+                    for v in &energy_out {
+                        py_list.append(crate::python::serde_json_utils_python::value_to_pyobject(v, py)).unwrap();
+                    }
+                    py_list.into_py(py)
+                })?;
+                    dict.set_item::<&str, pyo3::PyObject>("slope", {
+                    let py_list = pyo3::types::PyList::empty(py);
+                    for v in &slope {
+                        py_list.append(crate::python::serde_json_utils_python::value_to_pyobject(v, py)).unwrap();
+                    }
+                    py_list.into_py(py)
+                })?;
                 ("KalbachMann".to_string(), dict.into())
             }
         };
@@ -202,6 +222,22 @@ pub struct PyReactionProduct {
 #[cfg(feature = "pyo3")]
 #[pymethods]
 impl PyReactionProduct {
+    #[new]
+    fn new(
+        particle: String,
+        emission_mode: String,
+        decay_rate: f64,
+        applicability: Vec<PyObject>,
+        distribution: Vec<PyAngleEnergyDistribution>,
+    ) -> Self {
+        PyReactionProduct {
+            particle,
+            emission_mode,
+            decay_rate,
+            applicability,
+            distribution,
+        }
+    }
     fn __repr__(&self) -> String {
         format!(
             "ReactionProduct(particle='{}', emission_mode='{}', distributions={})",
@@ -230,7 +266,7 @@ impl PyReactionProduct {
         let applicability = product
             .applicability
             .into_iter()
-            .map(|val| val.into_py(py))
+                .map(|val| value_to_pyobject(&val, py))
             .collect();
 
         Ok(PyReactionProduct {
