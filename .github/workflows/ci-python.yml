@@ -73,9 +73,10 @@ jobs:
           python examples/python/material_example.py
           python examples/python/materials_example.py
           python examples/python/nuclide_example.py
-          python examples/python/use_in_python.py
+          python examples/python/tbr.py
           python examples/python/usage_in_python.py
           python examples/python/usage_in_python_cube.py
+          python examples/python/use_in_python.py
 
       - name: Run example scripts (Unix)
         if: runner.os != 'Windows'
@@ -85,9 +86,10 @@ jobs:
           python examples/python/material_example.py
           python examples/python/materials_example.py
           python examples/python/nuclide_example.py
-          python examples/python/use_in_python.py
+          python examples/python/tbr.py
           python examples/python/usage_in_python.py
           python examples/python/usage_in_python_cube.py
+          python examples/python/use_in_python.py
 
       # TODO: Commented out OpenMC-dependent examples
       # python -m pip install --extra-index-url https://shimwell.github.io/wheels openmc
