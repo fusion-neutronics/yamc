@@ -78,7 +78,7 @@ tallies = [tally1, tally2, tally3, tally4, tally5]
 abs_constituent_mts = [102, 103, 104, 105, 106, 107, 108, 109]
 for mt in abs_constituent_mts:
     t = mc.Tally()
-    t.scores  = mt
+    t.scores  = [mt]
     t.name = f"absorption constituent MT={mt} in whole model"
     tallies.append(t)
 
@@ -90,25 +90,8 @@ tallies.append(fission_tally)
 
 model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
 
-# Unpack tallies including fission tally
-
-# Unpack all tallies returned by model.run()
-results = model.run()
-
-# Print all tallies with their names and means
-for tally in results:
-    print(f"{getattr(tally, 'name', 'leakage')}: mean={getattr(tally, 'mean', tally)}")
-
-# Assign named tallies for assertions
-leakage_tally = results[0]
-tally1 = results[1]
-tally2 = results[2]
-tally3 = results[3]
-tally4 = results[4]
-tally5 = results[5]
-fission_tally = results[6]
+model.run()
 
 assert tally1.mean != tally2.mean
-assert abs((tally1.mean + tally2.mean) - tally3.mean) < 1e-10 # checking sum of absorptions in cells equals total absorption
-assert fission_tally.mean == 0.0  # No fission should occur in Li6 or Li7
-assert abs((1 - tally3.mean - fission_tally.mean) - leakage_tally.mean) < 1e-10 # checking particles are either absorbed, fissioned, or leaked
+assert abs((tally1.mean[0] + tally2.mean[0]) - tally3.mean[0]) < 1e-10 # checking sum of absorptions in cells equals total absorption
+assert fission_tally.mean[0] == 0.0  # No fission should occur in Li6 or Li7

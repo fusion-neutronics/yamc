@@ -50,3 +50,15 @@ wasm = [
     "dep:serde-wasm-bindgen"
 ]
 wasm-test = ["wasm"]
+
+[[example]]
+name = "test_sampling"
+path = "examples/rust/test_sampling.rs"
+
+[[example]]
+name = "test_real_sampling"
+path = "examples/rust/test_real_sampling.rs"
+
+[[example]]
+name = "materials_demo"
+path = "examples/rust/materials_demo.rs"

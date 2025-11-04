@@ -1,30 +1,15 @@
-#[cfg(feature = "pyo3")]
-use crate::python::angle_energy_distribution_python::{
-    PyAngleDistribution, PyEnergyDistribution, PyTabulated, PyTabulated1D,
-};
 use crate::reaction_product::{
-    AngleDistribution, AngleEnergyDistribution, EnergyDistribution, ParticleType, ReactionProduct,
-    Tabulated,
+    ReactionProduct, AngleEnergyDistribution, AngleDistribution, 
+    EnergyDistribution, ParticleType, Tabulated
 };
-#[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
-#[cfg(feature = "pyo3")]
-use pyo3::types::PyDict;
+use rand::{thread_rng, Rng};
 
 #[cfg(feature = "pyo3")]
 #[pyclass(name = "ReactionProduct")]
 #[derive(Clone, Debug)]
 pub struct PyReactionProduct {
-    #[pyo3(get)]
-    pub particle: String,
-    #[pyo3(get)]
-    pub emission_mode: Option<String>,
-    #[pyo3(get)]
-    pub decay_rate: Option<f64>,
-    #[pyo3(get)]
-    pub applicability: Vec<PyObject>,
-    #[pyo3(get)]
-    pub distribution: Vec<PyObject>,
+    pub inner: ReactionProduct,
 }
 
 #[cfg(feature = "pyo3")]
@@ -33,163 +18,226 @@ impl PyReactionProduct {
     #[new]
     fn new(
         particle: String,
-        emission_mode: Option<String>,
-        decay_rate: Option<f64>,
-        applicability: Vec<PyObject>,
-        distribution: Vec<PyObject>,
+        emission_mode: String,
+        decay_rate: f64,
     ) -> Self {
-        PyReactionProduct {
-            particle,
-            emission_mode,
-            decay_rate,
-            applicability,
-            distribution,
+        let particle_type = match particle.as_str() {
+            "neutron" => ParticleType::Neutron,
+            "photon" => ParticleType::Photon,
+            _ => ParticleType::Neutron, // Default fallback
+        };
+        
+        Self {
+            inner: ReactionProduct {
+                particle: particle_type,
+                emission_mode,
+                decay_rate,
+                applicability: vec![],
+                distribution: vec![],
+            }
         }
     }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "ReactionProduct(particle='{}', distribution=[{} items])",
-            self.particle,
-            self.distribution.len()
-        )
+    
+    /// Sample an outgoing particle from this product
+    /// Returns tuple of (outgoing_energy, mu_cosine)
+    fn sample(&self, incoming_energy: f64) -> (f64, f64) {
+        let mut rng = thread_rng();
+        self.inner.sample(incoming_energy, &mut rng)
     }
-}
-
-#[cfg(feature = "pyo3")]
-
-
-
-#[cfg(feature = "pyo3")]
-#[pyclass(name = "AngleEnergyDistribution")]
-#[derive(Clone, Debug)]
-pub struct PyAngleEnergyDistribution {
-    pub distribution_type: String,
-    pub data: PyObject,
-}
-
-#[cfg(feature = "pyo3")]
-#[pymethods]
-impl PyAngleEnergyDistribution {
-    #[getter]
-    fn distribution_type(&self) -> &str {
-        &self.distribution_type
+    
+    /// Sample multiple outgoing particles
+    /// Returns list of (outgoing_energy, mu_cosine) tuples
+    fn sample_multiple(&self, incoming_energy: f64) -> Vec<(f64, f64)> {
+        let mut rng = thread_rng();
+        self.inner.sample_multiple(incoming_energy, &mut rng)
     }
-
-    #[getter]
-    fn data(&self) -> PyObject {
-        self.data.clone()
-    }
-
-    fn __repr__(&self) -> String {
-        format!("AngleEnergyDistribution(type='{}')", self.distribution_type)
-    }
-}
-
-#[cfg(feature = "pyo3")]
-impl PyAngleEnergyDistribution {
-    fn from_angle_energy_distribution(
-        angle_energy_dist: AngleEnergyDistribution,
-        py: Python,
-    ) -> PyResult<Self> {
-        use pyo3::types::PyDict;
-
-        let (dist_type, data) = match angle_energy_dist {
-            AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
-                let dict = PyDict::new(py);
-                dict.set_item("angle", Py::new(py, PyAngleDistribution::from(angle))?)?;
-                if let Some(energy_dist) = energy {
-                    dict.set_item("energy", Py::new(py, PyEnergyDistribution::from_energy_distribution(energy_dist, py)?)?)?;
-                }
-                ("UncorrelatedAngleEnergy".to_string(), dict.into())
-            }
-            AngleEnergyDistribution::KalbachMann {
-                energy,
-                energy_out,
-                slope,
-            } => {
-                let dict = PyDict::new(py);
-                dict.set_item("energy", energy)?;
-                dict.set_item(
-                    "energy_out",
-                    energy_out
-                        .into_iter()
-                        .map(|v| Py::new(py, PyTabulated::from(v)))
-                        .collect::<PyResult<Vec<_>>>()?,
-                )?;
-                dict.set_item(
-                    "slope",
-                    slope
-                        .into_iter()
-                        .map(|v| Py::new(py, PyTabulated1D::from(v)))
-                        .collect::<PyResult<Vec<_>>>()?,
-                )?;
-                ("KalbachMann".to_string(), dict.into())
-            }
+    
+    /// Check if this product represents a specific particle type
+    fn is_particle_type(&self, particle_name: &str) -> bool {
+        let particle_type = match particle_name {
+            "neutron" => ParticleType::Neutron,
+            "photon" => ParticleType::Photon,
+            _ => return false,
         };
-        Ok(PyAngleEnergyDistribution {
-            distribution_type: dist_type,
-            data,
-        })
+        self.inner.is_particle_type(&particle_type)
+    }
+    
+    /// Check if this is a prompt emission
+    fn is_prompt(&self) -> bool {
+        self.inner.is_prompt()
+    }
+    
+    /// Check if this is a delayed emission
+    fn is_delayed(&self) -> bool {
+        self.inner.is_delayed()
+    }
+    
+    /// Get the decay rate for delayed neutron precursors
+    fn get_decay_rate(&self) -> f64 {
+        self.inner.get_decay_rate()
+    }
+    
+    /// Get particle type as string
+    #[getter]
+    fn particle(&self) -> String {
+        match self.inner.particle {
+            ParticleType::Neutron => "neutron".to_string(),
+            ParticleType::Photon => "photon".to_string(),
+        }
+    }
+    
+    /// Get emission mode
+    #[getter]
+    fn emission_mode(&self) -> String {
+        self.inner.emission_mode.clone()
+    }
+    
+    /// Get number of distributions
+    #[getter]
+    fn num_distributions(&self) -> usize {
+        self.inner.distribution.len()
+    }
+    
+    /// Get distribution types as strings
+    #[getter]
+    fn distribution_types(&self) -> Vec<String> {
+        self.inner.distribution.iter().map(|dist| {
+            match dist {
+                crate::reaction_product::AngleEnergyDistribution::UncorrelatedAngleEnergy { .. } => "UncorrelatedAngleEnergy".to_string(),
+                crate::reaction_product::AngleEnergyDistribution::KalbachMann { .. } => "KalbachMann".to_string(),
+            }
+        }).collect()
     }
 }
 
 #[cfg(feature = "pyo3")]
 impl PyReactionProduct {
-    pub fn from_reaction_product(product: ReactionProduct, py: Python) -> PyResult<Self> {
-        let particle = match product.particle {
-            ParticleType::Neutron => "neutron".to_string(),
-            ParticleType::Photon => "photon".to_string(),
-        };
-
-        let mut distribution = Vec::new();
-        for dist in product.distribution {
-            match dist {
-                AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
-                    let py_angle = PyAngleDistribution {
-                        energy: angle.energy.clone(),
-                        mu: angle.mu.into_iter().map(|tab| PyTabulated { x: tab.x, p: tab.p }).collect(),
-                    };
-                    let py_energy = match energy {
-                        Some(e) => Some(PyEnergyDistribution::from_energy_distribution(e, py)?),
-                        None => None,
-                    };
-                    let py_dist = pyo3::Py::new(py, crate::python::angle_energy_distribution_python::PyUncorrelatedAngleEnergy {
-                        angle: py_angle,
-                        energy: py_energy,
-                    })?;
-                    distribution.push(py_dist.into_py(py));
-                }
-                AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
-                    let py_dist = pyo3::Py::new(py, crate::python::angle_energy_distribution_python::PyKalbachMann {
-                        energy,
-                        energy_out: energy_out
-                            .into_iter()
-                            .map(|v| Py::new(py, PyTabulated::from(v)).map(|p| p.into_py(py)))
-                            .collect::<PyResult<Vec<_>>>()?,
-                        slope: slope
-                            .into_iter()
-                            .map(|v| Py::new(py, PyTabulated1D::from(v)).map(|p| p.into_py(py)))
-                            .collect::<PyResult<Vec<_>>>()?,
-                    })?;
-                    distribution.push(py_dist.into_py(py));
-                }
-            }
-        }
-
-        // Convert applicability
-        let applicability = product
-            .applicability
-            .into_iter()
-            .map(|val| Py::new(py, PyTabulated1D::from(val)).map(|p| p.into_py(py)))
-            .collect::<PyResult<Vec<_>>>()?;
-
-        Ok(PyReactionProduct {
-            particle,
-            emission_mode: Some(product.emission_mode),
-            decay_rate: Some(product.decay_rate),
-            applicability,
-            distribution,
-        })
+    /// Create PyReactionProduct from a Rust ReactionProduct
+    pub fn from_reaction_product(product: ReactionProduct, _py: pyo3::Python) -> pyo3::PyResult<Self> {
+        Ok(PyReactionProduct { inner: product })
     }
+}
+
+#[cfg(feature = "pyo3")]
+#[pyclass]
+#[derive(Clone)]
+pub struct PyAngleDistribution {
+    pub inner: AngleDistribution,
+}
+
+#[cfg(feature = "pyo3")]
+#[pymethods]
+impl PyAngleDistribution {
+    /// Sample scattering cosine (mu) for a given incoming energy
+    fn sample(&self, incoming_energy: f64) -> f64 {
+        let mut rng = thread_rng();
+        self.inner.sample(incoming_energy, &mut rng)
+    }
+    
+    /// Get energy grid
+    #[getter]
+    fn energy(&self) -> Vec<f64> {
+        self.inner.energy.clone()
+    }
+    
+    /// Get number of energy points
+    #[getter]
+    fn num_energy_points(&self) -> usize {
+        self.inner.energy.len()
+    }
+}
+
+#[cfg(feature = "pyo3")]
+#[pyclass]
+#[derive(Clone)]
+pub struct PyTabulated {
+    pub inner: Tabulated,
+}
+
+#[cfg(feature = "pyo3")]
+#[pymethods]
+impl PyTabulated {
+    #[new]
+    fn new(x: Vec<f64>, p: Vec<f64>) -> Self {
+        Self {
+            inner: Tabulated { x, p }
+        }
+    }
+    
+    /// Sample from the tabulated distribution
+    fn sample(&self) -> f64 {
+        let mut rng = thread_rng();
+        self.inner.sample(&mut rng)
+    }
+    
+    /// Convert to CDF and return as new PyTabulated
+    fn to_cdf(&self) -> PyTabulated {
+        PyTabulated {
+            inner: self.inner.to_cdf()
+        }
+    }
+    
+    /// Get x values
+    #[getter]
+    fn x(&self) -> Vec<f64> {
+        self.inner.x.clone()
+    }
+    
+    /// Get p values
+    #[getter]
+    fn p(&self) -> Vec<f64> {
+        self.inner.p.clone()
+    }
+}
+
+/// Convenience function to sample isotropic scattering
+#[cfg(feature = "pyo3")]
+#[pyfunction]
+pub fn sample_isotropic() -> f64 {
+    let mut rng = thread_rng();
+    2.0 * rng.gen::<f64>() - 1.0
+}
+
+/// Convenience function to create tabulated distribution and sample from it
+#[cfg(feature = "pyo3")]
+#[pyfunction]
+pub fn sample_tabulated(x: Vec<f64>, p: Vec<f64>) -> f64 {
+    let tabulated = Tabulated { x, p };
+    let cdf = tabulated.to_cdf();
+    let mut rng = thread_rng();
+    cdf.sample(&mut rng)
+}
+
+/// Test function to create a simple reaction product for testing
+#[cfg(feature = "pyo3")]
+#[pyfunction]
+pub fn create_test_reaction_product() -> PyReactionProduct {
+    // Create a simple test product with elastic scattering (energy unchanged)
+    
+    // Create simple angular distribution (isotropic-ish)
+    let mu_dist = Tabulated {
+        x: vec![-1.0, 0.0, 1.0],
+        p: vec![0.33, 0.67, 1.0], // CDF values
+    };
+    
+    let angle_dist = AngleDistribution {
+        energy: vec![1e5, 1e6, 1e7], // 0.1, 1, 10 MeV
+        mu: vec![mu_dist.clone(), mu_dist.clone(), mu_dist.clone()],
+    };
+    
+    // Create uncorrelated angle-energy distribution
+    let angle_energy_dist = AngleEnergyDistribution::UncorrelatedAngleEnergy {
+        angle: angle_dist,
+        energy: None, // No energy change (elastic)
+    };
+    
+    let product = ReactionProduct {
+        particle: ParticleType::Neutron,
+        emission_mode: "prompt".to_string(),
+        decay_rate: 0.0,
+        applicability: vec![],
+        distribution: vec![angle_energy_dist],
+    };
+    
+    PyReactionProduct { inner: product }
 }
