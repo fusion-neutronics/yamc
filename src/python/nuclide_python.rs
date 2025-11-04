@@ -55,8 +55,12 @@ impl PyNuclide {
     /// Returns:
     ///     Optional[str]: Element symbol or None if data not loaded.
     #[getter]
-    pub fn element(&self) -> Option<String> {
-        self.element.clone()
+    pub fn element(&mut self) -> Option<String> {
+        let mut rust_nuclide = Nuclide::from(self.clone());
+        let result = rust_nuclide.get_element();
+        // Update self with any auto-loaded data
+        *self = PyNuclide::from(rust_nuclide);
+        result
     }
 
     /// Atomic symbol (currently same as element symbol).
@@ -73,8 +77,12 @@ impl PyNuclide {
     /// Returns:
     ///     Optional[int]: Atomic number.
     #[getter]
-    pub fn atomic_number(&self) -> Option<u32> {
-        self.atomic_number
+    pub fn atomic_number(&mut self) -> Option<u32> {
+        let mut rust_nuclide = Nuclide::from(self.clone());
+        let result = rust_nuclide.get_atomic_number();
+        // Update self with any auto-loaded data
+        *self = PyNuclide::from(rust_nuclide);
+        result
     }
 
     /// Neutron number N.
@@ -91,8 +99,12 @@ impl PyNuclide {
     /// Returns:
     ///     Optional[int]: Mass number.
     #[getter]
-    pub fn mass_number(&self) -> Option<u32> {
-        self.mass_number
+    pub fn mass_number(&mut self) -> Option<u32> {
+        let mut rust_nuclide = Nuclide::from(self.clone());
+        let result = rust_nuclide.get_mass_number();
+        // Update self with any auto-loaded data
+        *self = PyNuclide::from(rust_nuclide);
+        result
     }
 
     /// Originating nuclear data library identifier.
@@ -118,8 +130,12 @@ impl PyNuclide {
     /// Returns:
     ///     List[str]: Temperature labels (e.g. ["293K"]).
     #[getter]
-    pub fn available_temperatures(&self) -> Vec<String> {
-        self.available_temperatures.clone()
+    pub fn available_temperatures(&mut self) -> Vec<String> {
+        let mut rust_nuclide = Nuclide::from(self.clone());
+        let result = rust_nuclide.get_available_temperatures();
+        // Update self with any auto-loaded data
+        *self = PyNuclide::from(rust_nuclide);
+        result
     }
 
     /// Temperatures actually loaded into memory (subset of available_temperatures).
@@ -389,7 +405,7 @@ impl PyNuclide {
     ///     ...     print(f"Sampled MT {reaction['mt_number']}")
     #[pyo3(signature = (energy, temperature, seed=None), text_signature = "(self, energy, temperature, seed=None)")]
     pub fn sample_reaction(
-        &self,
+        &mut self,
         energy: f64,
         temperature: &str,
         seed: Option<u64>,
@@ -399,7 +415,7 @@ impl PyNuclide {
         use rand::rngs::StdRng;
         use rand::{Rng, SeedableRng};
 
-        let nuclide: Nuclide = self.clone().into();
+        let mut nuclide: Nuclide = self.clone().into();
 
         // Create random number generator with optional seed
         let mut rng = if let Some(seed_val) = seed {
@@ -408,18 +424,27 @@ impl PyNuclide {
             StdRng::from_entropy()
         };
 
-        // Sample the reaction
+        // Sample the reaction (now with auto-loading)
         let sampled_reaction = nuclide.sample_reaction(energy, temperature, &mut rng);
 
-        if let Some(reaction) = sampled_reaction {
+        // Extract reaction data before moving nuclide
+        let reaction_data = sampled_reaction.map(|r| {
+            (r.mt_number, r.cross_section.clone(), r.threshold_idx, r.interpolation.clone(), 
+             r.energy.clone())
+        });
+
+        // Update self with any auto-loaded data
+        *self = PyNuclide::from(nuclide);
+
+        if let Some((mt_number, cross_section, threshold_idx, interpolation, energy)) = reaction_data {
             // Convert the reaction to a Python dictionary
             Python::with_gil(|py| {
                 let reaction_dict = PyDict::new(py);
-                reaction_dict.set_item("mt_number", reaction.mt_number)?;
-                reaction_dict.set_item("cross_section", &reaction.cross_section)?;
-                reaction_dict.set_item("threshold_idx", reaction.threshold_idx)?;
-                reaction_dict.set_item("interpolation", &reaction.interpolation)?;
-                reaction_dict.set_item("energy", &reaction.energy)?;
+                reaction_dict.set_item("mt_number", mt_number)?;
+                reaction_dict.set_item("cross_section", &cross_section)?;
+                reaction_dict.set_item("threshold_idx", threshold_idx)?;
+                reaction_dict.set_item("interpolation", &interpolation)?;
+                reaction_dict.set_item("energy", &energy)?;
                 Ok(Some(reaction_dict.into()))
             })
         } else {
