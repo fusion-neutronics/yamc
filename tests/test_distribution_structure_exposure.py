@@ -241,41 +241,35 @@ class TestDistributionStructureExposure:
             assert dist_types3[0] == original_first  # Should be unchanged
 
 
-    def test_pb208_decay_rate_exposure(self):
-        """Test that Pb208 product decay rates are accessible (if products exist)"""
-        try:
-            # Load Pb208 nuclide 
-            pb208 = mc.Nuclide('Pb208')
-            pb208.read_nuclide_from_json('tests/Pb208.json')
-            
-            # Check if Pb208 has any reactions with products
-            products_found = False
-            for reaction in pb208.reactions:
-                if hasattr(reaction, 'products') and len(reaction.products) > 0:
-                    products_found = True
-                    for product in reaction.products:
-                        # Test that we can access decay rate
-                        assert hasattr(product, 'get_decay_rate')
-                        decay_rate = product.get_decay_rate()
-                        assert isinstance(decay_rate, float)
-                        assert decay_rate >= 0.0
-                        
-                        # Test particle and emission mode
-                        assert hasattr(product, 'particle')
-                        assert hasattr(product, 'emission_mode')
-                        particle = product.particle
-                        emission_mode = product.emission_mode
-                        assert isinstance(particle, str)
-                        assert isinstance(emission_mode, str)
-                        
-                        print(f"Pb208 product: {particle}, emission: {emission_mode}, decay_rate: {decay_rate}")
-            
-            if not products_found:
-                print("No products found in Pb208 data - skipping decay rate test")
-                
-        except Exception as e:
-            # If Pb208 data is not available or has issues, skip this test
-            print(f"Pb208 test skipped due to: {e}")
+    def test_decay_rate_exposure_with_test_product(self):
+        """Test that product decay rates are properly accessible"""
+        # Use the test product which we know works
+        test_product = mc.create_test_reaction_product()
+        
+        # Test that we can access decay rate
+        assert hasattr(test_product, 'get_decay_rate')
+        decay_rate = test_product.get_decay_rate()
+        assert isinstance(decay_rate, float)
+        assert decay_rate >= 0.0
+        
+        # Test particle and emission mode  
+        assert hasattr(test_product, 'particle')
+        assert hasattr(test_product, 'emission_mode')
+        particle = test_product.particle
+        emission_mode = test_product.emission_mode
+        assert isinstance(particle, str)
+        assert isinstance(emission_mode, str)
+        
+        # Test additional product properties
+        assert hasattr(test_product, 'is_prompt')
+        assert hasattr(test_product, 'is_delayed')
+        is_prompt = test_product.is_prompt()
+        is_delayed = test_product.is_delayed()
+        assert isinstance(is_prompt, bool)
+        assert isinstance(is_delayed, bool)
+        
+        print(f"Test product: {particle}, emission: {emission_mode}, decay_rate: {decay_rate}")
+        print(f"  is_prompt: {is_prompt}, is_delayed: {is_delayed}")
 
 
 class TestDistributionTypeValidation:
