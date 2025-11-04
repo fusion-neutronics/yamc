@@ -97,6 +97,17 @@ impl PyReactionProduct {
     fn num_distributions(&self) -> usize {
         self.inner.distribution.len()
     }
+    
+    /// Get distribution types as strings
+    #[getter]
+    fn distribution_types(&self) -> Vec<String> {
+        self.inner.distribution.iter().map(|dist| {
+            match dist {
+                crate::reaction_product::AngleEnergyDistribution::UncorrelatedAngleEnergy { .. } => "UncorrelatedAngleEnergy".to_string(),
+                crate::reaction_product::AngleEnergyDistribution::KalbachMann { .. } => "KalbachMann".to_string(),
+            }
+        }).collect()
+    }
 }
 
 #[cfg(feature = "pyo3")]

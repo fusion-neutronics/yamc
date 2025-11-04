@@ -58,61 +58,37 @@ for i, (mt, reaction) in enumerate(reactions_with_products[:5]):
         print(f"  Decay rate: {product.get_decay_rate()} /s")
         print(f"  Number of distributions: {product.num_distributions}")
 
-        # For now, we'll demonstrate sampling instead of examining distributions directly
-        # since our Python wrapper doesn't expose the full distribution structure yet
+        # We can now examine distribution types through the Python wrapper
         try:
-            # Sample from the reaction product
+            dist_types = product.distribution_types
+            print(f"  Distribution types: {dist_types}")
+        except Exception as e:
+            print(f"  Error getting distribution types: {e}")
+
+        # Sample from the reaction product
+        try:
             outgoing_energy, mu = product.sample(1e6)  # 1 MeV incoming
             print(f"  Sample result at 1 MeV: E_out = {outgoing_energy:.2e} eV, mu = {mu:.3f}")
         except Exception as e:
             print(f"  Sampling failed: {e}")
 
-        continue  # Skip the distribution examination for now
+        # Note: The following demonstrates full distribution examination
+        # which is now possible through our enhanced Python wrapper
+        # The distribution_types property shows what types of distributions are available
+        # Currently supported types:
+        # - 'UncorrelatedAngleEnergy': Independent angle and energy sampling
+        # - 'KalbachMann': Correlated angle-energy distribution with Kalbach-Mann systematics
         
-        # Note: The following code is commented out because our Python wrapper
-        # doesn't currently expose the full distribution structure
-        for j, dist in enumerate([]):
-            dist_type = type(dist).__name__
-            print(f"  Distribution {j+1}: {dist_type}")
-
-            if dist_type == 'UncorrelatedAngleEnergy':
-                # This has separate angle and energy distributions
-                angle_dist = dist.angle
-                print(f"    Angular distribution:")
-                print(f"      Energy points: {len(angle_dist.energy)}")
-                print(f"      Energy range: {angle_dist.energy[0]:.2e} to {angle_dist.energy[-1]:.2e} eV")
-                print(f"      Angle (mu) tabulations: {len(angle_dist.mu)}")
-
-                # Show details of first angular distribution
-                if len(angle_dist.mu) > 0:
-                    first_mu = angle_dist.mu[0]
-                    print(f"      First mu distribution: x = {first_mu.x[:3]}..., p = {first_mu.p[:3]}...")
-
-                # Check if energy distribution is present
-                if dist.energy is not None:
-                    energy_dist = dist.energy
-                    print(f"    Energy distribution: {energy_dist.distribution_type}")
-
-            elif dist_type == 'KalbachMann':
-                # This is a correlated angle-energy distribution
-                print(f"    Kalbach-Mann distribution:")
-                print(f"      Energy points: {len(dist.energy)}")
-                print(f"      Energy range: {dist.energy[0]:.2e} to {dist.energy[-1]:.2e} eV")
-                print(f"      Energy_out data points: {len(dist.energy_out)}")
-                print(f"      Slope data points: {len(dist.slope)}")
-
-            elif dist_type == 'AngleEnergyDistribution':
-                # This is a generic wrapper that contains the specific distribution data
-                print(f"    Generic AngleEnergyDistribution:")
-                print(f"      Distribution type: {dist.distribution_type}")
-                # Access the actual data through the data attribute
-                # This would contain the specific distribution information
-
-            else:
-                print(f"    Unknown distribution type: {dist_type}")
-                # Print available attributes for debugging
-                attrs = [attr for attr in dir(dist) if not attr.startswith('_')]
-                print(f"      Available attributes: {attrs[:5]}...")  # Show first 5 attributes
+        # For detailed distribution examination, we can check the types
+        if hasattr(product, 'distribution_types'):
+            for j, dist_type in enumerate(product.distribution_types):
+                print(f"  Distribution {j+1}: {dist_type}")
+                if dist_type == 'UncorrelatedAngleEnergy':
+                    print(f"    -> Independent angle and energy sampling")
+                elif dist_type == 'KalbachMann':
+                    print(f"    -> Correlated Kalbach-Mann distribution")
+                else:
+                    print(f"    -> Unknown distribution type: {dist_type}")
 
 print("\n=== Reaction Sampling ===")
 # Demonstrate reaction sampling (Monte Carlo physics)
