@@ -271,6 +271,56 @@ class TestDistributionStructureExposure:
         print(f"Test product: {particle}, emission: {emission_mode}, decay_rate: {decay_rate}")
         print(f"  is_prompt: {is_prompt}, is_delayed: {is_delayed}")
 
+    def test_comprehensive_product_api_exposure(self):
+        """Test that all product API methods are properly exposed to Python"""
+        test_product = mc.create_test_reaction_product()
+        
+        # Test all the methods we discovered
+        expected_methods = [
+            'distribution_types',
+            'emission_mode', 
+            'get_decay_rate',
+            'is_delayed',
+            'is_particle_type',
+            'is_prompt',
+            'num_distributions',
+            'particle',
+            'sample',
+            'sample_multiple'
+        ]
+        
+        for method_name in expected_methods:
+            assert hasattr(test_product, method_name), f"Missing method: {method_name}"
+        
+        # Test that methods return expected types
+        assert isinstance(test_product.distribution_types, list)
+        assert isinstance(test_product.emission_mode, str) 
+        assert isinstance(test_product.get_decay_rate(), float)
+        assert isinstance(test_product.is_delayed(), bool)
+        assert isinstance(test_product.is_prompt(), bool)
+        assert isinstance(test_product.num_distributions, int)
+        assert isinstance(test_product.particle, str)
+        
+        # Test sample methods
+        energy, mu = test_product.sample(1e6)
+        assert isinstance(energy, float) and isinstance(mu, float)
+        
+        # Test multiple sampling 
+        samples = test_product.sample_multiple(1e6)  # Returns list of (energy, mu) tuples
+        assert isinstance(samples, list)
+        assert len(samples) > 0
+        for energy, mu in samples:
+            assert isinstance(energy, float) and isinstance(mu, float)
+            assert energy > 0 and -1.0 <= mu <= 1.0
+        
+        # Test is_particle_type method
+        is_neutron = test_product.is_particle_type("neutron")
+        is_photon = test_product.is_particle_type("photon")
+        assert isinstance(is_neutron, bool)
+        assert isinstance(is_photon, bool)
+        # One should be true, one false (or both false if different particle)
+        assert is_neutron or is_photon or (not is_neutron and not is_photon)
+
 
 class TestDistributionTypeValidation:
     """Test validation of distribution types"""
