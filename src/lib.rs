@@ -11,7 +11,6 @@ pub mod source;
 pub mod stats;
 pub mod surface;
 pub mod reaction_product;
-pub mod reaction_product_sampling_docs;
 pub mod tally;
 pub use bounding_box::*;
 pub use cell::*;
