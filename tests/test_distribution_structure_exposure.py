@@ -46,7 +46,7 @@ class TestDistributionStructureExposure:
             assert all(isinstance(dt, str) for dt in dist_types)
             
             # Should contain valid distribution type names
-            valid_types = {'UncorrelatedAngleEnergy', 'KalbachMann'}
+            valid_types = {'UncorrelatedAngleEnergy', 'KalbachMann', 'CorrelatedAngleEnergy'}
             for dt in dist_types:
                 assert dt in valid_types, f"Unknown distribution type: {dt}"
             
@@ -77,7 +77,7 @@ class TestDistributionStructureExposure:
         print(f"Found distribution types: {found_types}")
         
         # Test that each type is a recognized type
-        valid_types = {'UncorrelatedAngleEnergy', 'KalbachMann'}
+        valid_types = {'UncorrelatedAngleEnergy', 'KalbachMann', 'CorrelatedAngleEnergy'}
         for found_type in found_types:
             assert found_type in valid_types
     
@@ -139,6 +139,16 @@ class TestDistributionStructureExposure:
             
             elif dist_type == 'KalbachMann':
                 # Should be able to sample correlated energy and angle
+                energy, mu = test_product.sample(1e6)  # 1 MeV input
+                
+                # Check that we got reasonable outputs
+                assert isinstance(energy, float)
+                assert isinstance(mu, float)
+                assert energy > 0
+                assert -1.0 <= mu <= 1.0
+            
+            elif dist_type == 'CorrelatedAngleEnergy':
+                # Should be able to sample correlated energy and angle from tabulated data
                 energy, mu = test_product.sample(1e6)  # 1 MeV input
                 
                 # Check that we got reasonable outputs
@@ -327,7 +337,7 @@ class TestDistributionTypeValidation:
     
     def test_only_valid_types_returned(self):
         """Test that only valid distribution types are returned"""
-        valid_types = {'UncorrelatedAngleEnergy', 'KalbachMann'}
+        valid_types = {'UncorrelatedAngleEnergy', 'KalbachMann', 'CorrelatedAngleEnergy'}
         
         # Test with the test product
         test_product = mc.create_test_reaction_product()

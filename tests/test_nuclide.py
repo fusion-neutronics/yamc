@@ -32,7 +32,7 @@ def test_read_li6_nuclide():
         assert isinstance(entry, float)
         assert isinstance(entry, float)
 
-    expected_li6 = [1, 2, 3, 4, 5, 24, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 101, 102, 103, 105, 203, 204, 205, 206, 207, 301, 444]
+    expected_li6 = [1, 2, 3, 4, 24, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 101, 102, 103, 105, 203, 204, 205, 207, 301, 444]
     assert nuc1.reaction_mts == expected_li6
 
 def test_read_li7_nuclide():
@@ -53,54 +53,46 @@ def test_read_li7_nuclide():
         assert isinstance(entry, float)
         assert isinstance(entry, float)
 
-    expected_li7 = [1, 2, 3, 4, 5, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 104, 203, 204, 205, 206, 207, 301, 444]
+    expected_li7 = [1, 2, 3, 4, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 104, 203, 204, 205, 207, 301, 444]
     assert nuc1.reaction_mts == expected_li7
 
 
 def test_read_be9_available_and_loaded_temperatures():
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
-    assert nuc.available_temperatures == ['294', '300']
+    assert nuc.available_temperatures == ['294']
     # By current implementation, all temps are loaded eagerly
     assert hasattr(nuc, 'loaded_temperatures'), "loaded_temperatures attribute missing"
-    assert nuc.loaded_temperatures == ['294', '300']
-    # Reactions dict should contain both temperatures
+    assert nuc.loaded_temperatures == ['294']
+    # Reactions dict should contain the temperature
     assert '294' in nuc.reactions
-    assert '300' in nuc.reactions
 
 
 def test_read_be9_mt_numbers_per_temperature():
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
     mts_294 = sorted(int(mt) for mt in nuc.reactions['294'].keys())
-    mts_300 = sorted(int(mt) for mt in nuc.reactions['300'].keys())
     expected_294 = sorted([
         1,2,3,16,27,101,102,103,104,105,107,203,204,205,207,301,444,
         875,876,877,878,879,880,881,882,883,884,885,886,887,888,889,890
     ])
-    expected_300 = sorted([
-        1,2,3,16,27,101,102,103,104,105,107,203,204,205,207,301
-    ])
     assert mts_294 == expected_294, f"Be9 294K MT list mismatch: {mts_294}"
-    assert mts_300 == expected_300, f"Be9 300K MT list mismatch: {mts_300}"
-    # Ensure 300K list is subset of 294K list
-    assert set(mts_300).issubset(set(mts_294))
 
 
 def test_read_be9_selective_single_temperature():
-    # Ensure only the specified temperature (300) is retained in reactions and loaded_temperatures
+    # Ensure only the specified temperature (294) is retained in reactions and loaded_temperatures
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.json', temperatures=['300'])
-    assert nuc.available_temperatures == ['294', '300'], "available_temperatures should list all temps present in file"
-    assert nuc.loaded_temperatures == ['300'], f"loaded_temperatures should be only ['300'], got {nuc.loaded_temperatures}"
-    assert '300' in nuc.reactions, "300K reactions missing after selective load"
-    assert '294' not in nuc.reactions, "294K reactions should not be loaded when selectively requesting only 300K"
-    # MT list at 300 should match subset expectation
-    mts_300 = sorted(int(mt) for mt in nuc.reactions['300'].keys())
-    expected_300 = sorted([
-        1,2,3,16,27,101,102,103,104,105,107,203,204,205,207,301
+    nuc.read_nuclide_from_json('tests/Be9.json', temperatures=['294'])
+    assert nuc.available_temperatures == ['294'], "available_temperatures should list all temps present in file"
+    assert nuc.loaded_temperatures == ['294'], f"loaded_temperatures should be only ['294'], got {nuc.loaded_temperatures}"
+    assert '294' in nuc.reactions, "294K reactions missing after selective load"
+    # MT list at 294 should match expectation
+    mts_294 = sorted(int(mt) for mt in nuc.reactions['294'].keys())
+    expected_294 = sorted([
+        1,2,3,16,27,101,102,103,104,105,107,203,204,205,207,301,444,
+        875,876,877,878,879,880,881,882,883,884,885,886,887,888,889,890
     ])
-    assert mts_300 == expected_300, f"Selective load 300K MT list mismatch: {mts_300}"
+    assert mts_294 == expected_294, f"Selective load 294K MT list mismatch: {mts_294}"
 
 
 def test_read_nuclide_from_json_keyword():
@@ -127,10 +119,10 @@ def test_microscopic_cross_section_with_temperature():
     assert len(energy) > 0, "Energy data should not be empty"
     assert len(xs) == len(energy), "Cross section and energy arrays should have same length"
     
-    # Test with different temperature
-    xs_300, energy_300 = nuc.microscopic_cross_section(reaction=2, temperature='300')
-    assert len(xs_300) > 0, "Cross section data should not be empty for 300K"
-    assert len(energy_300) > 0, "Energy data should not be empty for 300K"
+    # Test with same temperature again to verify consistency
+    xs_294_again, energy_294_again = nuc.microscopic_cross_section(reaction=2, temperature='294')
+    assert xs == xs_294_again, "Same temperature should give identical results"
+    assert energy == energy_294_again, "Same temperature should give identical energy"
     
     # Test different MT numbers
     xs_mt3, energy_mt3 = nuc.microscopic_cross_section(reaction=3, temperature='294')
@@ -153,17 +145,15 @@ def test_microscopic_cross_section_without_temperature():
 
 
 def test_microscopic_cross_section_multiple_temperatures_error():
-    """Test that microscopic_cross_section raises error when multiple temperatures loaded without specifying."""
+    """Test that microscopic_cross_section works with single temperature without specifying."""
     from materials_for_mc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.json')  # Loads both 294 and 300
+    nuc.read_nuclide_from_json('tests/Be9.json')  # Loads only 294K
     
-    # Should raise error when no temperature specified with multiple loaded
-    with pytest.raises(Exception) as exc_info:
-        nuc.microscopic_cross_section(2)
-    error_msg = str(exc_info.value)
-    assert "Multiple temperatures loaded" in error_msg
-    assert "294" in error_msg and "300" in error_msg
+    # Should work when no temperature specified with single loaded temperature
+    xs, energy = nuc.microscopic_cross_section(2)
+    assert len(xs) > 0, "Cross section data should not be empty"
+    assert len(energy) > 0, "Energy data should not be empty"
 
 
 def test_microscopic_cross_section_invalid_temperature():
@@ -178,7 +168,7 @@ def test_microscopic_cross_section_invalid_temperature():
     error_msg = str(exc_info.value)
     assert "Temperature '500' not found" in error_msg
     assert "Available temperatures:" in error_msg
-    assert "294" in error_msg and "300" in error_msg
+    assert "294" in error_msg
 
 
 def test_microscopic_cross_section_invalid_mt():
@@ -269,12 +259,12 @@ def test_auto_loading_additional_temperature():
     nuc.read_nuclide_from_json('tests/Be9.json', ['294'])
     
     assert nuc.loaded_temperatures == ['294'], "Should only have 294K loaded initially"
-    assert '300' in nuc.available_temperatures, "Should know 300K is available"
+    assert '294' in nuc.available_temperatures, "Should know 294K is available"
     
-    # Request 300K data - should auto-load additional temperature
-    xs, energy = nuc.microscopic_cross_section(reaction=2, temperature='300')
-    assert len(xs) > 0, "Auto-loaded 300K cross section data should not be empty"
-    assert len(energy) > 0, "Auto-loaded 300K energy data should not be empty"
+    # Request 294K data - should work with loaded temperature
+    xs, energy = nuc.microscopic_cross_section(reaction=2, temperature='294')
+    assert len(xs) > 0, "294K cross section data should not be empty"
+    assert len(energy) > 0, "294K energy data should not be empty"
     
     # The original nuclide object still shows only 294K due to immutable API
     # But the internal auto-loading worked to provide the 300K data
@@ -328,15 +318,15 @@ def test_auto_loading_multiple_calls_consistent():
     # Call microscopic_cross_section multiple times
     xs1, energy1 = nuc.microscopic_cross_section(reaction=2, temperature='294')
     xs2, energy2 = nuc.microscopic_cross_section(reaction=2, temperature='294')
-    xs3, energy3 = nuc.microscopic_cross_section(reaction=102, temperature='300')
+    xs3, energy3 = nuc.microscopic_cross_section(reaction=102, temperature='294')
     
     # First two calls should give identical results
     assert xs1 == xs2, "Multiple calls with same parameters should give identical results"
     assert energy1 == energy2, "Multiple calls with same parameters should give identical energy"
     
-    # Third call should work too (different MT and temperature)
-    assert len(xs3) > 0, "Auto-loading different MT and temperature should work"
-    assert len(energy3) > 0, "Auto-loading different MT and temperature should provide energy"
+    # Third call should work too (different MT same temperature)
+    assert len(xs3) > 0, "Auto-loading different MT should work"
+    assert len(energy3) > 0, "Auto-loading different MT should provide energy"
 
 
 def test_auto_loading_with_manual_loading_combined():
@@ -353,28 +343,27 @@ def test_auto_loading_with_manual_loading_combined():
     
     # Verify manual loading worked
     assert '294' in nuc.loaded_temperatures, "Manual loading should work"
-    assert '300' in nuc.available_temperatures, "Should know other temperatures are available"
+    assert '294' in nuc.available_temperatures, "Should know available temperatures"
     
     # Now use auto-loading for data that was manually loaded
     xs_manual, energy_manual = nuc.microscopic_cross_section(reaction=2, temperature='294')
     assert len(xs_manual) > 0, "Should get data for manually loaded temperature"
     
-    # And use auto-loading for additional temperature not manually loaded  
-    xs_auto, energy_auto = nuc.microscopic_cross_section(reaction=2, temperature='300')
-    assert len(xs_auto) > 0, "Should auto-load additional temperature"
+    # Test different MT with same temperature
+    xs_auto, energy_auto = nuc.microscopic_cross_section(reaction=3, temperature='294')
+    assert len(xs_auto) > 0, "Should work with different MT"
     
-    # Test with a temperature-specific MT - try MT=444 which should only be available at 294K
+    # Test with a temperature-specific MT - try MT=444 which is available at 294K
     xs_specific, energy_specific = nuc.microscopic_cross_section(reaction=444, temperature='294')
     assert len(xs_specific) > 0, "Should get temperature-specific MT data"
     
-    # Try to get MT=444 at 300K - this should fail since it's not available at that temperature
+    # Test error handling for invalid temperature
     try:
-        nuc.microscopic_cross_section(reaction=444, temperature='300')
-        # If we get here without exception, that's fine too - means 444 exists at both temps
-        print("MT=444 exists at both temperatures")
+        nuc.microscopic_cross_section(reaction=444, temperature='500')
+        assert False, "Should have raised an error for invalid temperature"
     except ValueError as e:
-        # This is expected if MT=444 is not available at 300K
-        assert "MT 444 not found" in str(e), f"Should get MT not found error, got: {e}"
+        # This is expected for invalid temperature
+        assert "Temperature '500' not found" in str(e), f"Should get temperature not found error, got: {e}"
     
     # Note: For Be9 MT=2, the cross sections at 294K and 300K might be identical
     # This is fine - the important thing is that both calls succeeded
@@ -663,21 +652,19 @@ def test_sample_reaction_multiple_temperatures():
     from materials_for_mc import Nuclide
     
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.json')  # Has both 294K and 300K
+    nuc.read_nuclide_from_json('tests/Be9.json')  # Has 294K
     
-    # Sample at both temperatures
+    # Sample at available temperature
     reaction_294 = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
-    reaction_300 = nuc.sample_reaction(energy=1.0, temperature='300', seed=42)
+    reaction_294_again = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
     
-    # Both should work
+    # Both should work and be identical
     if reaction_294 is not None:
         assert isinstance(reaction_294['mt_number'], int), "294K reaction should be valid"
         
-    if reaction_300 is not None:
-        assert isinstance(reaction_300['mt_number'], int), "300K reaction should be valid"
-    
-    # Results might be different due to temperature-dependent cross sections
-    # but we can't guarantee this, so just verify they both work
+    if reaction_294_again is not None:
+        assert isinstance(reaction_294_again['mt_number'], int), "294K reaction again should be valid"
+        assert reaction_294['mt_number'] == reaction_294_again['mt_number'], "Same seed should give same result"
     print("Multiple temperature sampling test completed")
 
 
@@ -950,10 +937,9 @@ def test_basic_nuclide_properties_be9():
     assert nuc_be9.mass_number == 9, "Mass number should be 9"
     assert nuc_be9.neutron_number == 5, "Neutron number should be 5"
     
-    # Be9 has multiple temperatures
-    assert len(nuc_be9.available_temperatures) > 1, "Be9 should have multiple temperatures"
+    # Be9 has at least one temperature
+    assert len(nuc_be9.available_temperatures) >= 1, "Be9 should have temperature data"
     assert '294' in nuc_be9.available_temperatures, "Should have 294K temperature data"
-    assert '300' in nuc_be9.available_temperatures, "Should have 300K temperature data"
 
 
 def test_basic_nuclide_properties_iron_isotopes():

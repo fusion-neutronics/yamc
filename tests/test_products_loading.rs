@@ -54,6 +54,10 @@ fn test_pb208_products_are_loaded() {
                     materials_for_mc::reaction_product::AngleEnergyDistribution::KalbachMann { energy, .. } => {
                         println!("  KalbachMann distribution has {} energy points", energy.len());
                     }
+                    materials_for_mc::reaction_product::AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, .. } => {
+                        println!("  CorrelatedAngleEnergy distribution has {} incoming energy points", energy.len());
+                        println!("  With {} energy_out grids", energy_out.len());
+                    }
                 }
             }
         }

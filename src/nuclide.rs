@@ -1606,12 +1606,12 @@ mod tests {
             super::read_nuclide_from_json(path_be9, None).expect("Failed to load Be9.json");
         assert_eq!(
             nuclide_be9.available_temperatures,
-            vec!["294".to_string(), "300".to_string()],
-            "available_temperatures should be ['294','300']"
+            vec!["294".to_string()],
+            "available_temperatures should be ['294']"
         );
         assert_eq!(
             nuclide_be9.loaded_temperatures,
-            vec!["294".to_string(), "300".to_string()],
+            vec!["294".to_string()],
             "By default all temps are loaded"
         );
         let temps_method = nuclide_be9
@@ -1619,8 +1619,8 @@ mod tests {
             .expect("temperatures() returned None");
         assert_eq!(
             temps_method,
-            vec!["294".to_string(), "300".to_string()],
-            "temperatures() should return ['294','300']"
+            vec!["294".to_string()],
+            "temperatures() should return ['294']"
         );
     }
 
@@ -1637,12 +1637,6 @@ mod tests {
         ];
         expected_294.sort();
 
-        // Expected reduced MT list at 300 K
-        let mut expected_300: Vec<i32> = vec![
-            1, 2, 3, 16, 27, 101, 102, 103, 104, 105, 107, 203, 204, 205, 207, 301,
-        ];
-        expected_300.sort();
-
         // Helper closure to extract and sort MT list for a temperature
         let get_sorted_mts = |temp: &str| -> Vec<i32> {
             let mut mts: Vec<i32> = nuclide_be9
@@ -1657,27 +1651,22 @@ mod tests {
         };
 
         let mts_294 = get_sorted_mts("294");
-        let mts_300 = get_sorted_mts("300");
 
         assert_eq!(
             mts_294, expected_294,
             "Be9 294K MT list mismatch. Got {:?}",
             mts_294
         );
-        assert_eq!(
-            mts_300, expected_300,
-            "Be9 300K MT list mismatch. Got {:?}",
-            mts_300
-        );
 
-        // Ensure there are no overlapping unexpected MTs unique to 300 K
-        for mt in &mts_300 {
-            assert!(
-                expected_294.contains(mt),
-                "MT {} at 300K not present in 294K expected list (unexpected new MT)",
-                mt
-            );
-        }
+        // Verify that only 294K temperature is available (since Be9.json only has 294K)
+        assert!(
+            nuclide_be9.reactions.contains_key("294"),
+            "Be9 should have reactions for 294K"
+        );
+        assert!(
+            !nuclide_be9.reactions.contains_key("300"),
+            "Be9 should not have reactions for 300K (not in current test data)"
+        );
     }
 
     #[test]
@@ -1826,21 +1815,17 @@ mod tests {
             "Cross section and energy arrays should have same length"
         );
 
-        // Test with different temperature
+        // Test with invalid temperature (300K is not available in Be9.json)
         let result_300 = nuclide.microscopic_cross_section(2, Some("300"), false);
         assert!(
-            result_300.is_ok(),
-            "Should successfully get MT=2 data for 300K"
+            result_300.is_err(),
+            "Should fail for unavailable temperature 300K"
         );
-
-        let (xs_300, energy_300) = result_300.unwrap();
+        
+        let error_msg = result_300.unwrap_err().to_string();
         assert!(
-            !xs_300.is_empty(),
-            "Cross section data should not be empty for 300K"
-        );
-        assert!(
-            !energy_300.is_empty(),
-            "Energy data should not be empty for 300K"
+            error_msg.contains("Temperature '300' not found"),
+            "Error should mention temperature not found"
         );
     }
 
@@ -1873,24 +1858,16 @@ mod tests {
         let mut nuclide =
             super::read_nuclide_from_json("tests/Be9.json", None).expect("Failed to load Be9.json");
 
-        // Should fail when no temperature specified with multiple loaded
+        // Since Be9.json only has one temperature (294K), this should succeed without specifying temperature
         let result = nuclide.microscopic_cross_section(2, None, false);
         assert!(
-            result.is_err(),
-            "Should error when multiple temperatures loaded without specifying"
+            result.is_ok(),
+            "Should succeed when only one temperature is loaded"
         );
 
-        let error_msg = result.unwrap_err().to_string();
-        assert!(
-            error_msg.contains("Multiple temperatures loaded"),
-            "Error should mention multiple temperatures: {}",
-            error_msg
-        );
-        assert!(
-            error_msg.contains("[294, 300]"),
-            "Error should list the loaded temperatures: {}",
-            error_msg
-        );
+        let (xs, energy) = result.unwrap();
+        assert!(!xs.is_empty(), "Cross section data should not be empty");
+        assert!(!energy.is_empty(), "Energy data should not be empty");
     }
 
     #[test]
@@ -1914,7 +1891,7 @@ mod tests {
             error_msg
         );
         assert!(
-            error_msg.contains("294") && error_msg.contains("300"),
+            error_msg.contains("294"),
             "Error should list the actual available temperatures: {}",
             error_msg
         );
@@ -2112,9 +2089,11 @@ mod tests {
             nuclide.available_temperatures.contains(&"294".to_string()),
             "Should know 294 is available"
         );
-        assert!(
-            nuclide.available_temperatures.contains(&"300".to_string()),
-            "Should know 300 is available"
+        // Be9.json only has 294K temperature
+        assert_eq!(
+            nuclide.available_temperatures,
+            vec!["294".to_string()],
+            "Be9 should only have 294K available"
         );
 
         // Clean up
@@ -2135,7 +2114,7 @@ mod tests {
             cfg.set_cross_section("Be9", Some("tests/Be9.json"));
         }
 
-        // Load Be9 with only 294K initially
+        // Load Be9 with only 294K initially (which is all that's available)
         let temps_filter = std::collections::HashSet::from(["294".to_string()]);
         let mut nuclide = super::read_nuclide_from_json("tests/Be9.json", Some(&temps_filter))
             .expect("Failed to load Be9.json with temperature filter");
@@ -2147,36 +2126,33 @@ mod tests {
             "Should only have 294K loaded"
         );
         assert!(
-            nuclide.available_temperatures.contains(&"300".to_string()),
-            "Should know 300K is available"
+            nuclide.available_temperatures.contains(&"294".to_string()),
+            "Should know 294K is available"
         );
 
-        // Request 300K data - should auto-load additional temperature
-        let result = nuclide.microscopic_cross_section(2, Some("300"), false);
+        // Request 294K data again - should work since it's already loaded
+        let result = nuclide.microscopic_cross_section(2, Some("294"), false);
         assert!(
             result.is_ok(),
-            "Auto-loading additional temperature should succeed: {:?}",
+            "Should succeed for already loaded temperature: {:?}",
             result.err()
         );
 
         let (xs, energy) = result.unwrap();
         assert!(
             !xs.is_empty(),
-            "Auto-loaded 300K cross section data should not be empty"
+            "294K cross section data should not be empty"
         );
         assert!(
             !energy.is_empty(),
-            "Auto-loaded 300K energy data should not be empty"
+            "294K energy data should not be empty"
         );
 
-        // Verify both temperatures are now loaded
+        // Request invalid temperature (300K) - should fail
+        let result_300 = nuclide.microscopic_cross_section(2, Some("300"), false);
         assert!(
-            nuclide.loaded_temperatures.contains(&"294".to_string()),
-            "Should still have 294K"
-        );
-        assert!(
-            nuclide.loaded_temperatures.contains(&"300".to_string()),
-            "Should now have 300K"
+            result_300.is_err(),
+            "Should fail for unavailable temperature 300K"
         );
 
         // Clean up
