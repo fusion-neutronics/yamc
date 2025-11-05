@@ -15,6 +15,7 @@ use crate::python::reaction_product_python::PyReactionProduct;
 ///     threshold_idx (int): Index into parent energy grid where reaction becomes active.
 ///     interpolation (List[int]): Interpolation flags.
 ///     mt_number (int): ENDF/MT reaction identifier.
+///     q_value (float): Q-value of the reaction in eV (energy released/absorbed).
 ///     energy_grid (List[float]): Reaction-specific energy grid in eV.
 #[derive(Clone, Debug)]
 pub struct PyReaction {
@@ -29,6 +30,8 @@ pub struct PyReaction {
     #[pyo3(get)]
     pub mt_number: i32,
     #[pyo3(get)]
+    pub q_value: f64,
+    #[pyo3(get)]
     pub energy_grid: Vec<f64>,
 }
 
@@ -42,6 +45,7 @@ impl PyReaction {
         threshold_idx: usize,
         interpolation: Vec<i32>,
         mt_number: i32,
+        q_value: f64,
         energy_grid: Vec<f64>,
     ) -> Self {
         PyReaction {
@@ -50,6 +54,7 @@ impl PyReaction {
             threshold_idx,
             interpolation,
             mt_number,
+            q_value,
             energy_grid,
         }
     }
@@ -65,6 +70,7 @@ impl PyReaction {
             threshold_idx: reaction.threshold_idx,
             interpolation: reaction.interpolation.clone(),
             mt_number: reaction.mt_number,
+            q_value: reaction.q_value,
             energy_grid: reaction.energy.clone(),
         })
     }

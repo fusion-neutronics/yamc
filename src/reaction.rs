@@ -21,6 +21,9 @@ pub struct Reaction {
     pub energy: Vec<f64>, // Reaction-specific energy grid
     /// ENDF/MT reaction identifier.
     pub mt_number: i32, // The MT number for this reaction
+    /// Q-value of the reaction in eV (energy released/absorbed in the reaction)
+    #[serde(default)]
+    pub q_value: f64,
     /// Products emitted by this reaction (e.g., neutrons, photons, fragments)
     #[serde(default)]
     pub products: Vec<ReactionProduct>,
@@ -64,6 +67,7 @@ mod tests {
             interpolation: vec![],
             energy: vec![0.5, 1.0, 2.0, 5.0],
             mt_number: 102,
+            q_value: 0.0,
             products: vec![],
         };
 
