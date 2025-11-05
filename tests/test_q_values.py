@@ -79,7 +79,7 @@ def test_q_values():
     print(f"   - Number of products: {len(mt2_reaction.products)}")
     
     print("\nQ-value functionality test completed successfully!")
-    return True
+    # Test passed if we reach this point
 
 if __name__ == "__main__":
     test_q_values()

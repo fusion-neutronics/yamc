@@ -28,7 +28,7 @@ impl WasmReaction {
                 energy: Vec::new(),
                 mt_number: 0, // Default MT number
                 products: Vec::new(), // Fix: add missing field
-                q_value: f64,
+                q_value: 0.0, // Default Q-value
             },
         }
     }
