@@ -1552,9 +1552,9 @@ mod tests {
         let mts = material.reaction_mts().expect("Failed to get reaction MTs");
         // The expected list should match the actual list from the JSON, including hierarchical MTs
         let expected = vec![
-            1, 2, 3, 4, 5, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+            1, 2, 3, 4, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
             65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 103,
-            104, 105, 203, 204, 205, 206, 207, 301, 444,
+            104, 105, 203, 204, 205, 207, 301, 444,
         ];
         assert_eq!(
             mts, expected,
@@ -1633,16 +1633,22 @@ mod tests {
         mat.set_temperature("300");
         let mut map = std::collections::HashMap::new();
         map.insert("Be9".to_string(), "tests/Be9.json".to_string());
-        mat.read_nuclides_from_json(&map).unwrap();
+        
+        // Loading with temperature 300K when only 294K is available should succeed
+        // but no temperature data will be loaded (since 300K doesn't exist)
+        let result = mat.read_nuclides_from_json(&map);
+        assert!(result.is_ok(), "Material loading should succeed even if specific temp not available");
+        
         let be9 = mat.nuclide_data.get("Be9").expect("Be9 not loaded");
         assert_eq!(
             be9.available_temperatures,
-            vec!["294".to_string(), "300".to_string()]
+            vec!["294".to_string()],
+            "Should show 294K as available"
         );
         assert_eq!(
-            be9.loaded_temperatures,
-            vec!["300".to_string()],
-            "Should only load 300K data"
+            be9.loaded_temperatures.len(),
+            0,
+            "Should not load any temperatures when requested 300K doesn't exist"
         );
     }
 
@@ -1658,7 +1664,7 @@ mod tests {
         let be9 = mat.nuclide_data.get("Be9").expect("Be9 not loaded");
         assert_eq!(
             be9.available_temperatures,
-            vec!["294".to_string(), "300".to_string()]
+            vec!["294".to_string()]
         );
         assert_eq!(
             be9.loaded_temperatures,

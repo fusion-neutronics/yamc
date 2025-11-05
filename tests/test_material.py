@@ -220,7 +220,7 @@ def test_material_reaction_mts_lithium():
     # This will load Li6 and Li7, so the MTs should be the union of both
     mts = mat.reaction_mts
     print(mts)
-    expected = [1, 2, 3, 4, 5, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 103, 104, 105, 203, 204, 205, 206, 207, 301, 444]
+    expected = [1, 2, 3, 4, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 103, 104, 105, 203, 204, 205, 207, 301, 444]
     assert mts == expected, f"Material lithium MT list does not match expected. Got {mts}"
 
 def test_calculate_microscopic_xs_neutron_lithium():

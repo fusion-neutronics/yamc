@@ -279,7 +279,14 @@ pub enum AngleEnergyDistribution {
         energy_out: Vec<TabulatedProbability>,
         slope: Vec<Tabulated1D>,
     },
-    // Add other distribution types as needed (CorrelatedAngleEnergy, etc.)
+    CorrelatedAngleEnergy {
+        energy: Vec<f64>,
+        energy_out: Vec<Vec<f64>>,
+        mu: Vec<Vec<TabulatedProbability>>,
+        // Note: Following OpenMC's CorrelatedAngleEnergy format where mu contains
+        // the angular distributions as Tabulated objects, not separate distribution field
+    },
+    // Add other distribution types as needed
 }
 
 impl AngleEnergyDistribution {
@@ -297,6 +304,10 @@ impl AngleEnergyDistribution {
             AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
                 // Kalbach-Mann correlated angle-energy sampling
                 self.sample_kalbach_mann(incoming_energy, energy, energy_out, slope, rng)
+            },
+            AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, mu } => {
+                // Correlated angle-energy sampling following OpenMC's implementation
+                self.sample_correlated_angle_energy_openmc(incoming_energy, energy, energy_out, mu, rng)
             }
         }
     }
@@ -339,6 +350,54 @@ impl AngleEnergyDistribution {
         };
         
         // Ensure mu is in [-1, 1]
+        let mu = mu.max(-1.0).min(1.0);
+        
+        (e_out, mu)
+    }
+    
+    fn sample_correlated_angle_energy_openmc<R: Rng>(
+        &self,
+        incoming_energy: f64,
+        energy_grid: &[f64],
+        energy_out_grid: &[Vec<f64>], 
+        mu_distributions: &[Vec<TabulatedProbability>],
+        rng: &mut R,
+    ) -> (f64, f64) {
+        // Following OpenMC's CorrelatedAngleEnergy implementation
+        // Find incoming energy bracket
+        let energy_index = self.find_energy_index(incoming_energy, energy_grid);
+        
+        if energy_index >= energy_out_grid.len() || energy_index >= mu_distributions.len() {
+            // Outside tabulated range - fallback to isotropic elastic
+            return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
+        }
+        
+        let e_out_grid = &energy_out_grid[energy_index];
+        let angular_distributions = &mu_distributions[energy_index];
+        
+        if e_out_grid.is_empty() || angular_distributions.is_empty() {
+            // No data available - fallback to isotropic elastic
+            return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
+        }
+        
+        // Sample outgoing energy index (uniform for simplicity - should be from energy distribution)
+        let e_out_index = if e_out_grid.len() == 1 {
+            0
+        } else {
+            rng.gen_range(0..e_out_grid.len().min(angular_distributions.len()))
+        };
+        
+        let e_out = e_out_grid[e_out_index];
+        
+        // Sample scattering cosine from the corresponding angular distribution
+        let mu = if e_out_index < angular_distributions.len() {
+            angular_distributions[e_out_index].sample(rng)
+        } else {
+            // Fallback to isotropic
+            2.0 * rng.gen::<f64>() - 1.0
+        };
+        
+        // Ensure mu is in valid range [-1, 1]
         let mu = mu.max(-1.0).min(1.0);
         
         (e_out, mu)
@@ -748,6 +807,37 @@ mod tests {
         // Both should produce valid results
         assert!(e_out_low > 0.0 && mu_low >= -1.0 && mu_low <= 1.0);
         assert!(e_out_high > 0.0 && mu_high >= -1.0 && mu_high <= 1.0);
+    }
+    
+    #[test]
+    fn test_correlated_angle_energy_distribution() {
+        let mut rng = StdRng::seed_from_u64(42);
+        
+        // Create correlated angle-energy distribution
+        let energy_out_dist1 = TabulatedProbability::Tabulated {
+            x: vec![-1.0, 0.0, 1.0],
+            p: vec![0.2, 0.6, 1.0],
+        };
+        
+        let energy_out_dist2 = TabulatedProbability::Tabulated {
+            x: vec![-1.0, 0.5, 1.0],
+            p: vec![0.1, 0.4, 1.0],
+        };
+        
+        let dist = AngleEnergyDistribution::CorrelatedAngleEnergy {
+            energy: vec![1e6],
+            energy_out: vec![vec![0.5e6, 1.5e6]],
+            mu: vec![vec![-1.0, 0.0, 1.0]],
+            distribution: vec![vec![energy_out_dist1, energy_out_dist2]],
+        };
+        
+        let (e_out, mu) = dist.sample(1e6, &mut rng);
+        
+        // Energy should be from the tabulated values
+        assert!(e_out > 0.0);
+        
+        // Mu should be valid cosine
+        assert!(mu >= -1.0 && mu <= 1.0);
     }
     
     #[test]

@@ -105,6 +105,7 @@ impl PyReactionProduct {
             match dist {
                 crate::reaction_product::AngleEnergyDistribution::UncorrelatedAngleEnergy { .. } => "UncorrelatedAngleEnergy".to_string(),
                 crate::reaction_product::AngleEnergyDistribution::KalbachMann { .. } => "KalbachMann".to_string(),
+                crate::reaction_product::AngleEnergyDistribution::CorrelatedAngleEnergy { .. } => "CorrelatedAngleEnergy".to_string(),
             }
         }).collect()
     }
