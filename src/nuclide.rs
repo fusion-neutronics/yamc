@@ -896,6 +896,7 @@ fn parse_nuclide_from_json_value(
                             interpolation: Vec::new(),
                             energy: Vec::new(),
                             mt_number: 0,
+                            q_value: 0.0,
                             products: Vec::new(),
                         };
 
@@ -933,6 +934,11 @@ fn parse_nuclide_from_json_value(
                                 reaction.energy =
                                     energy_arr.iter().filter_map(|v| v.as_f64()).collect();
                             }
+                        }
+
+                        // Get q_value
+                        if let Some(q_val) = reaction_obj.get("q_value").and_then(|v| v.as_f64()) {
+                            reaction.q_value = q_val;
                         }
 
                         // Calculate energy grid from threshold_idx and main energy grid if not already set
