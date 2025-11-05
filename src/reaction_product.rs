@@ -824,11 +824,16 @@ mod tests {
             p: vec![0.1, 0.4, 1.0],
         };
         
+        // Create angular distribution as TabulatedProbability
+        let mu_dist = TabulatedProbability::Tabulated {
+            x: vec![-1.0, 0.0, 1.0],
+            p: vec![0.3, 0.6, 1.0],  // Must be cumulative
+        };
+        
         let dist = AngleEnergyDistribution::CorrelatedAngleEnergy {
             energy: vec![1e6],
             energy_out: vec![vec![0.5e6, 1.5e6]],
-            mu: vec![vec![-1.0, 0.0, 1.0]],
-            distribution: vec![vec![energy_out_dist1, energy_out_dist2]],
+            mu: vec![vec![mu_dist]],
         };
         
         let (e_out, mu) = dist.sample(1e6, &mut rng);
