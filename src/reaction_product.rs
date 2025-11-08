@@ -223,7 +223,7 @@ pub enum EnergyDistribution {
     },
     #[serde(rename = "ContinuousTabular")]
     ContinuousTabular {
-        // OpenMC's continuous tabular energy distribution
+        // continuous tabular energy distribution
         energy: Vec<f64>,
         energy_out: Vec<TabulatedProbability>,
     },
