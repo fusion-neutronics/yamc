@@ -1,5 +1,5 @@
-import materials_for_mc as mc
 import time
+import materials_for_mc as mc
     
 # Create two-cell geometry: inner sphere (Li6) and outer annular region (Be9)
 sphere1 = mc.Sphere(
@@ -46,14 +46,23 @@ cell2 = mc.Cell(
 )
 geometry = mc.Geometry([cell1, cell2])
 
-source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Isotropic(), energy=1e6)
-settings = mc.Settings(particles=500, batches=200, source=source, seed=1)  # Increased for better statistics
+source = mc.IndependentSource(
+    space=[0.0, 0.0, 0.0],
+    angle=mc.stats.Isotropic(),
+    energy=1e6
+)
+settings = mc.Settings(
+    particles=500,
+    batches=200,
+    source=source,
+    seed=1
+)
 
 # Create tallies with CellFilters
 cell_filter2 = mc.CellFilter(cell2)
 tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
-tally1.scores = [105]  # n,t
+tally1.scores = [205]  # n,t
 tally1.name = "tbr"
 tallies = [tally1]
 
