@@ -2,6 +2,7 @@ pub mod bounding_box;
 pub mod cell;
 pub mod filters;
 pub mod geometry;
+pub mod inelastic;
 pub mod model;
 pub mod particle;
 pub mod physics;

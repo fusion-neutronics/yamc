@@ -1,6 +1,8 @@
 use crate::data::ATOMIC_WEIGHT_RATIO;
+use crate::inelastic::inelastic_scatter;
 use crate::particle::Particle;
 use crate::physics::elastic_scatter;
+use crate::reaction::Reaction;
 use crate::surface::BoundaryType;
 use crate::tally::{create_tallies_from_specs, Tally};
 use rand::rngs::StdRng;
@@ -112,6 +114,12 @@ impl Model {
                                                 &mut rng,
                                             );
                                             reaction = constituent_reaction;
+                                            
+                                            // Handle inelastic scattering - update particle energy and direction
+                                            let awr = *ATOMIC_WEIGHT_RATIO
+                                                .get(nuclide_name.as_str())
+                                                .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                            inelastic_scatter(&mut particle, &reaction, awr, &mut rng);
                                         }
                                         _ => {
                                             panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
