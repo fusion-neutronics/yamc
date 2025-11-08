@@ -1,5 +1,7 @@
 import materials_for_mc as mc
-import time
+import openmc as mc
+mc.config['cross_sections'] = "/home/jon/nuclear_data/cross_sections.xml"
+# material1.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
     
 # Create two-cell geometry: inner sphere (Li6) and outer annular region (Be9)
 sphere1 = mc.Sphere(
@@ -29,7 +31,7 @@ material1.add_nuclide("Li7", 0.93)
 # material1.add_element("O", 4.0)
 # material1.add_element("Si", 1.0)
 material1.set_density("g/cm3", 2.0)
-material1.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
+# material1.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
 
 
 # Create cells
@@ -46,21 +48,19 @@ cell2 = mc.Cell(
 )
 geometry = mc.Geometry([cell1, cell2])
 
-source = mc.IndependentSource(space=[0.0, 0.0, 0.0], angle=mc.stats.Isotropic(), energy=1e6)
-settings = mc.Settings(particles=500, batches=200, source=source, seed=1)  # Increased for better statistics
+source = mc.IndependentSource(space=mc.stats.Point([0,0,0]), angle=mc.stats.Isotropic(), energy=mc.stats.Discrete([14060000.0], [1.0]))
+settings = mc.Settings(particles=500, batches=200, source=source, seed=1, run_mode='fixed source')  # Increased for better statistics
 
 # Create tallies with CellFilters
 cell_filter2 = mc.CellFilter(cell2)
 tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
-tally1.scores = [105]  # n,t
+tally1.scores = [205]  # n,t
 tally1.name = "tbr"
 tallies = [tally1]
 
 model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
+model.run(apply_tally_results=True)
 
-time.start = time.time()
-model.run()
-print(f"Simulation completed in {time.time() - time.start} seconds.")
 # Tallies are updated in place!
 print(f"TBR (tritium breeding ratio): {tally1.mean}")
