@@ -962,8 +962,8 @@ fn parse_nuclide_from_json_value(
                                             reaction.products.push(product);
                                         }
                                         Err(e) => {
-                                            // Log parsing failure and skip this product
-                                            eprintln!("Warning: Failed to parse product for MT {}: {}. Skipping this product.", mt, e);
+                                            // Panic on parsing failure - products are critical for physics accuracy
+                                            panic!("Failed to parse product for MT {}: {}. This indicates incompatible nuclear data format.", mt, e);
                                         }
                                     }
                                 }
