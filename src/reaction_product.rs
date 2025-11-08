@@ -306,10 +306,14 @@ pub enum AngleEnergyDistribution {
     },
     CorrelatedAngleEnergy {
         energy: Vec<f64>,
-        energy_out: Vec<Vec<f64>>,
+        energy_out: Vec<TabulatedProbability>,
         mu: Vec<Vec<TabulatedProbability>>,
-        // Note: Following OpenMC's CorrelatedAngleEnergy format where mu contains
-        // the angular distributions as Tabulated objects, not separate distribution field
+        #[serde(default)]
+        breakpoints: Option<Vec<i32>>,
+        #[serde(default)]
+        interpolation: Option<Vec<i32>>,
+        // Note: Following OpenMC's CorrelatedAngleEnergy format where energy_out contains
+        // tabulated probability distributions for outgoing energies
     },
     // Add other distribution types as needed
 }
@@ -330,7 +334,7 @@ impl AngleEnergyDistribution {
                 // Kalbach-Mann correlated angle-energy sampling
                 self.sample_kalbach_mann(incoming_energy, energy, energy_out, slope, rng)
             },
-            AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, mu } => {
+            AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, mu, .. } => {
                 // Correlated angle-energy sampling following OpenMC's implementation
                 self.sample_correlated_angle_energy_openmc(incoming_energy, energy, energy_out, mu, rng)
             }
@@ -384,7 +388,7 @@ impl AngleEnergyDistribution {
         &self,
         incoming_energy: f64,
         energy_grid: &[f64],
-        energy_out_grid: &[Vec<f64>], 
+        energy_out_distributions: &[TabulatedProbability], 
         mu_distributions: &[Vec<TabulatedProbability>],
         rng: &mut R,
     ) -> (f64, f64) {
@@ -392,35 +396,26 @@ impl AngleEnergyDistribution {
         // Find incoming energy bracket
         let energy_index = self.find_energy_index(incoming_energy, energy_grid);
         
-        if energy_index >= energy_out_grid.len() || energy_index >= mu_distributions.len() {
+        if energy_index >= energy_out_distributions.len() || energy_index >= mu_distributions.len() {
             // Outside tabulated range - fallback to isotropic elastic
             return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
         }
         
-        let e_out_grid = &energy_out_grid[energy_index];
+        // Sample outgoing energy from the tabulated distribution
+        let e_out = energy_out_distributions[energy_index].sample(rng);
+        
         let angular_distributions = &mu_distributions[energy_index];
         
-        if e_out_grid.is_empty() || angular_distributions.is_empty() {
-            // No data available - fallback to isotropic elastic
-            return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
+        if angular_distributions.is_empty() {
+            // No angular data available - fallback to isotropic
+            return (e_out, 2.0 * rng.gen::<f64>() - 1.0);
         }
         
-        // Sample outgoing energy index (uniform for simplicity - should be from energy distribution)
-        let e_out_index = if e_out_grid.len() == 1 {
-            0
-        } else {
-            rng.gen_range(0..e_out_grid.len().min(angular_distributions.len()))
-        };
+        // For simplicity, use the first angular distribution
+        // A more complete implementation would interpolate based on outgoing energy
+        let angular_dist_index = 0.min(angular_distributions.len() - 1);
         
-        let e_out = e_out_grid[e_out_index];
-        
-        // Sample scattering cosine from the corresponding angular distribution
-        let mu = if e_out_index < angular_distributions.len() {
-            angular_distributions[e_out_index].sample(rng)
-        } else {
-            // Fallback to isotropic
-            2.0 * rng.gen::<f64>() - 1.0
-        };
+        let mu = angular_distributions[angular_dist_index].sample(rng);
         
         // Ensure mu is in valid range [-1, 1]
         let mu = mu.max(-1.0).min(1.0);
@@ -445,6 +440,87 @@ impl AngleEnergyDistribution {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum Yield {
+    #[serde(rename = "Polynomial")]
+    Polynomial { coefficients: Vec<f64> },
+    #[serde(rename = "Tabulated")]
+    Tabulated { x: Vec<f64>, y: Vec<f64> },
+    #[serde(rename = "Tabulated1D")]
+    Tabulated1D { 
+        x: Vec<f64>, 
+        y: Vec<f64>,
+        breakpoints: Option<Vec<usize>>,
+        interpolation: Option<Vec<u32>>,
+    },
+    // Add other yield types as needed
+}
+
+impl Yield {
+    /// Evaluate yield at given energy
+    pub fn evaluate(&self, energy: f64) -> f64 {
+        match self {
+            Yield::Polynomial { coefficients } => {
+                if coefficients.is_empty() {
+                    return 1.0; // Default yield
+                }
+                
+                // Evaluate polynomial: sum(coeff[i] * energy^i)
+                coefficients.iter().enumerate()
+                    .fold(0.0, |acc, (i, &coeff)| acc + coeff * energy.powi(i as i32))
+            },
+            Yield::Tabulated { x, y } => {
+                if x.is_empty() || y.is_empty() {
+                    return 1.0;
+                }
+                
+                // Find bracket and interpolate
+                if energy <= x[0] {
+                    return y[0];
+                }
+                if energy >= x[x.len() - 1] {
+                    return y[y.len() - 1];
+                }
+                
+                // Linear interpolation
+                for i in 0..x.len() - 1 {
+                    if energy >= x[i] && energy <= x[i + 1] {
+                        let f = (energy - x[i]) / (x[i + 1] - x[i]);
+                        return y[i] + f * (y[i + 1] - y[i]);
+                    }
+                }
+                
+                1.0 // Fallback
+            },
+            Yield::Tabulated1D { x, y, .. } => {
+                // Tabulated1D uses the same logic as Tabulated for basic evaluation
+                if x.is_empty() || y.is_empty() {
+                    return 1.0;
+                }
+                
+                // Find bracket and interpolate
+                if energy <= x[0] {
+                    return y[0];
+                }
+                if energy >= x[x.len() - 1] {
+                    return y[y.len() - 1];
+                }
+                
+                // Linear interpolation
+                for i in 0..x.len() - 1 {
+                    if energy >= x[i] && energy <= x[i + 1] {
+                        let f = (energy - x[i]) / (x[i + 1] - x[i]);
+                        return y[i] + f * (y[i + 1] - y[i]);
+                    }
+                }
+                
+                1.0 // Fallback
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReactionProduct {
     /// Type of particle (e.g., neutron, photon)
     pub particle: ParticleType,
@@ -456,6 +532,9 @@ pub struct ReactionProduct {
     pub applicability: Vec<Tabulated1D>,
     /// Distributions of energy and angle of product
     pub distribution: Vec<AngleEnergyDistribution>,
+    /// Yield of this product (optional)
+    #[serde(rename = "yield", default)]
+    pub product_yield: Option<Yield>,
 }
 
 impl ReactionProduct {
@@ -750,6 +829,7 @@ mod tests {
             decay_rate: 0.0,
             applicability: vec![],
             distribution: vec![angle_energy_dist],
+            product_yield: None,
         };
         
         let incoming_energy = 14e6;
@@ -823,6 +903,7 @@ mod tests {
             decay_rate: 0.0,
             applicability: vec![applicability1, applicability2],
             distribution: vec![dist1, dist2],
+            product_yield: None,
         };
         
         // Sample at different energies
@@ -855,10 +936,17 @@ mod tests {
             p: vec![0.3, 0.6, 1.0],  // Must be cumulative
         };
         
+        let energy_out_dist = TabulatedProbability::Tabulated {
+            x: vec![0.5e6, 1.5e6],
+            p: vec![0.5, 0.5],  // Equal probability for each energy
+        };
+        
         let dist = AngleEnergyDistribution::CorrelatedAngleEnergy {
             energy: vec![1e6],
-            energy_out: vec![vec![0.5e6, 1.5e6]],
+            energy_out: vec![energy_out_dist],
             mu: vec![vec![mu_dist]],
+            breakpoints: None,
+            interpolation: None,
         };
         
         let (e_out, mu) = dist.sample(1e6, &mut rng);
@@ -881,6 +969,7 @@ mod tests {
             decay_rate: 0.0,
             applicability: vec![],
             distribution: vec![],
+            product_yield: None,
         };
         
         let (e_out, mu) = product.sample(14e6, &mut rng);

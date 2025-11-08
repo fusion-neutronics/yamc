@@ -962,8 +962,7 @@ fn parse_nuclide_from_json_value(
                                             reaction.products.push(product);
                                         }
                                         Err(e) => {
-                                            // Panic on parsing failure - products are critical for physics accuracy
-                                            panic!("Failed to parse product for MT {}: {}. This indicates incompatible nuclear data format.", mt, e);
+                                            panic!("Failed to parse product for MT {}: {}", mt, e);
                                         }
                                     }
                                 }
