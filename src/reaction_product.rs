@@ -209,6 +209,8 @@ impl AngleDistribution {
     }
 }
 
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum EnergyDistribution {
@@ -218,6 +220,12 @@ pub enum EnergyDistribution {
     Tabulated {
         energy: Vec<f64>,
         energy_out: Vec<Vec<f64>>,
+    },
+    #[serde(rename = "ContinuousTabular")]
+    ContinuousTabular {
+        // OpenMC's continuous tabular energy distribution
+        energy: Vec<f64>,
+        energy_out: Vec<TabulatedProbability>,
     },
     // Add other energy distribution types as needed
 }
@@ -250,6 +258,21 @@ impl EnergyDistribution {
                 } else {
                     incoming_energy
                 }
+            },
+            EnergyDistribution::ContinuousTabular { energy, energy_out } => {
+                if energy.is_empty() || energy_out.is_empty() {
+                    return incoming_energy;
+                }
+                
+                // Find energy bracket - follows OpenMC's approach
+                let i = self.find_energy_index(incoming_energy, energy);
+                
+                if i >= energy_out.len() {
+                    return incoming_energy;
+                }
+                
+                // Sample from the tabulated probability distribution at energy index i
+                energy_out[i].sample(_rng)
             }
         }
     }
@@ -265,6 +288,8 @@ impl EnergyDistribution {
         energy_grid.binary_search_by(|&val| val.partial_cmp(&target_energy).unwrap())
             .unwrap_or_else(|i| i.saturating_sub(1))
     }
+    
+
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
