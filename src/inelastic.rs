@@ -1,10 +1,11 @@
 use crate::particle::Particle;
 use crate::reaction::Reaction;
+use crate::reaction_product::ParticleType;
 use rand::Rng;
 
 /// Handle inelastic scattering following OpenMC's approach
 /// Updates particle energy and direction based on reaction products or analytical models
-pub fn inelastic_scatter<R: rand::Rng + ?Sized>(
+pub fn inelastic_scatter<R: rand::Rng>(
     particle: &mut Particle,
     reaction: &Reaction,
     awr: f64, // atomic weight ratio
@@ -12,19 +13,53 @@ pub fn inelastic_scatter<R: rand::Rng + ?Sized>(
 ) {
     // Check if reaction has product data
     if !reaction.products.is_empty() {
-        // TODO: Sample from product distributions when available
-        // For now, fall back to analytical approach
-        analytical_inelastic_scatter(particle, reaction, awr, rng);
+        // Sample from product distributions when available
+        sample_from_products(particle, reaction, rng);
     } else {
         // No product data available - use analytical approach based on Q-value and MT
         analytical_inelastic_scatter(particle, reaction, awr, rng);
     }
 }
 
+/// Sample outgoing particle from reaction product distributions
+/// This handles the case where explicit product data is available
+fn sample_from_products<R: rand::Rng>(
+    particle: &mut Particle,
+    reaction: &Reaction,
+    rng: &mut R,
+) {
+    let incoming_energy = particle.energy;
+    
+    // Find neutron products (since we're tracking neutrons)
+    let neutron_products: Vec<&crate::reaction_product::ReactionProduct> = reaction
+        .products
+        .iter()
+        .filter(|product| product.is_particle_type(&ParticleType::Neutron))
+        .collect();
+    
+    if neutron_products.is_empty() {
+        // No neutron products - particle is absorbed
+        particle.alive = false;
+        return;
+    }
+    
+    // For inelastic scattering, we typically expect one neutron product
+    // If multiple neutron products, sample from the first one (most common case)
+    // More sophisticated sampling could handle multiple products
+    let neutron_product = neutron_products[0];
+    
+    // Sample outgoing energy and scattering cosine from product distribution
+    let (e_out, mu) = neutron_product.sample(incoming_energy, rng);
+    
+    // Update particle energy and direction
+    particle.energy = e_out;
+    rotate_direction(&mut particle.direction, mu, rng);
+}
+
 /// Analytical inelastic scattering based on Q-values and reaction kinematics
 /// Follows OpenMC's LevelInelastic approach for MT 51-90 and general inelastic for others
 /// This handles reactions without product data using analytical energy-angle relationships
-fn analytical_inelastic_scatter<R: rand::Rng + ?Sized>(
+fn analytical_inelastic_scatter<R: rand::Rng>(
     particle: &mut Particle,
     reaction: &Reaction,
     awr: f64,
@@ -84,7 +119,7 @@ fn analytical_inelastic_scatter<R: rand::Rng + ?Sized>(
 
 /// Rotate particle direction by scattering angle with cosine mu
 /// This implements isotropic azimuthal angle sampling
-fn rotate_direction<R: rand::Rng + ?Sized>(
+fn rotate_direction<R: rand::Rng>(
     direction: &mut [f64; 3],
     mu: f64, // cosine of scattering angle
     rng: &mut R,
