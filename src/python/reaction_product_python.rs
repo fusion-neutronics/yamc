@@ -34,6 +34,7 @@ impl PyReactionProduct {
                 decay_rate,
                 applicability: vec![],
                 distribution: vec![],
+                product_yield: None,
             }
         }
     }
@@ -238,6 +239,7 @@ pub fn create_test_reaction_product() -> PyReactionProduct {
         decay_rate: 0.0,
         applicability: vec![],
         distribution: vec![angle_energy_dist],
+        product_yield: None,
     };
     
     PyReactionProduct { inner: product }
