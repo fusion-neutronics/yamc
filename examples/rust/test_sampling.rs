@@ -29,6 +29,7 @@ fn main() {
         decay_rate: 0.0,
         applicability: vec![],
         distribution: vec![angle_energy_dist],
+        product_yield: None,
     };
     
     let mut rng = thread_rng();
