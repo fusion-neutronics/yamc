@@ -38,9 +38,7 @@ fn sample_from_products<R: rand::Rng>(
         .collect();
     
     if neutron_products.is_empty() {
-        // No neutron products - particle is absorbed
-        particle.alive = false;
-        return;
+        panic!("Reaction has products but no neutron products found - data inconsistency for MT {}", reaction.mt_number);
     }
     
     // For inelastic scattering, we typically expect one neutron product
