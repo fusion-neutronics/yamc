@@ -46,6 +46,9 @@ fn test_pb208_products_are_loaded() {
                             Some(materials_for_mc::reaction_product::EnergyDistribution::Tabulated { energy, .. }) => {
                                 println!("  Energy distribution: Tabulated with {} energy points", energy.len());
                             }
+                            Some(materials_for_mc::reaction_product::EnergyDistribution::ContinuousTabular { energy, .. }) => {
+                                println!("  Energy distribution: ContinuousTabular with {} energy points", energy.len());
+                            }
                             None => {
                                 println!("  Energy distribution: None");
                             }
