@@ -3,31 +3,75 @@ use crate::reaction::Reaction;
 use crate::reaction_product::ParticleType;
 use rand::Rng;
 
-/// Handle inelastic scattering following OpenMC's approach
-/// Updates particle energy and direction based on reaction products or analytical models
-pub fn inelastic_scatter<R: rand::Rng>(
-    particle: &mut Particle,
-    reaction: &Reaction,
-    awr: f64, // atomic weight ratio
-    rng: &mut R,
-) {
-    // Check if reaction has product data
-    if !reaction.products.is_empty() {
-        // Sample from product distributions when available
-        sample_from_products(particle, reaction, rng);
-    } else {
-        // No product data available - use analytical approach based on Q-value and MT
-        analytical_inelastic_scatter(particle, reaction, awr, rng);
+/// Determine neutron multiplicity for inelastic scattering based on MT number
+/// Returns the number of neutrons produced for inelastic reactions only
+/// Does not handle fission or other non-inelastic reactions
+fn get_inelastic_neutron_multiplicity(mt: u32) -> usize {
+    match mt {
+        // Inelastic scattering levels (MT 51-90) - 1 neutron out
+        51..=90 => 1,
+        
+        // Continuum inelastic - 1 neutron out
+        91 => 1,
+        
+        // (n,2n) reactions - 2 neutrons out
+        16 => 2,
+        
+        // (n,3n) reactions - 3 neutrons out  
+        17 => 3,
+        
+        // (n,4n) reactions - 4 neutrons out
+        37 => 4,
+        
+        // (n,n') first excited state - 1 neutron out
+        4 => 1,
+        
+        // Other inelastic reactions that produce neutrons
+        // MT 22: (n,n'alpha) - 1 neutron + alpha
+        22 => 1,
+        
+        // MT 28: (n,n'p) - 1 neutron + proton  
+        28 => 1,
+        
+        // MT 32: (n,n'd) - 1 neutron + deuteron
+        32 => 1,
+        
+        // MT 33: (n,n't) - 1 neutron + triton
+        33 => 1,
+        
+        // MT 34: (n,n'3He) - 1 neutron + 3He
+        34 => 1,
+        
+        // Panic for unknown MT numbers to catch unsupported reaction types
+        _ => panic!("Unsupported inelastic reaction MT number: {}", mt),
     }
 }
 
-/// Sample outgoing particle from reaction product distributions
+/// Handle inelastic scattering following OpenMC's approach
+/// Returns vector of outgoing neutrons based on reaction products or analytical models
+pub fn inelastic_scatter<R: rand::Rng>(
+    particle: &Particle,
+    reaction: &Reaction,
+    awr: f64, // atomic weight ratio
+    rng: &mut R,
+) -> Vec<Particle> {
+    // Check if reaction has product data
+    if !reaction.products.is_empty() {
+        // Sample from product distributions when available
+        sample_from_products(particle, reaction, rng)
+    } else {
+        // No product data available - use analytical approach based on Q-value and MT
+        analytical_inelastic_scatter(particle, reaction, awr, rng)
+    }
+}
+
+/// Sample outgoing particles from reaction product distributions
 /// This handles the case where explicit product data is available
 fn sample_from_products<R: rand::Rng>(
-    particle: &mut Particle,
+    particle: &Particle,
     reaction: &Reaction,
     rng: &mut R,
-) {
+) -> Vec<Particle> {
     let incoming_energy = particle.energy;
     
     // Find neutron products (since we're tracking neutrons)
@@ -38,34 +82,44 @@ fn sample_from_products<R: rand::Rng>(
         .collect();
     
     if neutron_products.is_empty() {
-        panic!("Reaction has products but no neutron products found - data inconsistency for MT {}", reaction.mt_number);
+        // No neutron products - particle is absorbed (e.g., (n,gamma), (n,p), etc.)
+        return Vec::new();
     }
     
-    // For inelastic scattering, we typically expect one neutron product
-    // If multiple neutron products, sample from the first one (most common case)
-    // More sophisticated sampling could handle multiple products
-    let neutron_product = neutron_products[0];
+    // Create outgoing neutrons for each neutron product
+    let mut outgoing_neutrons = Vec::new();
     
-    // Sample outgoing energy and scattering cosine from product distribution
-    let (e_out, mu) = neutron_product.sample(incoming_energy, rng);
+    for neutron_product in neutron_products {
+        // Sample outgoing energy and scattering cosine from product distribution
+        let (e_out, mu) = neutron_product.sample(incoming_energy, rng);
+        
+        // Create new neutron particle
+        let mut new_particle = particle.clone();
+        new_particle.energy = e_out;
+        rotate_direction(&mut new_particle.direction, mu, rng);
+        
+        outgoing_neutrons.push(new_particle);
+    }
     
-    // Update particle energy and direction
-    particle.energy = e_out;
-    rotate_direction(&mut particle.direction, mu, rng);
+    outgoing_neutrons
 }
 
 /// Analytical inelastic scattering based on Q-values and reaction kinematics
 /// Follows OpenMC's LevelInelastic approach for MT 51-90 and general inelastic for others
 /// This handles reactions without product data using analytical energy-angle relationships
 fn analytical_inelastic_scatter<R: rand::Rng>(
-    particle: &mut Particle,
+    particle: &Particle,
     reaction: &Reaction,
     awr: f64,
     rng: &mut R,
-) {
+) -> Vec<Particle> {
     let e_in = particle.energy;
     let mt = reaction.mt_number;
     let q_value = reaction.q_value;
+    
+    // Determine neutron multiplicity based on reaction type
+    // TODO: Replace with actual yield data from nuclear data files when available
+    let neutron_multiplicity = get_inelastic_neutron_multiplicity(mt);
 
     let e_out = if mt >= 51 && mt <= 90 {
         // Level inelastic scattering (MT 51-90) - OpenMC LevelInelastic approach
@@ -75,7 +129,7 @@ fn analytical_inelastic_scatter<R: rand::Rng>(
         
         if e_in < threshold {
             eprintln!("Warning: Energy {} eV below threshold {} eV for MT {}", e_in, threshold, mt);
-            return;
+            return Vec::new();
         }
         
         mass_ratio * (e_in - threshold)
@@ -86,7 +140,7 @@ fn analytical_inelastic_scatter<R: rand::Rng>(
             let threshold = (awr + 1.0) / awr * q_value.abs();
             if e_in < threshold {
                 eprintln!("Warning: Energy {} eV below endothermic threshold {} eV for MT {}", e_in, threshold, mt);
-                return;
+                return Vec::new();
             }
             e_in + q_value * awr / (awr + 1.0)
         } else {
@@ -109,10 +163,30 @@ fn analytical_inelastic_scatter<R: rand::Rng>(
         }
     };
 
-    // Isotropic scattering angle (OpenMC default for missing angular data)
-    let mu = rng.gen_range(-1.0..=1.0);
-    particle.energy = e_out;
-    rotate_direction(&mut particle.direction, mu, rng);
+    // For multi-neutron reactions, divide energy among neutrons
+    let energy_per_neutron = if neutron_multiplicity > 1 {
+        // Simple energy sharing model - could be more sophisticated
+        e_out / neutron_multiplicity as f64
+    } else {
+        e_out
+    };
+
+    // Create the specified number of outgoing neutrons
+    let mut outgoing_neutrons = Vec::with_capacity(neutron_multiplicity);
+    
+    for _ in 0..neutron_multiplicity {
+        // Create new neutron particle
+        let mut new_particle = particle.clone();
+        new_particle.energy = energy_per_neutron;
+        
+        // Isotropic scattering angle (OpenMC default for missing angular data)
+        let mu = rng.gen_range(-1.0..=1.0);
+        rotate_direction(&mut new_particle.direction, mu, rng);
+        
+        outgoing_neutrons.push(new_particle);
+    }
+    
+    outgoing_neutrons
 }
 
 /// Rotate particle direction by scattering angle with cosine mu
