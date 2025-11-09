@@ -6,7 +6,7 @@ use rand::Rng;
 /// Determine neutron multiplicity for inelastic scattering based on MT number
 /// Returns the number of neutrons produced for inelastic reactions only
 /// Does not handle fission or other non-inelastic reactions
-fn get_inelastic_neutron_multiplicity(mt: u32) -> usize {
+fn get_inelastic_neutron_multiplicity(mt: i32) -> usize {
     match mt {
         // Inelastic scattering levels (MT 51-90) - 1 neutron out
         51..=90 => 1,
