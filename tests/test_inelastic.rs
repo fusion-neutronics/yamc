@@ -39,30 +39,12 @@ fn test_inelastic_scatter_returns_particles() {
 }
 
 #[test]
-fn test_absorption_reaction() {
-    let mut rng = StdRng::seed_from_u64(42);
+#[should_panic(expected = "Unsupported inelastic reaction MT number: 102")]
+fn test_unsupported_mt_number_panics() {
+    use materials_for_mc::inelastic::get_inelastic_neutron_multiplicity;
     
-    // Create a test particle
-    let particle = Particle::new([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 1e6); // 1 MeV
-    
-    // Create an absorption reaction (n,gamma)
-    let reaction = Reaction {
-        cross_section: vec![1.0],
-        threshold_idx: 0,
-        interpolation: vec![2],
-        energy: vec![1e5],
-        mt_number: 102, // (n,gamma) reaction
-        q_value: 7.0e6, // Exothermic
-        products: vec![],
-    };
-    
-    let awr = 6.0; // Li6 atomic weight ratio
-    
-    // Test the inelastic scatter function
-    let outgoing_particles = inelastic_scatter(&particle, &reaction, awr, &mut rng);
-    
-    // For MT 102 (n,gamma), neutron is absorbed - should get 0 neutrons back
-    assert_eq!(outgoing_particles.len(), 0, "MT 102 (n,gamma) should absorb neutron - no outgoing neutrons");
+    // MT 102 (n,gamma) is not an inelastic reaction, should panic
+    get_inelastic_neutron_multiplicity(102);
 }
 
 #[test]
@@ -99,15 +81,18 @@ fn test_single_neutron_reaction() {
 }
 
 #[test]
-fn test_neutron_multiplicity() {
-    use materials_for_mc::inelastic::get_neutron_multiplicity;
+fn test_inelastic_neutron_multiplicity() {
+    use materials_for_mc::inelastic::get_inelastic_neutron_multiplicity;
     
-    // Test various MT numbers
-    assert_eq!(get_neutron_multiplicity(2), 1, "Elastic should have 1 neutron");
-    assert_eq!(get_neutron_multiplicity(16), 2, "(n,2n) should have 2 neutrons");
-    assert_eq!(get_neutron_multiplicity(17), 3, "(n,3n) should have 3 neutrons");
-    assert_eq!(get_neutron_multiplicity(37), 4, "(n,4n) should have 4 neutrons");
-    assert_eq!(get_neutron_multiplicity(102), 0, "(n,gamma) should have 0 neutrons");
-    assert_eq!(get_neutron_multiplicity(18), 2, "Fission should have 2 neutrons (average)");
-    assert_eq!(get_neutron_multiplicity(875), 2, "(n,2n0) should have 2 neutrons");
+    // Test inelastic reaction MT numbers only
+    assert_eq!(get_inelastic_neutron_multiplicity(4), 1, "(n,n') should have 1 neutron");
+    assert_eq!(get_inelastic_neutron_multiplicity(16), 2, "(n,2n) should have 2 neutrons");
+    assert_eq!(get_inelastic_neutron_multiplicity(17), 3, "(n,3n) should have 3 neutrons");
+    assert_eq!(get_inelastic_neutron_multiplicity(37), 4, "(n,4n) should have 4 neutrons");
+    assert_eq!(get_inelastic_neutron_multiplicity(51), 1, "Inelastic level 1 should have 1 neutron");
+    assert_eq!(get_inelastic_neutron_multiplicity(60), 1, "Inelastic level 10 should have 1 neutron");
+    assert_eq!(get_inelastic_neutron_multiplicity(90), 1, "Inelastic level 40 should have 1 neutron");
+    assert_eq!(get_inelastic_neutron_multiplicity(91), 1, "Continuum inelastic should have 1 neutron");
+    assert_eq!(get_inelastic_neutron_multiplicity(22), 1, "(n,n'alpha) should have 1 neutron");
+    assert_eq!(get_inelastic_neutron_multiplicity(28), 1, "(n,n'p) should have 1 neutron");
 }
