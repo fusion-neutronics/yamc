@@ -4,6 +4,7 @@ pub struct Particle {
     pub direction: [f64; 3],
     pub energy: f64,
     pub alive: bool,
+    pub id: usize, // Particle ID for tracking
 }
 
 impl Particle {
@@ -13,6 +14,7 @@ impl Particle {
             direction,
             energy,
             alive: true,
+            id: 0, // Default ID
         }
     }
 

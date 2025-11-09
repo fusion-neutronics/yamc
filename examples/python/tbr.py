@@ -30,6 +30,8 @@ material1.add_nuclide("Li7", 0.93)
 # material1.add_element("Si", 1.0)
 material1.set_density("g/cm3", 2.0)
 material1.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
+# Prepare cross sections before simulation
+material1.calculate_macroscopic_xs([1], True)
 
 
 # Create cells

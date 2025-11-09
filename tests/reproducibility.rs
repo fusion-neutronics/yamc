@@ -231,11 +231,11 @@ fn test_reproducibility_with_same_seed() {
     tally3.initialize_batches(num_batches);
 
     // Run simulation 1
-    let mut model1 = Model {
-        geometry: geometry.clone(),
-        settings: settings.clone(),
-        tallies: vec![Arc::new(tally1)],
-    };
+    let mut model1 = Model::new(
+        geometry.clone(),
+        settings.clone(),
+        vec![Arc::new(tally1)],
+    );
     model1.run();
 
     // Run simulation 2 with same seed

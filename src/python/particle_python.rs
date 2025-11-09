@@ -10,13 +10,14 @@ pub struct PyParticle {
 #[pymethods]
 impl PyParticle {
     #[new]
-    pub fn new(position: [f64; 3], direction: [f64; 3], energy: f64, alive: Option<bool>) -> Self {
+    pub fn new(position: [f64; 3], direction: [f64; 3], energy: f64, alive: Option<bool>, id: Option<usize>) -> Self {
         PyParticle {
             inner: Particle {
                 position,
                 direction,
                 energy,
                 alive: alive.unwrap_or(true),
+                id: id.unwrap_or(0),
             },
         }
     }
@@ -35,5 +36,9 @@ impl PyParticle {
     #[getter]
     pub fn alive(&self) -> bool {
         self.inner.alive
+    }
+    #[getter]
+    pub fn id(&self) -> usize {
+        self.inner.id
     }
 }

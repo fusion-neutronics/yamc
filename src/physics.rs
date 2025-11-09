@@ -86,6 +86,7 @@ mod tests {
             direction: [0.0, 0.0, 1.0],
             alive: true,
             position: [0.0, 0.0, 0.0],
+            id: 0,
         };
         let awr = 1.0; // hydrogen
         elastic_scatter(&mut particle, awr, &mut rng);
