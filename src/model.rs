@@ -116,10 +116,7 @@ impl Model {
                                             reaction = constituent_reaction;
                                             
                                             // Handle inelastic scattering - update particle energy and direction
-                                            let awr = *ATOMIC_WEIGHT_RATIO
-                                                .get(nuclide_name.as_str())
-                                                .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-                                            inelastic_scatter(&mut particle, &reaction, awr, &mut rng);
+                                            inelastic_scatter(&mut particle, &reaction, &nuclide_name, &mut rng);
                                         }
                                         _ => {
                                             panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);

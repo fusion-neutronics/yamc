@@ -22,10 +22,8 @@ fn test_inelastic_scatter_returns_particles() {
         products: vec![],
     };
     
-    let awr = 9.0; // Be9 atomic weight ratio
-    
     // Test the inelastic scatter function
-    let outgoing_particles = inelastic_scatter(&particle, &reaction, awr, &mut rng);
+    let outgoing_particles = inelastic_scatter(&particle, &reaction, "Be9", &mut rng);
     
     // For MT 16 (n,2n), we should get 2 neutrons back
     assert_eq!(outgoing_particles.len(), 2, "MT 16 (n,2n) should produce 2 neutrons");
@@ -65,10 +63,8 @@ fn test_single_neutron_reaction() {
         products: vec![],
     };
     
-    let awr = 7.0; // Li7 atomic weight ratio
-    
-    // Test the inelastic scatter function
-    let outgoing_particles = inelastic_scatter(&particle, &reaction, awr, &mut rng);
+    // Test the inelastic scatter function  
+    let outgoing_particles = inelastic_scatter(&particle, &reaction, "Li6", &mut rng);
     
     // For MT 51 (inelastic), we should get 1 neutron back
     assert_eq!(outgoing_particles.len(), 1, "MT 51 (inelastic) should produce 1 neutron");
