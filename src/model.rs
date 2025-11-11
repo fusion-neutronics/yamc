@@ -1,6 +1,6 @@
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::geometry::Geometry;
-use crate::inelastic::inelastic_scatter;
+use crate::inelastic::nonelastic_scatter;
 use crate::particle::Particle;
 use crate::physics::elastic_scatter;
 use crate::reaction::Reaction;
@@ -145,20 +145,23 @@ impl Model {
                                             reaction = constituent_reaction;
                                             particle.alive = false;
                                         }
-                                        4 => {
-                                            // Inelastic scattering - sample constituent reaction first
-                                            let constituent_reaction = nuclide.sample_inelastic_constituent(
+                                        3 => {
+                                            // Nonelastic scattering - sample constituent reaction first
+                                            let constituent_reaction = nuclide.sample_nonelastic_constituent(
                                                 particle.energy,
                                                 &material.temperature,
                                                 &mut rng,
                                             );
                                             
                                             // Use the constituent reaction for further processing
-                                            let outgoing_particles = crate::inelastic::inelastic_scatter(
+                                            let outgoing_particles = crate::inelastic::nonelastic_scatter(
                                                 &particle, &constituent_reaction, &nuclide_name, &mut rng
                                             );
                                             
-                                            if outgoing_particles.len() > 1 {
+                                            if outgoing_particles.is_empty() {
+                                                // No neutrons produced - particle absorbed
+                                                particle.alive = false;
+                                            } else if outgoing_particles.len() > 1 {
                                                 // Multi-neutron reaction: bank secondary particles
                                                 for (i, outgoing_particle) in outgoing_particles.into_iter().enumerate() {
                                                     if i == 0 {

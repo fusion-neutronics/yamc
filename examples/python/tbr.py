@@ -24,11 +24,10 @@ region2 = +sphere1 & -sphere2
 # Create materials with different absorption characteristics
 material1 = mc.Material()
 material1.material_id = 1  # Set material_id for MaterialFilter testing
-material1.add_nuclide("Li6", 0.07)  # Li4SiO4
+material1.add_nuclide("Li6", 0.07)  # Li4SiO4 - for tritium production
 material1.add_nuclide("Li7", 0.93)
-# material1.add_element("O", 4.0)
-# material1.add_element("Si", 1.0)
-material1.set_density("g/cm3", 2.0)
+# material1.add_nuclide("Be9", 1.0)  # Pure Be9 material
+material1.set_density("g/cm3", 1.85)  # Beryllium density
 material1.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
 
 
@@ -49,7 +48,7 @@ geometry = mc.Geometry([cell1, cell2])
 source = mc.IndependentSource(
     space=[0.0, 0.0, 0.0],
     angle=mc.stats.Isotropic(),
-    energy=1e6
+    energy=3e6  # 1 MeV instead of 14 MeV to stay within data range
 )
 settings = mc.Settings(
     particles=500,
@@ -62,7 +61,7 @@ settings = mc.Settings(
 cell_filter2 = mc.CellFilter(cell2)
 tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
-tally1.scores = [105]  # n,t
+tally1.scores = [105]  # n,t (tritium production)
 tally1.name = "tbr"
 tallies = [tally1]
 

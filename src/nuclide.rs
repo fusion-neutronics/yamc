@@ -270,7 +270,7 @@ impl Nuclide {
         let fission_mt = 18;
         let absorption_mt = 101;
         let elastic_mt = 2;
-        let inelastic_mt = 4;
+        let nonelastic_mt = 3; // includes inelastic_mt mt 4 and others
 
         // Helper to get xs for a given MT using Reaction::cross_section_at
         let get_xs = |mt: i32| -> f64 {
@@ -313,8 +313,8 @@ impl Nuclide {
             return temp_reactions.get(&fission_mt);
         }
 
-        // inelastic selection as fallback
-        temp_reactions.get(&inelastic_mt)
+        // nonelastic selection as fallback
+        temp_reactions.get(&nonelastic_mt)
     }
 
     /// Sample a specific inelastic reaction from the constituent MT 50-91 reactions that make up MT 4.
@@ -395,6 +395,99 @@ impl Nuclide {
 
         // This should never be reached due to the sampling logic above
         panic!("sample_inelastic_constituent: Failed to sample any inelastic reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
+    }
+
+    /// Sample a specific nonelastic (inelastic) constituent reaction from ALL inelastic reactions that make up MT 3.
+    /// This includes MT 4 (inelastic neutron emission), MT 5 (anything else), MT 11, MT 16 (n,2n), MT 17 (n,3n), etc.
+    /// This provides comprehensive coverage of all inelastic channels for MT 3 sampling.
+    ///
+    /// # Arguments
+    /// * `energy` - Neutron energy in eV
+    /// * `temperature` - Temperature string (e.g., "294" or "294K")
+    /// * `rng` - Random number generator
+    ///
+    /// # Returns
+    /// * `&Reaction` for the sampled constituent inelastic reaction (any MT that contributes to MT 3)
+    ///
+    /// # Panics
+    /// * If no inelastic constituent reactions are available
+    /// * If sampling logic fails despite having valid reactions and cross sections
+    pub fn sample_nonelastic_constituent<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> &Reaction {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            println!("[sample_nonelastic_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
+            r
+        } else {
+            panic!(
+                "[sample_nonelastic_constituent] No reaction data available for any temperature."
+            );
+        };
+
+        // MT 3 is total inelastic and includes all these inelastic reaction types:
+        // - MT 4 (inelastic neutron emission) + MT 5 (anything else)  
+        // - MT 11, 16 (n,2n), 17 (n,3n), 22-37 (various multi-particle reactions)
+        // - MT 41, 42, 44, 45 (continuum levels)
+        // - MT 50-91 (discrete inelastic levels)
+        // - MT 152-200+ (various other inelastic channels)
+        let mut nonelastic_constituent_mts = Vec::new();
+        
+        // Add the main categories that contribute to MT 3
+        nonelastic_constituent_mts.extend(vec![5, 11, 16, 17, 22, 23, 24, 25, 28, 29, 30, 32, 33, 34, 35,
+                36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+                161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+                173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+                186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200]);
+        nonelastic_constituent_mts.extend(50..92);  // MT 50-91: discrete inelastic levels
+
+        // Filter to only the MTs that are actually available in this nuclide
+        let available_nonelastic_mts: Vec<i32> = nonelastic_constituent_mts
+            .into_iter()
+            .filter(|&mt| temp_reactions.contains_key(&mt))
+            .collect();
+
+        if available_nonelastic_mts.is_empty() {
+            panic!("sample_nonelastic_constituent: No nonelastic constituent reactions available in this nuclide at temperature '{}'. This indicates missing nuclear data or incorrect MT 3 sampling.", temperature);
+        }
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Calculate total cross section for normalization
+        let total_xs: f64 = available_nonelastic_mts.iter().map(|&mt| get_xs(mt)).sum();
+
+        if total_xs <= 0.0 {
+            panic!("sample_nonelastic_constituent: Total nonelastic cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
+        }
+
+        // Sample reaction weighted by cross section
+        let xi = rng.gen::<f64>() * total_xs;
+        let mut cumulative_xs = 0.0;
+
+        for &mt in &available_nonelastic_mts {
+            cumulative_xs += get_xs(mt);
+            if xi < cumulative_xs {
+                return temp_reactions.get(&mt).expect(
+                    "sample_nonelastic_constituent: MT not found in temp_reactions after filtering.",
+                );
+            }
+        }
+
+        // This should never be reached due to the sampling logic above
+        panic!("sample_nonelastic_constituent: Failed to sample any nonelastic reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
     }
 
     /// Sample a specific absorption constituent reaction (MTs that make up MT 101) at a given energy and temperature.

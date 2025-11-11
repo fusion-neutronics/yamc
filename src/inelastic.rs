@@ -3,16 +3,19 @@ use crate::reaction::Reaction;
 use crate::reaction_product::ParticleType;
 use rand::Rng;
 
-/// Determine neutron multiplicity for inelastic scattering based on MT number
-/// Returns the number of neutrons produced for inelastic reactions only
-/// Does not handle fission or other non-inelastic reactions
-pub fn get_inelastic_neutron_multiplicity(mt: i32) -> usize {
+/// Determine neutron multiplicity for nonelastic scattering based on MT number
+/// Returns the number of neutrons produced for all nonelastic reactions (MT 3 constituents)
+/// Does not handle fission or other non-nonelastic reactions
+pub fn get_nonelastic_neutron_multiplicity(mt: i32) -> usize {
     match mt {
-        // Inelastic scattering levels (MT 51-90) - 1 neutron out
-        51..=90 => 1,
+        // MT 4: Inelastic neutron emission - 1 neutron out
+        4 => 1,
         
-        // Continuum inelastic - 1 neutron out
-        91 => 1,
+        // MT 5: Anything else (catch-all for other inelastic) - 1 neutron out
+        5 => 1,
+        
+        // MT 11: (n,2nd) - 2 neutrons + deuteron
+        11 => 2,
         
         // (n,2n) reactions - 2 neutrons out
         16 => 2,
@@ -20,36 +23,45 @@ pub fn get_inelastic_neutron_multiplicity(mt: i32) -> usize {
         // (n,3n) reactions - 3 neutrons out  
         17 => 3,
         
-        // (n,4n) reactions - 4 neutrons out
-        37 => 4,
+        // MT 22-37: Various (n,n'X) reactions - 1 neutron + other particles
+        22 => 1, // (n,n'alpha) - 1 neutron + alpha
+        23 => 1, // (n,n'3alpha) - 1 neutron + 3 alpha
+        24 => 2, // (n,2n'alpha) - 2 neutrons + alpha  
+        25 => 3, // (n,3n'alpha) - 3 neutrons + alpha
+        28 => 1, // (n,n'p) - 1 neutron + proton
+        29 => 1, // (n,n'2alpha) - 1 neutron + 2 alpha
+        30 => 2, // (n,2n'2alpha) - 2 neutrons + 2 alpha
+        32 => 1, // (n,n'd) - 1 neutron + deuteron
+        33 => 1, // (n,n't) - 1 neutron + triton
+        34 => 1, // (n,n'3He) - 1 neutron + 3He
+        35 => 1, // (n,n'd2alpha) - 1 neutron + deuteron + 2 alpha
+        36 => 1, // (n,n't2alpha) - 1 neutron + triton + 2 alpha
+        37 => 4, // (n,4n) reactions - 4 neutrons out
         
-        // (n,n') first excited state - 1 neutron out
-        4 => 1,
+        // MT 41, 42, 44, 45: Continuum reactions - 1 neutron out
+        41 => 2, // (n,2np) - 2 neutrons + proton
+        42 => 3, // (n,3np) - 3 neutrons + proton
+        44 => 2, // (n,n'2p) - 1 neutron + 2 protons (or 2 neutrons + 2 protons)
+        45 => 1, // (n,n'pa) - 1 neutron + proton + alpha
         
-        // Other inelastic reactions that produce neutrons
-        // MT 22: (n,n'alpha) - 1 neutron + alpha
-        22 => 1,
+        // Inelastic scattering levels (MT 50-91) - 1 neutron out
+        50..=91 => 1,
         
-        // MT 28: (n,n'p) - 1 neutron + proton  
-        28 => 1,
+        // MT 152-200+: Various other nonelastic processes - default to 1 neutron
+        152..=200 => 1,
         
-        // MT 32: (n,n'd) - 1 neutron + deuteron
-        32 => 1,
-        
-        // MT 33: (n,n't) - 1 neutron + triton
-        33 => 1,
-        
-        // MT 34: (n,n'3He) - 1 neutron + 3He
-        34 => 1,
-        
-        // Panic for unknown MT numbers to catch unsupported reaction types
-        _ => panic!("Unsupported inelastic reaction MT number: {}", mt),
+        // Default case: assume 1 neutron for unknown nonelastic MTs
+        // This prevents crashes while handling edge cases in nuclear data
+        _ => {
+            eprintln!("Warning: Unknown nonelastic MT number {}, assuming 1 neutron multiplicity", mt);
+            1
+        }
     }
 }
 
-/// Handle inelastic scattering following OpenMC's approach
+/// Handle nonelastic scattering following OpenMC's approach
 /// Returns vector of outgoing neutrons based on reaction products or analytical models
-pub fn inelastic_scatter<R: rand::Rng>(
+pub fn nonelastic_scatter<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
     nuclide_name: &str, // nuclide name for AWR lookup when needed
@@ -121,7 +133,7 @@ fn analytical_inelastic_scatter<R: rand::Rng>(
     
     // Determine neutron multiplicity based on reaction type
     // TODO: Replace with actual yield data from nuclear data files when available
-    let neutron_multiplicity = get_inelastic_neutron_multiplicity(mt);
+    let neutron_multiplicity = get_nonelastic_neutron_multiplicity(mt);
     
     // Look up atomic weight ratio only when needed for analytical calculations
     let awr = *ATOMIC_WEIGHT_RATIO
@@ -179,9 +191,11 @@ fn analytical_inelastic_scatter<R: rand::Rng>(
     };
 
     // Create the specified number of outgoing neutrons
-    let mut outgoing_neutrons = Vec::with_capacity(neutron_multiplicity);
+    // Ensure at least 1 neutron for nonelastic reactions (never return empty vector)
+    let safe_multiplicity = neutron_multiplicity.max(1);
+    let mut outgoing_neutrons = Vec::with_capacity(safe_multiplicity);
     
-    for _ in 0..neutron_multiplicity {
+    for _ in 0..safe_multiplicity {
         // Create new neutron particle
         let mut new_particle = particle.clone();
         new_particle.energy = energy_per_neutron;

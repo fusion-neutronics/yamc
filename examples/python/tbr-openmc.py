@@ -25,8 +25,9 @@ region2 = +sphere1 & -sphere2
 # Create materials with different absorption characteristics
 material1 = mc.Material()
 material1.material_id = 1  # Set material_id for MaterialFilter testing
-material1.add_nuclide("Li6", 0.07)  # Li4SiO4
-material1.add_nuclide("Li7", 0.93)
+# material1.add_nuclide("Li6", 0.07)  # Li4SiO4
+# material1.add_nuclide("Li7", 0.93)
+material1.add_nuclide("Be9", 1)
 # material1.add_element("O", 4.0)
 # material1.add_element("Si", 1.0)
 material1.set_density("g/cm3", 2.0)
@@ -63,7 +64,7 @@ settings = mc.Settings(
 cell_filter2 = mc.CellFilter(cell2)
 tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
-tally1.scores = ['205']  # n,t
+tally1.scores = ['16']  # n,t
 tally1.name = "tbr"
 tallies = [tally1]
 
