@@ -185,11 +185,11 @@ fn test_absorption_leakage_filters() {
         Arc::new(tally5_zero),
     ];
 
-    let mut model = Model {
+    let mut model = Model::new(
         geometry,
         settings,
         tallies,
-    };
+    );
     model.run();
 
     // Access tallies from model after run (no leakage tally anymore)

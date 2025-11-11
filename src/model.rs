@@ -1,16 +1,37 @@
 use crate::data::ATOMIC_WEIGHT_RATIO;
+use crate::geometry::Geometry;
 use crate::inelastic::inelastic_scatter;
 use crate::particle::Particle;
 use crate::physics::elastic_scatter;
 use crate::reaction::Reaction;
+use crate::settings::Settings;
+use crate::source::IndependentSource;
 use crate::surface::BoundaryType;
 use crate::tally::{create_tallies_from_specs, Tally};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rayon::prelude::*;
-use std::sync::atomic::Ordering;
+use std::collections::VecDeque;
+use std::sync::{Arc, atomic::Ordering};
+
+#[derive(Debug, Clone)]
+pub struct Model {
+    pub geometry: Geometry,
+    pub settings: Settings,
+    pub tallies: Vec<Arc<crate::tally::Tally>>, // Arc allows sharing tallies for parallel updates
+}
+
 impl Model {
+    /// Create a new Model with particle banking system
+    pub fn new(geometry: Geometry, settings: Settings, tallies: Vec<Arc<crate::tally::Tally>>) -> Self {
+        Model {
+            geometry,
+            settings,
+            tallies,
+        }
+    }
+
     pub fn run(&mut self) {
         // Ensure all nuclear data is loaded before transport
         for cell in &mut self.geometry.cells {
@@ -31,14 +52,31 @@ impl Model {
         let base_seed = self.settings.get_seed();
 
         for batch in 0..self.settings.batches {
+            println!("Starting batch {}/{}", batch + 1, self.settings.batches);
+            // Parallel execution per batch with particle banking for multi-neutron reactions
             (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
                 let particle_seed = base_seed
                     .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64))
                     .wrapping_add(particle_idx as u64);
                 let mut rng = StdRng::seed_from_u64(particle_seed);
 
+                // Local particle queue for this thread (for secondary particles)
+                let mut particle_queue: VecDeque<Particle> = VecDeque::new();
+                
+                // Start with the source particle
                 let mut particle = self.settings.source.sample(&mut rng);
                 particle.alive = true;
+                particle_queue.push_back(particle);
+                
+                // Process all particles in the queue (primary + secondaries)
+                let mut particles_processed = 0;
+                const MAX_PARTICLES_PER_HISTORY: usize = 1000; // Safety limit
+                
+                while let Some(mut particle) = particle_queue.pop_front() {
+                    particles_processed += 1;
+                    if particles_processed > MAX_PARTICLES_PER_HISTORY {
+                        break; // Prevent infinite particle multiplication
+                    }
 
                 while particle.alive {
                     let cell_opt = self.geometry.find_cell((
@@ -108,25 +146,47 @@ impl Model {
                                             particle.alive = false;
                                         }
                                         4 => {
+                                            // Inelastic scattering - sample constituent reaction first
                                             let constituent_reaction = nuclide.sample_inelastic_constituent(
                                                 particle.energy,
                                                 &material.temperature,
                                                 &mut rng,
                                             );
-                                            reaction = constituent_reaction;
                                             
-                                            // Handle inelastic scattering - update particle energy and direction
-                                            let awr = *ATOMIC_WEIGHT_RATIO
-                                                .get(nuclide_name.as_str())
-                                                .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-                                            inelastic_scatter(&mut particle, &reaction, awr, &mut rng);
+                                            // Use the constituent reaction for further processing
+                                            let outgoing_particles = crate::inelastic::inelastic_scatter(
+                                                &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                            );
+                                            
+                                            if outgoing_particles.len() > 1 {
+                                                // Multi-neutron reaction: bank secondary particles
+                                                for (i, outgoing_particle) in outgoing_particles.into_iter().enumerate() {
+                                                    if i == 0 {
+                                                        // First particle continues as the current particle
+                                                        particle.energy = outgoing_particle.energy;
+                                                        particle.direction = outgoing_particle.direction;
+                                                        particle.position = outgoing_particle.position;
+                                                    } else {
+                                                        // Additional particles go to the queue
+                                                        particle_queue.push_back(outgoing_particle);
+                                                    }
+                                                }
+                                            } else {
+                                                // Single neutron: update current particle
+                                                let outgoing = &outgoing_particles[0];
+                                                particle.energy = outgoing.energy;
+                                                particle.direction = outgoing.direction;
+                                                particle.position = outgoing.position;
+                                            }
+                                            
+                                            // Use constituent reaction for tally scoring
+                                            reaction = constituent_reaction;
                                         }
                                         _ => {
-                                            panic!("Unknown reaction MT={} at {:?} - sample_reaction returned unexpected MT number", reaction.mt_number, particle.position);
+                                            // For unknown reactions, just absorb the particle
+                                            particle.alive = false;
                                         }
-                                    }
-
-                                    for tally in tallies.iter() {
+                                    }                                    for tally in tallies.iter() {
                                         tally.score_event(reaction.mt_number, cell, material_id, batch as usize);
                                     }
                                 } else {
@@ -145,8 +205,9 @@ impl Model {
                             particle.direction[0], particle.direction[1], particle.direction[2],
                             cell.cell_id);
                     }
-                }
-            });
+                } // end of particle transport while loop
+                } // end of particle queue processing while loop
+            }); // end of parallel for_each
 
             for tally in tallies.iter() {
                 tally.update_statistics(self.settings.particles as u32);
@@ -155,18 +216,6 @@ impl Model {
 
         println!("Simulation complete.");
     }
-}
-use crate::geometry::Geometry;
-// use crate::materials::Materials;
-use crate::settings::Settings;
-use crate::source::IndependentSource;
-use std::sync::{Arc, Mutex};
-
-#[derive(Debug, Clone)]
-pub struct Model {
-    pub geometry: Geometry,
-    pub settings: Settings,
-    pub tallies: Vec<Arc<crate::tally::Tally>>, // Arc allows sharing tallies for parallel updates
 }
 
 #[cfg(test)]
@@ -202,6 +251,8 @@ mod tests {
         let mut nuclide_json_map = std::collections::HashMap::new();
         nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        // Prepare material cross sections before creating the Arc
+        material.calculate_macroscopic_xs(&vec![1], true);
         let material_arc = Arc::new(material.clone());
         let cell = Cell::new(
             Some(1),
@@ -230,11 +281,11 @@ mod tests {
         absorption_tally.initialize_batches(settings.batches as usize);
         let absorption_tally_arc = Arc::new(absorption_tally);
 
-        let mut model = Model {
+        let mut model = Model::new(
             geometry,
             settings,
-            tallies: vec![Arc::clone(&absorption_tally_arc)],
-        };
+            vec![Arc::clone(&absorption_tally_arc)],
+        );
         assert_eq!(model.settings.particles, 100);
         assert_eq!(model.settings.source.energy, 1e6);
         // Check geometry and material
