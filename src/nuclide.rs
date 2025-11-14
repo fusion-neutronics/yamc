@@ -271,6 +271,7 @@ impl Nuclide {
         let absorption_mt = 101;
         let elastic_mt = 2;
         let inelastic_mt = 4;
+        let nonelastic_mt = 3;  // MT 3 is total nonelastic (fallback when MT 4 doesn't exist)
 
         // Helper to get xs for a given MT using Reaction::cross_section_at
         let get_xs = |mt: i32| -> f64 {
@@ -313,8 +314,10 @@ impl Nuclide {
             return temp_reactions.get(&fission_mt);
         }
 
-        // inelastic selection as fallback
+        // Inelastic/Nonelastic selection as fallback
+        // Try MT 4 (inelastic) first, then MT 3 (nonelastic) if MT 4 doesn't exist
         temp_reactions.get(&inelastic_mt)
+            .or_else(|| temp_reactions.get(&nonelastic_mt))
     }
 
     /// Sample a specific inelastic reaction from the constituent MT 50-91 reactions that make up MT 4.
@@ -618,6 +621,97 @@ impl Nuclide {
 
         // Sum all nonelastic cross sections
         available_mts.iter().map(|&mt| get_xs(mt)).sum()
+    }
+
+    /// Sample a scatter reaction constituent from MT 3 or MT 4.
+    /// This samples from all inelastic (MT 50-91) and nonelastic scatter reactions,
+    /// excluding MT 27 (n,absorption) which is handled separately in MT 101.
+    ///
+    /// # Arguments
+    /// * `energy` - Neutron energy in eV
+    /// * `temperature` - Temperature string (e.g., "294" or "294K")
+    /// * `rng` - Random number generator
+    ///
+    /// # Returns
+    /// * `&Reaction` for the sampled scatter reaction
+    ///
+    /// # Panics
+    /// * If no scatter constituent reactions are available
+    /// * If sampling logic fails despite having valid reactions and cross sections
+    pub fn sample_scatter_constituent<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> &Reaction {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            println!("[sample_scatter_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
+            r
+        } else {
+            panic!(
+                "[sample_scatter_constituent] No reaction data available for any temperature."
+            );
+        };
+
+        // Inelastic reactions: MT 50-91
+        let inelastic_mts: Vec<i32> = (50..92).collect();
+
+        // Nonelastic scatter reactions (excluding MT 27 which is absorption)
+        let nonelastic_scatter_mts: Vec<i32> = vec![
+            5, 11, 16, 17, 22, 23, 24, 25, 28, 29, 30, 32, 33, 34, 35,
+            36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+            161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+            173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+            186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200
+        ];
+
+        // Combine both lists
+        let mut scatter_mts = inelastic_mts;
+        scatter_mts.extend(nonelastic_scatter_mts);
+
+        // Filter to only the MTs that are actually available in this nuclide
+        let available_mts: Vec<i32> = scatter_mts
+            .into_iter()
+            .filter(|&mt| temp_reactions.contains_key(&mt))
+            .collect();
+
+        if available_mts.is_empty() {
+            panic!("sample_scatter_constituent: No scatter constituent reactions available in this nuclide at temperature '{}'. This indicates missing nuclear data or incorrect sampling.", temperature);
+        }
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Calculate total cross section for all available scatter constituents
+        let total_xs: f64 = available_mts.iter().map(|&mt| get_xs(mt)).sum();
+
+        if total_xs <= 0.0 {
+            panic!("sample_scatter_constituent: Total scatter cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
+        }
+
+        // Sample which specific scatter reaction occurs
+        let xi = rng.gen_range(0.0..total_xs);
+        let mut accum = 0.0;
+
+        for &mt in &available_mts {
+            let xs = get_xs(mt);
+            accum += xs;
+            if xi < accum && xs > 0.0 {
+                return temp_reactions.get(&mt).expect("sample_scatter_constituent: MT not found in temp_reactions after filtering.");
+            }
+        }
+
+        panic!("sample_scatter_constituent: Failed to sample any scatter reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
     }
 
     /// Get the energy grid for a specific temperature

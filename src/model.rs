@@ -125,6 +125,7 @@ impl Model {
                                     &material.temperature,
                                     &mut rng,
                                 );
+
                                 if let Some(reaction) = reaction {
                                     let mut reaction = reaction;
                                     match reaction.mt_number {
@@ -146,46 +147,27 @@ impl Model {
                                             reaction = constituent_reaction;
                                             particle.alive = false;
                                         }
-                                        4 => {
-                                            // MT 4 is a catch-all that includes both true inelastic (MT 50-91)
-                                            // and nonelastic reactions (n,2n), (n,3n), etc.
-                                            // Sample to determine which type this is
-
-                                            // Get cross sections for both types
-                                            let inelastic_xs = nuclide.get_total_inelastic_xs(
+                                        3 | 4 => {
+                                            // MT 3 (nonelastic) or MT 4 (inelastic) - both represent scatter reactions
+                                            // Sample a specific constituent reaction from all available scatter reactions
+                                            // (inelastic MT 50-91 + nonelastic scatter, excluding MT 27 absorption)
+                                            let constituent_reaction = nuclide.sample_scatter_constituent(
                                                 particle.energy,
                                                 &material.temperature,
-                                            );
-                                            let nonelastic_xs = nuclide.get_total_nonelastic_xs(
-                                                particle.energy,
-                                                &material.temperature,
+                                                &mut rng,
                                             );
 
-                                            let total_xs = inelastic_xs + nonelastic_xs;
-                                            let xi = rng.gen_range(0.0..total_xs);
-
-                                            let (constituent_reaction, outgoing_particles) = if xi < inelastic_xs {
-                                                // True inelastic scattering (MT 50-91)
-                                                let constituent = nuclide.sample_inelastic_constituent(
-                                                    particle.energy,
-                                                    &material.temperature,
-                                                    &mut rng,
-                                                );
-                                                let particles = inelastic_scatter(
-                                                    &particle, constituent, &nuclide_name, &mut rng
-                                                );
-                                                (constituent, particles)
+                                            // Determine if this is inelastic or nonelastic based on MT number
+                                            let outgoing_particles = if constituent_reaction.mt_number >= 50 && constituent_reaction.mt_number <= 91 {
+                                                // Inelastic scattering (MT 50-91)
+                                                inelastic_scatter(
+                                                    &particle, constituent_reaction, &nuclide_name, &mut rng
+                                                )
                                             } else {
-                                                // Nonelastic reaction (n,2n), (n,3n), etc.
-                                                let constituent = nuclide.sample_nonelastic_constituent(
-                                                    particle.energy,
-                                                    &material.temperature,
-                                                    &mut rng,
-                                                );
-                                                let particles = nonelastic_scatter(
-                                                    &particle, constituent, &nuclide_name, &mut rng
-                                                );
-                                                (constituent, particles)
+                                                // Nonelastic scatter reaction (n,2n), (n,3n), etc.
+                                                nonelastic_scatter(
+                                                    &particle, constituent_reaction, &nuclide_name, &mut rng
+                                                )
                                             };
 
                                             // Handle outgoing particles
