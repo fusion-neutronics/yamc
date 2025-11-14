@@ -1,6 +1,7 @@
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::geometry::Geometry;
 use crate::inelastic::inelastic_scatter;
+use crate::nonelastic::nonelastic_scatter;
 use crate::particle::Particle;
 use crate::physics::elastic_scatter;
 use crate::reaction::Reaction;
@@ -146,18 +147,48 @@ impl Model {
                                             particle.alive = false;
                                         }
                                         4 => {
-                                            // Inelastic scattering - sample constituent reaction first
-                                            let constituent_reaction = nuclide.sample_inelastic_constituent(
+                                            // MT 4 is a catch-all that includes both true inelastic (MT 50-91)
+                                            // and nonelastic reactions (n,2n), (n,3n), etc.
+                                            // Sample to determine which type this is
+
+                                            // Get cross sections for both types
+                                            let inelastic_xs = nuclide.get_total_inelastic_xs(
                                                 particle.energy,
                                                 &material.temperature,
-                                                &mut rng,
                                             );
-                                            
-                                            // Use the constituent reaction for further processing
-                                            let outgoing_particles = crate::inelastic::inelastic_scatter(
-                                                &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                            let nonelastic_xs = nuclide.get_total_nonelastic_xs(
+                                                particle.energy,
+                                                &material.temperature,
                                             );
-                                            
+
+                                            let total_xs = inelastic_xs + nonelastic_xs;
+                                            let xi = rng.gen_range(0.0..total_xs);
+
+                                            let (constituent_reaction, outgoing_particles) = if xi < inelastic_xs {
+                                                // True inelastic scattering (MT 50-91)
+                                                let constituent = nuclide.sample_inelastic_constituent(
+                                                    particle.energy,
+                                                    &material.temperature,
+                                                    &mut rng,
+                                                );
+                                                let particles = inelastic_scatter(
+                                                    &particle, constituent, &nuclide_name, &mut rng
+                                                );
+                                                (constituent, particles)
+                                            } else {
+                                                // Nonelastic reaction (n,2n), (n,3n), etc.
+                                                let constituent = nuclide.sample_nonelastic_constituent(
+                                                    particle.energy,
+                                                    &material.temperature,
+                                                    &mut rng,
+                                                );
+                                                let particles = nonelastic_scatter(
+                                                    &particle, constituent, &nuclide_name, &mut rng
+                                                );
+                                                (constituent, particles)
+                                            };
+
+                                            // Handle outgoing particles
                                             if outgoing_particles.len() > 1 {
                                                 // Multi-neutron reaction: bank secondary particles
                                                 for (i, outgoing_particle) in outgoing_particles.into_iter().enumerate() {
@@ -178,13 +209,12 @@ impl Model {
                                                 particle.direction = outgoing.direction;
                                                 particle.position = outgoing.position;
                                             }
-                                            
+
                                             // Use constituent reaction for tally scoring
                                             reaction = constituent_reaction;
                                         }
                                         _ => {
-                                            // For unknown reactions, just absorb the particle
-                                            particle.alive = false;
+                                            panic!("Unexpected reaction MT number: {}. All reactions should be handled by MT 2 (elastic), 18 (fission), 101 (absorption), or 4 (inelastic/nonelastic).", reaction.mt_number);
                                         }
                                     }                                    for tally in tallies.iter() {
                                         tally.score_event(reaction.mt_number, cell, material_id, batch as usize);

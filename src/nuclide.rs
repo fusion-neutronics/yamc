@@ -471,6 +471,155 @@ impl Nuclide {
         panic!("sample_absorption_constituent: Failed to sample any absorption reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
     }
 
+    /// Sample a specific neutron-producing nonelastic constituent reaction at a given energy and temperature.
+    /// These are nonelastic, nonabsorbing reactions that produce neutrons
+    /// Panics if no constituent reactions are available or total cross section is zero.
+    pub fn sample_nonelastic_constituent<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> &Reaction {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            println!("[sample_nonelastic_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
+            r
+        } else {
+            panic!(
+                "[sample_nonelastic_constituent] No reaction data available for any temperature."
+            );
+        };
+
+        // Neutron-producing nonelastic reactions (not absorbed, produce neutrons)
+        let constituent_mts: Vec<i32> = vec![
+            5, 11, 16, 17, 22, 23, 24, 25, 28, 29, 30, 32, 33, 34, 35,
+            36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+            161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+            173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+            186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200
+        ];
+
+        // Filter to only the MTs that are actually available in this nuclide
+        let available_mts: Vec<i32> = constituent_mts
+            .into_iter()
+            .filter(|&mt| temp_reactions.contains_key(&mt))
+            .collect();
+
+        if available_mts.is_empty() {
+            panic!("sample_nonelastic_constituent: No nonelastic constituent reactions available in this nuclide at temperature '{}'. This indicates missing nuclear data or incorrect sampling.", temperature);
+        }
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Calculate total cross section for all available nonelastic constituents
+        let total_xs: f64 = available_mts.iter().map(|&mt| get_xs(mt)).sum();
+
+        if total_xs <= 0.0 {
+            panic!("sample_nonelastic_constituent: Total nonelastic cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
+        }
+
+        // Sample which specific nonelastic reaction occurs
+        let xi = rng.gen_range(0.0..total_xs);
+        let mut accum = 0.0;
+
+        for &mt in &available_mts {
+            let xs = get_xs(mt);
+            accum += xs;
+            if xi < accum && xs > 0.0 {
+                return temp_reactions.get(&mt).expect("sample_nonelastic_constituent: MT not found in temp_reactions after filtering.");
+            }
+        }
+
+        // This should never be reached due to the sampling logic above
+        panic!("sample_nonelastic_constituent: Failed to sample any nonelastic reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
+    }
+
+    /// Get the total inelastic cross section (sum of MT 50-91) at a given energy and temperature.
+    /// Returns 0.0 if no inelastic reactions are available.
+    pub fn get_total_inelastic_xs(&self, energy: f64, temperature: &str) -> f64 {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((_temp, r)) = self.reactions.iter().next() {
+            r
+        } else {
+            return 0.0;
+        };
+
+        // MT 4 is composed of MT 50-91 (inelastic scattering to discrete levels)
+        let inelastic_constituent_mts: Vec<i32> = (50..92).collect();
+
+        // Filter to only the MTs that are actually available in this nuclide
+        let available_mts: Vec<i32> = inelastic_constituent_mts
+            .into_iter()
+            .filter(|&mt| temp_reactions.contains_key(&mt))
+            .collect();
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Sum all inelastic cross sections
+        available_mts.iter().map(|&mt| get_xs(mt)).sum()
+    }
+
+    /// Get the total nonelastic cross section (sum of neutron-producing nonelastic reactions)
+    /// at a given energy and temperature. Returns 0.0 if no nonelastic reactions are available.
+    pub fn get_total_nonelastic_xs(&self, energy: f64, temperature: &str) -> f64 {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((_temp, r)) = self.reactions.iter().next() {
+            r
+        } else {
+            return 0.0;
+        };
+
+        // Neutron-producing nonelastic reactions (not absorbed, produce neutrons)
+        let constituent_mts: Vec<i32> = vec![
+            5, 11, 16, 17, 22, 23, 24, 25, 28, 29, 30, 32, 33, 34, 35,
+            36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+            161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+            173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+            186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200
+        ];
+
+        // Filter to only the MTs that are actually available in this nuclide
+        let available_mts: Vec<i32> = constituent_mts
+            .into_iter()
+            .filter(|&mt| temp_reactions.contains_key(&mt))
+            .collect();
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Sum all nonelastic cross sections
+        available_mts.iter().map(|&mt| get_xs(mt)).sum()
+    }
+
     /// Get the energy grid for a specific temperature
     pub fn energy_grid(&self, temperature: &str) -> Option<&Vec<f64>> {
         self.energy
