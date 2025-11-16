@@ -53,6 +53,11 @@ impl Model {
 
         for batch in 0..self.settings.batches {
             println!("Starting batch {}/{}", batch + 1, self.settings.batches);
+
+            // Track total particles transported (primary + secondary) for this batch
+            use std::sync::atomic::{AtomicU64, Ordering};
+            let total_particles_transported = AtomicU64::new(0);
+
             // Parallel execution per batch with particle banking for multi-neutron reactions
             (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
                 let particle_seed = base_seed
@@ -62,21 +67,24 @@ impl Model {
 
                 // Local particle queue for this thread (for secondary particles)
                 let mut particle_queue: VecDeque<Particle> = VecDeque::new();
-                
+
                 // Start with the source particle
                 let mut particle = self.settings.source.sample(&mut rng);
                 particle.alive = true;
                 particle_queue.push_back(particle);
-                
+
                 // Process all particles in the queue (primary + secondaries)
                 let mut particles_processed = 0;
                 const MAX_PARTICLES_PER_HISTORY: usize = 1000; // Safety limit
-                
+
                 while let Some(mut particle) = particle_queue.pop_front() {
                     particles_processed += 1;
                     if particles_processed > MAX_PARTICLES_PER_HISTORY {
                         break; // Prevent infinite particle multiplication
                     }
+
+                    // Count this particle in the total transported
+                    total_particles_transported.fetch_add(1, Ordering::Relaxed);
 
                 while particle.alive {
                     let cell_opt = self.geometry.find_cell((
@@ -241,8 +249,18 @@ impl Model {
                 } // end of particle queue processing while loop
             }); // end of parallel for_each
 
+            // Normalize by total transported particles (primary + secondary), not just source particles
+            let total_transported = total_particles_transported.load(Ordering::Relaxed) as u32;
+            println!(
+                "  Batch {}: transported {} total particles ({} primary + {} secondary)",
+                batch + 1,
+                total_transported,
+                self.settings.particles,
+                total_transported - self.settings.particles as u32
+            );
+
             for tally in tallies.iter() {
-                tally.update_statistics(self.settings.particles as u32);
+                tally.update_statistics(total_transported);
             }
         }
 
