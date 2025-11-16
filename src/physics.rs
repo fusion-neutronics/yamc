@@ -18,41 +18,33 @@ pub fn rotate_angle(u_cm: Vector3<f64>, mu_cm: f64, rng: &mut impl Rng) -> Vecto
 }
 
 /// Perform elastic scattering for a neutron particle
+/// Uses proper two-body elastic scattering kinematics
 pub fn elastic_scatter(particle: &mut Particle, awr: f64, rng: &mut impl Rng) {
-    // Neutron velocity in LAB
-    let vel = particle.energy.sqrt();
-    let v_n = Vector3::from_row_slice(&particle.direction) * vel;
+    let e_in = particle.energy;
 
-    // Target at rest (for now)
-    let v_t = Vector3::new(0.0, 0.0, 0.0);
-
-    // Center-of-mass velocity
-    let v_cm = (v_n + awr * v_t) / (awr + 1.0);
-
-    // Transform to CM frame
-    let mut v_n_cm = v_n - v_cm;
-    let vel_cm = v_n_cm.norm();
-
-    // Sample scattering angle in CM (isotropic)
+    // Sample isotropic scattering angle in center-of-mass frame
     let mu_cm = 2.0 * rng.gen::<f64>() - 1.0;
 
-    // Direction in CM
-    let u_cm = v_n_cm / vel_cm;
+    // Calculate outgoing energy using proper elastic kinematics
+    // E_out = E_in * [(AWR^2 + 1 + 2*AWR*mu_cm) / (AWR + 1)^2]
+    let numerator = awr * awr + 1.0 + 2.0 * awr * mu_cm;
+    let denominator = (awr + 1.0).powi(2);
+    let e_out = e_in * numerator / denominator;
 
-    // Rotate neutron velocity vector to new angle
-    v_n_cm = vel_cm * rotate_angle(u_cm, mu_cm, rng);
+    particle.energy = e_out;
 
-    // Transform back to LAB frame
-    let v_n_lab = v_n_cm + v_cm;
+    // Calculate scattering angle in lab frame
+    // mu_lab = (1 + AWR*mu_cm) / sqrt(1 + AWR^2 + 2*AWR*mu_cm)
+    let mu_lab = (1.0 + awr * mu_cm) / (1.0 + awr * awr + 2.0 * awr * mu_cm).sqrt();
 
-    // Update particle energy and direction
-    particle.energy = v_n_lab.dot(&v_n_lab);
-    let vel_lab = particle.energy.sqrt();
-    particle.direction = [
-        v_n_lab.x / vel_lab,
-        v_n_lab.y / vel_lab,
-        v_n_lab.z / vel_lab,
-    ];
+    // Sample azimuthal angle uniformly
+    let phi = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+
+    // Rotate direction vector by (mu_lab, phi)
+    let u_old = Vector3::from_row_slice(&particle.direction);
+    let u_new = rotate_angle(u_old, mu_lab, rng);
+
+    particle.direction = [u_new.x, u_new.y, u_new.z];
 }
 
 // =====================

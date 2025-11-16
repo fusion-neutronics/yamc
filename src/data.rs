@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
 /// Neutron mass in atomic mass units (u)
-pub const NEUTRON_MASS_U: f64 = 1.00866491595;
+const NEUTRON_MASS_U: f64 = 1.00866491595;
 
 /// Atomic weight ratio for each nuclide: atomic mass / neutron mass
 pub static ATOMIC_WEIGHT_RATIO: Lazy<HashMap<&'static str, f64>> = Lazy::new(|| {

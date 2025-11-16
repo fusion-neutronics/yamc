@@ -53,7 +53,7 @@ source = mc.IndependentSource(
     energy=mc.stats.Discrete([14060000.0], [1.0])
 )
 settings = mc.Settings(
-    particles=500,
+    particles=5000,
     batches=2,
     source=source,
     seed=1,
