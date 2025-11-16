@@ -24,12 +24,13 @@ region2 = +sphere1 & -sphere2
 # Create materials with different absorption characteristics
 material1 = mc.Material()
 material1.material_id = 1  # Set material_id for MaterialFilter testing
-material1.add_nuclide("Li6", 0.07)  # Li4SiO4
-material1.add_nuclide("Li7", 0.93)
+material1.add_nuclide("Li6", 0.07/2)  # Li4SiO4
+material1.add_nuclide("Li7", 0.93/2)
+material1.add_nuclide("Be9", 0.5)
 # material1.add_element("O", 4.0)
 # material1.add_element("Si", 1.0)
 material1.set_density("g/cm3", 2.0)
-material1.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
+material1.read_nuclides_from_json({"Be9": "tests/Be9.json", "Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
 
 
 # Create cells
@@ -49,11 +50,11 @@ geometry = mc.Geometry([cell1, cell2])
 source = mc.IndependentSource(
     space=[0.0, 0.0, 0.0],
     angle=mc.stats.Isotropic(),
-    energy=1e6
+    energy=14.06e6
 )
 settings = mc.Settings(
     particles=500,
-    batches=200,
+    batches=2,
     source=source,
     seed=1
 )

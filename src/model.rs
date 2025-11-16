@@ -127,11 +127,80 @@ impl Model {
                                 if let Some(reaction) = reaction {
                                     let mut reaction = reaction;
                                     match reaction.mt_number {
-                                        2 => {
-                                            let awr = *ATOMIC_WEIGHT_RATIO
-                                                .get(nuclide_name.as_str())
-                                                .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-                                            elastic_scatter(&mut particle, awr, &mut rng);
+                                        1001 => {
+                                            // Scattering - sample which constituent MT actually occurred
+                                            let constituent_reaction = nuclide.sample_scattering_constituent(
+                                                particle.energy,
+                                                &material.temperature,
+                                                &mut rng,
+                                            );
+
+                                            // Handle the constituent reaction
+                                            match constituent_reaction.mt_number {
+                                                2 => {
+                                                    // Elastic scatter - no products to handle
+                                                    let awr = *ATOMIC_WEIGHT_RATIO
+                                                        .get(nuclide_name.as_str())
+                                                        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                                    elastic_scatter(&mut particle, awr, &mut rng);
+                                                }
+                                                50..=91 => {
+                                                    // Inelastic scatter (MT 50-91) - always produces exactly 1 neutron
+                                                    let outgoing_particles = crate::inelastic::analytical_inelastic_scatter(
+                                                        &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                                    );
+
+                                                    // MT 50-91 should always return exactly 1 particle
+                                                    assert_eq!(
+                                                        outgoing_particles.len(),
+                                                        1,
+                                                        "MT {} should produce exactly 1 neutron, got {}",
+                                                        constituent_reaction.mt_number,
+                                                        outgoing_particles.len()
+                                                    );
+
+                                                    let outgoing = &outgoing_particles[0];
+                                                    particle.energy = outgoing.energy;
+                                                    particle.direction = outgoing.direction;
+                                                    particle.position = outgoing.position;
+                                                }
+                                                _ => {
+                                                    // Other scattering reactions - handle products, multiplicity, banking
+                                                    // Use scatter module for general scattering (n,2n), (n,3n), (n,n'alpha), etc.
+                                                    let outgoing_particles = crate::scatter::scatter(
+                                                        &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                                    );
+
+                                                    // All scattering MTs should produce at least 1 neutron
+                                                    assert!(
+                                                        !outgoing_particles.is_empty(),
+                                                        "Scattering MT {} produced no neutrons - this should not happen",
+                                                        constituent_reaction.mt_number
+                                                    );
+
+                                                    if outgoing_particles.len() == 1 {
+                                                        // Single neutron - update current particle
+                                                        let outgoing = &outgoing_particles[0];
+                                                        particle.energy = outgoing.energy;
+                                                        particle.direction = outgoing.direction;
+                                                        particle.position = outgoing.position;
+                                                    } else {
+                                                        // Multi-neutron reaction - bank secondary particles
+                                                        for (i, outgoing_particle) in outgoing_particles.into_iter().enumerate() {
+                                                            if i == 0 {
+                                                                particle.energy = outgoing_particle.energy;
+                                                                particle.direction = outgoing_particle.direction;
+                                                                particle.position = outgoing_particle.position;
+                                                            } else {
+                                                                particle_queue.push_back(outgoing_particle);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Use constituent reaction for tally scoring
+                                            reaction = constituent_reaction;
                                         }
                                         18 => {
                                             particle.alive = false;
@@ -144,43 +213,6 @@ impl Model {
                                             );
                                             reaction = constituent_reaction;
                                             particle.alive = false;
-                                        }
-                                        4 => {
-                                            // Inelastic scattering - sample constituent reaction first
-                                            let constituent_reaction = nuclide.sample_inelastic_constituent(
-                                                particle.energy,
-                                                &material.temperature,
-                                                &mut rng,
-                                            );
-                                            
-                                            // Use the constituent reaction for further processing
-                                            let outgoing_particles = crate::inelastic::inelastic_scatter(
-                                                &particle, &constituent_reaction, &nuclide_name, &mut rng
-                                            );
-                                            
-                                            if outgoing_particles.len() > 1 {
-                                                // Multi-neutron reaction: bank secondary particles
-                                                for (i, outgoing_particle) in outgoing_particles.into_iter().enumerate() {
-                                                    if i == 0 {
-                                                        // First particle continues as the current particle
-                                                        particle.energy = outgoing_particle.energy;
-                                                        particle.direction = outgoing_particle.direction;
-                                                        particle.position = outgoing_particle.position;
-                                                    } else {
-                                                        // Additional particles go to the queue
-                                                        particle_queue.push_back(outgoing_particle);
-                                                    }
-                                                }
-                                            } else {
-                                                // Single neutron: update current particle
-                                                let outgoing = &outgoing_particles[0];
-                                                particle.energy = outgoing.energy;
-                                                particle.direction = outgoing.direction;
-                                                particle.position = outgoing.position;
-                                            }
-                                            
-                                            // Use constituent reaction for tally scoring
-                                            reaction = constituent_reaction;
                                         }
                                         _ => {
                                             // For unknown reactions, just absorb the particle
