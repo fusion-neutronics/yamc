@@ -14,6 +14,18 @@ use std::sync::{Arc, Mutex};
 static GLOBAL_NUCLIDE_CACHE: Lazy<Mutex<HashMap<String, Arc<Nuclide>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+// Scattering MTs - EXCLUDING synthetic MT 4 (inelastic is represented by MT 50-91)
+const SCATTERING_MTS_NON_INELASTIC: &[i32] = &[
+    2,   // elastic
+    5, 11, 16, 17, 22, 23, 24, 25, 28, 29, 30, 32, 33, 34, 35, 36, 37, 41, 42, 44, 45,
+    152, 153, 154, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169,
+    170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185, 186, 187,
+    188, 189, 190, 194, 195, 196, 198, 199, 200,
+];
+
+// Inelastic constituent MTs (the REAL reactions, not MT 4)
+const INELASTIC_CONSTITUENT_MTS: std::ops::Range<i32> = 50..92;
+
 /// Enum to represent either an MT number or reaction name for flexible reaction identification
 #[derive(Debug, Clone)]
 pub enum ReactionIdentifier {
@@ -269,8 +281,7 @@ impl Nuclide {
         let total_mt = 1;
         let fission_mt = 18;
         let absorption_mt = 101;
-        let elastic_mt = 2;
-        let inelastic_mt = 4;
+        let scattering_mt = 1001; // Synthetic scattering reaction (replaces separate MT 2 and MT 4)
 
         // Helper to get xs for a given MT using Reaction::cross_section_at
         let get_xs = |mt: i32| -> f64 {
@@ -295,11 +306,11 @@ impl Nuclide {
             return temp_reactions.get(&absorption_mt);
         }
 
-        // Elastic
-        let xs_elastic = get_xs(elastic_mt);
-        accum += xs_elastic;
-        if xi < accum && xs_elastic > 0.0 {
-            return temp_reactions.get(&elastic_mt);
+        // Scattering (replaces separate elastic and inelastic)
+        let xs_scattering = get_xs(scattering_mt);
+        accum += xs_scattering;
+        if xi < accum && xs_scattering > 0.0 {
+            return temp_reactions.get(&scattering_mt);
         }
 
         // Fission (only if nuclide is fissionable, checked last)
@@ -313,8 +324,106 @@ impl Nuclide {
             return temp_reactions.get(&fission_mt);
         }
 
-        // inelastic selection as fallback
-        temp_reactions.get(&inelastic_mt)
+        // Fallback to scattering if nothing else was sampled
+        temp_reactions.get(&scattering_mt)
+    }
+
+    /// Sample a specific scattering constituent reaction from all available scattering MTs.
+    /// This samples from MT 2 (elastic), MT 50-91 (inelastic constituents), and other scattering MTs.
+    /// Note: NEVER returns MT 4 (inelastic) as it's a synthetic reaction.
+    ///
+    /// # Arguments
+    /// * `energy` - Neutron energy in eV
+    /// * `temperature` - Temperature string (e.g., "294" or "294K")
+    /// * `rng` - Random number generator
+    ///
+    /// # Returns
+    /// * `&Reaction` for the sampled constituent scattering reaction (MT 2, 50-91, 16, 17, etc.)
+    ///
+    /// # Panics
+    /// * If no scattering constituent reactions are available
+    /// * If sampling logic fails despite having valid reactions and cross sections
+    pub fn sample_scattering_constituent<R: rand::Rng + ?Sized>(
+        &self,
+        energy: f64,
+        temperature: &str,
+        rng: &mut R,
+    ) -> &Reaction {
+        // Try temperature as given, then with 'K' appended, then any available
+        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
+            r
+        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
+            r
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            println!("[sample_scattering_constituent] Requested temperature '{}' not found. Using available temperature '{}'.", temperature, temp);
+            r
+        } else {
+            panic!(
+                "[sample_scattering_constituent] No reaction data available for any temperature."
+            );
+        };
+
+        // Helper to get cross section for a given MT
+        let get_xs = |mt: i32| -> f64 {
+            temp_reactions
+                .get(&mt)
+                .and_then(|reaction| reaction.cross_section_at(energy))
+                .unwrap_or(0.0)
+        };
+
+        // Build list of available scattering MTs with non-zero cross sections at this energy
+        let mut available_scattering_mts = Vec::new();
+
+        // Add MT 2 (elastic) if present and has non-zero XS
+        if temp_reactions.contains_key(&2) && get_xs(2) > 0.0 {
+            available_scattering_mts.push(2);
+        }
+
+        // Add inelastic constituents (MT 50-91) if present and have non-zero XS - NEVER MT 4
+        for mt in INELASTIC_CONSTITUENT_MTS {
+            if temp_reactions.contains_key(&mt) && get_xs(mt) > 0.0 {
+                available_scattering_mts.push(mt);
+            }
+        }
+
+        // Add other scattering MTs (from nonelastic, excluding MT 4 and MT 2 which is already checked)
+        for &mt in SCATTERING_MTS_NON_INELASTIC {
+            if mt != 2 && temp_reactions.contains_key(&mt) && get_xs(mt) > 0.0 {
+                available_scattering_mts.push(mt);
+            }
+        }
+
+        if available_scattering_mts.is_empty() {
+            panic!("sample_scattering_constituent: No scattering constituent reactions with non-zero cross sections at energy {} eV for temperature '{}'. This should not happen if MT 1001 was sampled.", energy, temperature);
+        }
+
+        for &mt in &available_scattering_mts {
+            let xs = get_xs(mt);
+        }
+
+        // Calculate total cross section for all available scattering constituents
+        let total_scattering_xs: f64 = available_scattering_mts.iter().map(|&mt| get_xs(mt)).sum();
+
+        if total_scattering_xs <= 0.0 {
+            panic!("sample_scattering_constituent: Total scattering cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
+        }
+
+        // Sample which specific scattering reaction occurs
+        let xi = rng.gen_range(0.0..total_scattering_xs);
+        let mut accum = 0.0;
+
+        for &mt in &available_scattering_mts {
+            let xs = get_xs(mt);
+            accum += xs;
+            if xi < accum && xs > 0.0 {
+                return temp_reactions.get(&mt).expect(
+                    "sample_scattering_constituent: MT not found in temp_reactions after filtering.",
+                );
+            }
+        }
+
+        // This should never be reached due to the sampling logic above
+        panic!("sample_scattering_constituent: Failed to sample any scattering reaction despite having available MTs and positive total cross section. This indicates a bug in the sampling logic.");
     }
 
     /// Sample a specific inelastic reaction from the constituent MT 50-91 reactions that make up MT 4.
@@ -768,6 +877,53 @@ impl Nuclide {
     }
 }
 
+/// Helper function to sum cross sections from all available scattering MTs
+/// to create the synthetic scattering reaction (MT 1001).
+/// This includes MT 2 (elastic), MT 50-91 (inelastic constituents), and other scattering MTs.
+/// Note: MT 4 is NOT included as it's a synthetic reaction itself.
+fn compute_scattering_xs(
+    temp_reactions: &HashMap<i32, Reaction>,
+    energy_grid: &[f64],
+) -> Vec<f64> {
+    use std::collections::HashSet;
+    let mut scattering_xs = vec![0.0; energy_grid.len()];
+
+    // Collect all scattering MTs that are actually present in the data
+    let mut included_mts = HashSet::new();
+
+    // Add MT 2 (elastic) if present
+    if temp_reactions.contains_key(&2) {
+        included_mts.insert(2);
+    }
+
+    // Add inelastic constituents (MT 50-91) if present - NEVER MT 4
+    for mt in INELASTIC_CONSTITUENT_MTS {
+        if temp_reactions.contains_key(&mt) {
+            included_mts.insert(mt);
+        }
+    }
+
+    // Add other scattering MTs (from nonelastic, excluding MT 4)
+    for &mt in SCATTERING_MTS_NON_INELASTIC {
+        if mt != 2 && temp_reactions.contains_key(&mt) {
+            included_mts.insert(mt);
+        }
+    }
+
+    // Sum cross sections from all included MTs
+    for mt in included_mts {
+        if let Some(reaction) = temp_reactions.get(&mt) {
+            for (i, &energy) in energy_grid.iter().enumerate() {
+                if let Some(xs) = reaction.cross_section_at(energy) {
+                    scattering_xs[i] += xs;
+                }
+            }
+        }
+    }
+
+    scattering_xs
+}
+
 // Internal: parse a nuclide from a JSON value with optional temperature filter.
 // If `temps_filter` is Some, only those temperatures will have reaction/energy data
 // materialized into the returned struct. `available_temperatures` will always list
@@ -971,7 +1127,10 @@ fn parse_nuclide_from_json_value(
 
                         if let Ok(mt_int) = mt.parse::<i32>() {
                             reaction.mt_number = mt_int;
-                            temp_reactions.insert(mt_int, reaction);
+                            // Only insert reactions that have cross section data
+                            if !reaction.cross_section.is_empty() {
+                                temp_reactions.insert(mt_int, reaction);
+                            }
                         }
                     }
                 }
@@ -1078,7 +1237,31 @@ fn parse_nuclide_from_json_value(
         }
     }
 
+    // Create synthetic scattering reactions (MT 1001) for each temperature
+    // This must be done after energy grids are populated
+    if let Some(energy_map) = &nuclide.energy {
+        for (temp, temp_reactions) in nuclide.reactions.iter_mut() {
+            if let Some(energy_grid) = energy_map.get(temp) {
+                let scattering_xs = compute_scattering_xs(&temp_reactions, energy_grid);
 
+                // Only create if we have non-zero cross sections
+                if scattering_xs.iter().any(|&xs| xs > 0.0) {
+                    let scattering_reaction = Reaction {
+                        cross_section: scattering_xs,
+                        // TODO: Make threshold_idx dynamic based on first non-zero cross section
+                        threshold_idx: 0,
+                        interpolation: vec![2], // linear-linear interpolation
+                        energy: energy_grid.clone(),
+                        mt_number: 1001,
+                        // TODO: Support Option<f64> for q_value to better represent synthetic reactions
+                        q_value: 0.0,
+                        products: Vec::new(), // no products - handled by constituent sampling
+                    };
+                    temp_reactions.insert(1001, scattering_reaction);
+                }
+            }
+        }
+    }
 
     // Determine fissionable status now that reactions are loaded
     let fission_mt_list = [18, 19, 20, 21, 38];
@@ -1635,10 +1818,11 @@ mod tests {
         let nuclide_be9 =
             super::read_nuclide_from_json(path_be9, None).expect("Failed to load Be9.json");
 
-        // Expected full MT list at 294 K (extended set including higher MTs)
+        // Expected full MT list at 294 K (extended set including higher MTs and synthetic scattering)
         let mut expected_294: Vec<i32> = vec![
             1, 2, 3, 16, 27, 101, 102, 103, 104, 105, 107, 203, 204, 205, 207, 301, 444, 875, 876,
             877, 878, 879, 880, 881, 882, 883, 884, 885, 886, 887, 888, 889, 890,
+            1001, // Synthetic scattering reaction
         ];
         expected_294.sort();
 

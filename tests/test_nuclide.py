@@ -32,7 +32,7 @@ def test_read_li6_nuclide():
         assert isinstance(entry, float)
         assert isinstance(entry, float)
 
-    expected_li6 = [1, 2, 3, 4, 24, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 101, 102, 103, 105, 203, 204, 205, 207, 301, 444]
+    expected_li6 = [1, 2, 3, 4, 24, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 101, 102, 103, 105, 203, 204, 205, 207, 301, 444, 1001]  # 1001 is synthetic scattering
     assert nuc1.reaction_mts == expected_li6
 
 def test_read_li7_nuclide():
@@ -53,7 +53,7 @@ def test_read_li7_nuclide():
         assert isinstance(entry, float)
         assert isinstance(entry, float)
 
-    expected_li7 = [1, 2, 3, 4, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 104, 203, 204, 205, 207, 301, 444]
+    expected_li7 = [1, 2, 3, 4, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 104, 203, 204, 205, 207, 301, 444, 1001]  # 1001 is synthetic scattering
     assert nuc1.reaction_mts == expected_li7
 
 
@@ -74,7 +74,8 @@ def test_read_be9_mt_numbers_per_temperature():
     mts_294 = sorted(int(mt) for mt in nuc.reactions['294'].keys())
     expected_294 = sorted([
         1,2,3,16,27,101,102,103,104,105,107,203,204,205,207,301,444,
-        875,876,877,878,879,880,881,882,883,884,885,886,887,888,889,890
+        875,876,877,878,879,880,881,882,883,884,885,886,887,888,889,890,
+        1001  # Synthetic scattering reaction
     ])
     assert mts_294 == expected_294, f"Be9 294K MT list mismatch: {mts_294}"
 
@@ -90,7 +91,8 @@ def test_read_be9_selective_single_temperature():
     mts_294 = sorted(int(mt) for mt in nuc.reactions['294'].keys())
     expected_294 = sorted([
         1,2,3,16,27,101,102,103,104,105,107,203,204,205,207,301,444,
-        875,876,877,878,879,880,881,882,883,884,885,886,887,888,889,890
+        875,876,877,878,879,880,881,882,883,884,885,886,887,888,889,890,
+        1001  # Synthetic scattering reaction
     ])
     assert mts_294 == expected_294, f"Selective load 294K MT list mismatch: {mts_294}"
 
@@ -1041,7 +1043,8 @@ def test_nuclide_reaction_mts_content():
     
     # All MTs should be positive integers
     assert all(mt > 0 for mt in nuc.reaction_mts), "All MT numbers should be positive"
-    assert all(mt < 1000 for mt in nuc.reaction_mts), "All MT numbers should be reasonable (<1000)"
+    # Update to allow MT 1001 (synthetic scattering)
+    assert all(mt < 2000 for mt in nuc.reaction_mts), "All MT numbers should be reasonable (<2000)"
 
 
 def test_nuclide_temperature_data_consistency():

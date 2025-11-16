@@ -107,7 +107,7 @@ fn sample_from_products<R: rand::Rng>(
 /// Analytical inelastic scattering based on Q-values and reaction kinematics
 /// Follows OpenMC's LevelInelastic approach for MT 51-90 and general inelastic for others
 /// This handles reactions without product data using analytical energy-angle relationships
-fn analytical_inelastic_scatter<R: rand::Rng>(
+pub fn analytical_inelastic_scatter<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
     nuclide_name: &str,
