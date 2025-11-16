@@ -25,9 +25,9 @@ region2 = +sphere1 & -sphere2
 # Create materials with different absorption characteristics
 material1 = mc.Material()
 material1.material_id = 1  # Set material_id for MaterialFilter testing
-material1.add_nuclide("Li6", 0.07)  # Li4SiO4
-material1.add_nuclide("Li7", 0.93)
-material1.add_nuclide("Be9", 0.93)
+material1.add_nuclide("Li6", 0.07/2)  # Li4SiO4
+material1.add_nuclide("Li7", 0.93/2)
+material1.add_nuclide("Be9", 0.5)
 # material1.add_element("O", 4.0)
 # material1.add_element("Si", 1.0)
 material1.set_density("g/cm3", 2.0)

@@ -198,7 +198,7 @@ pub fn analytical_inelastic_scatter<R: rand::Rng>(
 
 /// Rotate particle direction by scattering angle with cosine mu
 /// This implements isotropic azimuthal angle sampling
-fn rotate_direction<R: rand::Rng>(
+pub fn rotate_direction<R: rand::Rng>(
     direction: &mut [f64; 3],
     mu: f64, // cosine of scattering angle
     rng: &mut R,

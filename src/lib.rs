@@ -7,6 +7,7 @@ pub mod model;
 pub mod particle;
 pub mod physics;
 pub mod region;
+pub mod scatter;
 pub mod settings;
 pub mod source;
 pub mod stats;

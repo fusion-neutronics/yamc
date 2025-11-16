@@ -166,7 +166,8 @@ impl Model {
                                                 }
                                                 _ => {
                                                     // Other scattering reactions - handle products, multiplicity, banking
-                                                    let outgoing_particles = crate::inelastic::inelastic_scatter(
+                                                    // Use scatter module for general scattering (n,2n), (n,3n), (n,n'alpha), etc.
+                                                    let outgoing_particles = crate::scatter::scatter(
                                                         &particle, &constituent_reaction, &nuclide_name, &mut rng
                                                     );
 
