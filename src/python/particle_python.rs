@@ -18,6 +18,7 @@ impl PyParticle {
                 energy,
                 alive: alive.unwrap_or(true),
                 id: id.unwrap_or(0),
+                current_cell_index: None, // Will be set during transport
             },
         }
     }

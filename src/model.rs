@@ -79,16 +79,30 @@ impl Model {
                     }
 
                 while particle.alive {
-                    let cell_opt = self.geometry.find_cell((
-                        particle.position[0],
-                        particle.position[1],
-                        particle.position[2],
-                    ));
-                    if cell_opt.is_none() {
-                        panic!("Particle location not found with in any cells at x={}, y={}, z={} - geometry definition error", 
-                               particle.position[0], particle.position[1], particle.position[2]);
-                    }
-                    let cell = cell_opt.unwrap();
+                    // Use cached cell index if available, otherwise search for it
+                    let cell_index = match particle.current_cell_index {
+                        Some(idx) => idx,
+                        None => {
+                            // Need to find the cell (after initialization or surface crossing)
+                            match self.geometry.find_cell_index((
+                                particle.position[0],
+                                particle.position[1],
+                                particle.position[2],
+                            )) {
+                                Some(idx) => {
+                                    particle.current_cell_index = Some(idx);
+                                    idx
+                                }
+                                None => {
+                                    panic!(
+                                        "Particle location not found within any cells at x={}, y={}, z={} - geometry definition error",
+                                        particle.position[0], particle.position[1], particle.position[2]
+                                    );
+                                }
+                            }
+                        }
+                    };
+                    let cell = &self.geometry.cells[cell_index];
 
                     let dist_collision = match &cell.material {
                         Some(material_arc) => {
@@ -111,6 +125,8 @@ impl Model {
                             } else {
                                 const SURFACE_TOLERANCE: f64 = 1e-8;
                                 particle.move_by(dist_surface + SURFACE_TOLERANCE);
+                                // Invalidate cached cell after surface crossing
+                                particle.current_cell_index = None;
                             }
                         } else {
                             particle.move_by(dist_collision);
