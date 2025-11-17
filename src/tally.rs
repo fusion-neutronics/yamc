@@ -365,6 +365,29 @@ impl Tally {
             .map(|r| f64::from_bits(r.load(Ordering::Relaxed)))
             .collect()
     }
+
+    /// Get batch data for a specific score index
+    /// Returns a vector of normalized scores (per particle) for each batch
+    pub fn get_batch_data(&self, score_index: usize) -> Vec<f64> {
+        if score_index >= self.batch_data.len() {
+            return vec![];
+        }
+
+        let batch_arc = self.batch_data[score_index].lock().unwrap().clone();
+        let particles_per_batch = self.particles_per_batch.load(Ordering::Relaxed) as f64;
+
+        batch_arc
+            .iter()
+            .map(|atomic_count| {
+                let count = atomic_count.load(Ordering::Relaxed) as f64;
+                if particles_per_batch > 0.0 {
+                    count / particles_per_batch
+                } else {
+                    count
+                }
+            })
+            .collect()
+    }
 }
 
 impl fmt::Display for Tally {
