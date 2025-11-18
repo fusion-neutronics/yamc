@@ -8,9 +8,9 @@ use crate::settings::Settings;
 use crate::source::IndependentSource;
 use crate::surface::BoundaryType;
 use crate::tally::{create_tallies_from_specs, Tally};
-use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::sync::{Arc, atomic::Ordering};
@@ -58,10 +58,10 @@ impl Model {
                 let particle_seed = base_seed
                     .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64))
                     .wrapping_add(particle_idx as u64);
-                let mut rng = StdRng::seed_from_u64(particle_seed);
+                let mut rng = Pcg64Mcg::seed_from_u64(particle_seed);
 
                 // Local particle queue for this thread (for secondary particles)
-                let mut particle_queue: VecDeque<Particle> = VecDeque::new();
+                let mut particle_queue: VecDeque<Particle> = VecDeque::with_capacity(100);
                 
                 // Start with the source particle
                 let mut particle = self.settings.source.sample(&mut rng);
