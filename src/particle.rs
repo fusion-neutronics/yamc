@@ -5,6 +5,7 @@ pub struct Particle {
     pub energy: f64,
     pub alive: bool,
     pub id: usize, // Particle ID for tracking
+    pub current_cell_index: Option<usize>, // Cached cell index for performance
 }
 
 impl Particle {
@@ -15,6 +16,7 @@ impl Particle {
             energy,
             alive: true,
             id: 0, // Default ID
+            current_cell_index: None, // Will be set on first transport step
         }
     }
 

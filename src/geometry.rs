@@ -120,6 +120,12 @@ impl Geometry {
     pub fn find_cell(&self, point: (f64, f64, f64)) -> Option<&Cell> {
         self.cells.iter().find(|cell| cell.contains(point))
     }
+
+    /// Find the index of the first cell containing the given point, or None if not found
+    /// This is more efficient than find_cell() when you need to cache the cell location
+    pub fn find_cell_index(&self, point: (f64, f64, f64)) -> Option<usize> {
+        self.cells.iter().position(|cell| cell.contains(point))
+    }
 }
 
 #[cfg(test)]
