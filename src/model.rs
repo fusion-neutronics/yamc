@@ -134,14 +134,16 @@ impl Model {
                             let material_id = material.material_id;
                             let nuclide_name =
                                 material.sample_interacting_nuclide(particle.energy, &mut rng);
-                            if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
-                                let reaction = nuclide.sample_reaction_no_autoload(
-                                    particle.energy,
-                                    &material.temperature,
-                                    &mut rng,
-                                );
-                                if let Some(reaction) = reaction {
-                                    let mut reaction = reaction;
+                            
+                            // Direct access - data must exist if materials are properly loaded
+                            let nuclide = &material.nuclide_data[&nuclide_name];
+                            let reaction = nuclide.sample_reaction_no_autoload(
+                                particle.energy,
+                                &material.temperature,
+                                &mut rng,
+                            ).expect(&format!("No valid reaction found for nuclide {} at energy {}", nuclide_name, particle.energy));
+                            
+                            let mut reaction = reaction;
                                     match reaction.mt_number {
                                         1001 => {
                                             // Scattering - sample which constituent MT actually occurred
@@ -237,15 +239,6 @@ impl Model {
                                     }                                    for tally in tallies.iter() {
                                         tally.score_event(reaction.mt_number, cell, material_id, batch as usize);
                                     }
-                                } else {
-                                    panic!(
-                                        "No valid reaction found for nuclide {} at energy {}",
-                                        nuclide_name, particle.energy
-                                    );
-                                }
-                            } else {
-                                panic!("Nuclide {} not found in material data", nuclide_name);
-                            }
                         }
                     } else {
                         panic!("No surface found for particle at x={}, y={}, z={} with direction [{}, {}, {}] in cell {:?} - geometry definition error",
