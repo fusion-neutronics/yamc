@@ -11,6 +11,7 @@ use crate::tally::{create_tallies_from_specs, Tally};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use rand_pcg::Pcg64;
 use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::sync::{Arc, atomic::Ordering};
@@ -55,10 +56,14 @@ impl Model {
             println!("Starting batch {}/{}", batch + 1, self.settings.batches);
             // Parallel execution per batch with particle banking for multi-neutron reactions
             (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
+                // Each particle gets a unique, reproducible seed
+                const PARTICLE_STRIDE: u64 = 152917;
                 let particle_seed = base_seed
-                    .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64))
-                    .wrapping_add(particle_idx as u64);
-                let mut rng = StdRng::seed_from_u64(particle_seed);
+                    .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64).wrapping_mul(PARTICLE_STRIDE))
+                    .wrapping_add((particle_idx as u64).wrapping_mul(PARTICLE_STRIDE));
+                
+                // Use PCG64 (fast, high-quality RNG)
+                let mut rng = Pcg64::seed_from_u64(particle_seed);
 
                 // Local particle queue for this thread (for secondary particles)
                 let mut particle_queue: VecDeque<Particle> = VecDeque::new();
