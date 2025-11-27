@@ -15,9 +15,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 Windows https://forge.rust-lang.org/infra/other-installation-methods.html
 
-Install a C compiler
+Install the nessecary build tools
 ```
-sudo apt update && sudo apt install build-essential
+sudo apt update && sudo apt install build-essential libssl-dev
 ```
 
 Build Rust Package:
