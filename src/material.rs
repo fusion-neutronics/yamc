@@ -838,7 +838,7 @@ impl Material {
         rng: &mut R,
     ) -> String {
         let by_nuclide = self.macroscopic_xs_neutron_total_by_nuclide.as_ref().expect("macroscopic_xs_neutron_total_by_nuclide is None: call calculate_macroscopic_xs with by_nuclide=true first");
-        let mut xs_by_nuclide = Vec::new();
+        let mut xs_by_nuclide = Vec::with_capacity(by_nuclide.len());
         let mut total = 0.0;
         for (nuclide, xs_vec) in by_nuclide.iter() {
             if xs_vec.is_empty() || self.unified_energy_grid_neutron.is_empty() {
