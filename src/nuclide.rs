@@ -26,6 +26,17 @@ const SCATTERING_MTS_NON_INELASTIC: &[i32] = &[
 // Inelastic constituent MTs (the REAL reactions, not MT 4)
 const INELASTIC_CONSTITUENT_MTS: std::ops::Range<i32> = 50..92;
 
+/// Helper function to check if an MT number is a scattering reaction (excludes MT 4 synthetic)
+#[inline]
+fn is_scattering_mt(mt: i32) -> bool {
+    // Inelastic constituent MTs (50-91)
+    if (50..92).contains(&mt) {
+        return true;
+    }
+    // Other scattering MTs (elastic and non-inelastic scattering)
+    SCATTERING_MTS_NON_INELASTIC.contains(&mt)
+}
+
 /// Enum to represent either an MT number or reaction name for flexible reaction identification
 #[derive(Debug, Clone)]
 pub enum ReactionIdentifier {
@@ -363,46 +374,31 @@ impl Nuclide {
             );
         };
 
-        // Helper to get cross section for a given MT
-        let get_xs = |mt: i32| -> f64 {
-            temp_reactions
-                .get(&mt)
-                .and_then(|reaction| reaction.cross_section_at(energy))
-                .unwrap_or(0.0)
-        };
+        // Build list of available scattering reactions with their cross sections
+        // Single iteration through the HashMap instead of 50+ individual lookups
+        let mut available_reactions: Vec<(i32, &Reaction, f64)> = Vec::new();
+        let mut total_scattering_xs = 0.0;
 
-        // Build list of available scattering MTs with non-zero cross sections at this energy
-        let mut available_scattering_mts = Vec::new();
-
-        // Add MT 2 (elastic) if present and has non-zero XS
-        if temp_reactions.contains_key(&2) && get_xs(2) > 0.0 {
-            available_scattering_mts.push(2);
-        }
-
-        // Add inelastic constituents (MT 50-91) if present and have non-zero XS - NEVER MT 4
-        for mt in INELASTIC_CONSTITUENT_MTS {
-            if temp_reactions.contains_key(&mt) && get_xs(mt) > 0.0 {
-                available_scattering_mts.push(mt);
+        for (&mt, reaction) in temp_reactions.iter() {
+            // Skip MT 4 (synthetic inelastic) - only use constituent reactions
+            if mt == 4 || mt == 1 || mt == 18 || mt == 101 || mt == 1001 {
+                continue;
+            }
+            
+            // Check if this is a scattering MT
+            if is_scattering_mt(mt) {
+                if let Some(xs) = reaction.cross_section_at(energy) {
+                    if xs > 0.0 {
+                        available_reactions.push((mt, reaction, xs));
+                        total_scattering_xs += xs;
+                    }
+                }
             }
         }
 
-        // Add other scattering MTs (from nonelastic, excluding MT 4 and MT 2 which is already checked)
-        for &mt in SCATTERING_MTS_NON_INELASTIC {
-            if mt != 2 && temp_reactions.contains_key(&mt) && get_xs(mt) > 0.0 {
-                available_scattering_mts.push(mt);
-            }
-        }
-
-        if available_scattering_mts.is_empty() {
+        if available_reactions.is_empty() {
             panic!("sample_scattering_constituent: No scattering constituent reactions with non-zero cross sections at energy {} eV for temperature '{}'. This should not happen if MT 1001 was sampled.", energy, temperature);
         }
-
-        for &mt in &available_scattering_mts {
-            let xs = get_xs(mt);
-        }
-
-        // Calculate total cross section for all available scattering constituents
-        let total_scattering_xs: f64 = available_scattering_mts.iter().map(|&mt| get_xs(mt)).sum();
 
         if total_scattering_xs <= 0.0 {
             panic!("sample_scattering_constituent: Total scattering cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
@@ -412,13 +408,10 @@ impl Nuclide {
         let xi = rng.gen_range(0.0..total_scattering_xs);
         let mut accum = 0.0;
 
-        for &mt in &available_scattering_mts {
-            let xs = get_xs(mt);
+        for (mt, reaction, xs) in available_reactions {
             accum += xs;
-            if xi < accum && xs > 0.0 {
-                return temp_reactions.get(&mt).expect(
-                    "sample_scattering_constituent: MT not found in temp_reactions after filtering.",
-                );
+            if xi < accum {
+                return reaction;
             }
         }
 
@@ -528,37 +521,31 @@ impl Nuclide {
             );
         };
 
-        // MTs that make up MT 101 (absorption)
-        let mut constituent_mts: Vec<i32> = vec![
-            102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117, 155, 182,
-            191, 192, 193, 197,
-        ];
-        constituent_mts.extend(600..650); // 103: (n,gamma) continuum
-        constituent_mts.extend(650..700); // 104: (n,p) continuum
-        constituent_mts.extend(700..750); // 105: (n,alpha) continuum
-        constituent_mts.extend(750..800); // 106: (n,2n) continuum
-        constituent_mts.extend(800..850); // 107: (n,3n) continuum
+        // Build list of available absorption reactions with their cross sections
+        // Single iteration through the HashMap instead of checking hundreds of MTs individually
+        let mut available_reactions: Vec<(i32, &Reaction, f64)> = Vec::new();
+        let mut total_xs = 0.0;
 
-        // Filter to only the MTs that are actually available in this nuclide
-        let available_mts: Vec<i32> = constituent_mts
-            .into_iter()
-            .filter(|&mt| temp_reactions.contains_key(&mt))
-            .collect();
+        for (&mt, reaction) in temp_reactions.iter() {
+            // Check if this MT is an absorption constituent
+            // MTs that make up MT 101 (absorption)
+            let is_absorption = matches!(mt,
+                102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 155 | 182 | 191 | 192 | 193 | 197
+            ) || (600..850).contains(&mt);
 
-        if available_mts.is_empty() {
-            panic!("sample_absorption_constituent: No absorption constituent reactions available in this nuclide at temperature '{}'. This indicates missing nuclear data or incorrect MT 101 sampling.", temperature);
+            if is_absorption {
+                if let Some(xs) = reaction.cross_section_at(energy) {
+                    if xs > 0.0 {
+                        available_reactions.push((mt, reaction, xs));
+                        total_xs += xs;
+                    }
+                }
+            }
         }
 
-        // Helper to get cross section for a given MT
-        let get_xs = |mt: i32| -> f64 {
-            temp_reactions
-                .get(&mt)
-                .and_then(|reaction| reaction.cross_section_at(energy))
-                .unwrap_or(0.0)
-        };
-
-        // Calculate total cross section for all available absorption constituents
-        let total_xs: f64 = available_mts.iter().map(|&mt| get_xs(mt)).sum();
+        if available_reactions.is_empty() {
+            panic!("sample_absorption_constituent: No absorption constituent reactions available in this nuclide at temperature '{}'. This indicates missing nuclear data or incorrect MT 101 sampling.", temperature);
+        }
 
         if total_xs <= 0.0 {
             panic!("sample_absorption_constituent: Total absorption cross section is zero at energy {} eV for temperature '{}'. All constituent reactions have zero cross section.", energy, temperature);
@@ -568,11 +555,10 @@ impl Nuclide {
         let xi = rng.gen_range(0.0..total_xs);
         let mut accum = 0.0;
 
-        for &mt in &available_mts {
-            let xs = get_xs(mt);
+        for (mt, reaction, xs) in available_reactions {
             accum += xs;
-            if xi < accum && xs > 0.0 {
-                return temp_reactions.get(&mt).expect("sample_absorption_constituent: MT not found in temp_reactions after filtering.");
+            if xi < accum {
+                return reaction;
             }
         }
 

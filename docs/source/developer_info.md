@@ -82,3 +82,29 @@ Open docs:
 ```bash
 python -m webbrowser docs/build/html/index.html
 ```
+
+
+### Profile the code
+
+High level profile
+```
+# Build with debug symbols in release mode
+cargo build --release --example tbr
+RUSTFLAGS="-C force-frame-pointers=yes" cargo build --release --example tbr
+
+# Profile with full call graph
+sudo perf record -g --call-graph dwarf ./target/release/examples/tbr
+
+# View interactive report
+sudo perf report --no-children
+
+# Or generate text report with full call stacks
+sudo perf report --no-children --stdio > perf_report.txt
+```
+
+Detailed profile
+```
+RUSTFLAGS="-C force-frame-pointers=yes" cargo build --release --example tbr
+sudo perf record -g --call-graph dwarf ./target/release/examples/tbr
+sudo perf report --no-children --stdio | head -200
+```
