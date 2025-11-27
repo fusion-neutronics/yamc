@@ -17,7 +17,7 @@ Windows https://forge.rust-lang.org/infra/other-installation-methods.html
 
 Install the nessecary build tools
 ```
-sudo apt update && sudo apt install build-essential libssl-dev
+sudo apt update && sudo apt install build-essential libssl-dev pkg-config
 ```
 
 Build Rust Package:
