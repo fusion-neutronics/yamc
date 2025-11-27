@@ -56,14 +56,13 @@ impl Model {
             println!("Starting batch {}/{}", batch + 1, self.settings.batches);
             // Parallel execution per batch with particle banking for multi-neutron reactions
             (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
-                // OpenMC-style per-particle seeding with stride
                 // Each particle gets a unique, reproducible seed
-                const PARTICLE_STRIDE: u64 = 152917; // Same stride as OpenMC for compatibility
+                const PARTICLE_STRIDE: u64 = 152917;
                 let particle_seed = base_seed
                     .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64).wrapping_mul(PARTICLE_STRIDE))
                     .wrapping_add((particle_idx as u64).wrapping_mul(PARTICLE_STRIDE));
                 
-                // Use PCG64 (fast, high-quality RNG similar to OpenMC's PCG)
+                // Use PCG64 (fast, high-quality RNG)
                 let mut rng = Pcg64::seed_from_u64(particle_seed);
 
                 // Local particle queue for this thread (for secondary particles)
