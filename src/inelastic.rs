@@ -128,21 +128,55 @@ pub fn analytical_inelastic_scatter<R: rand::Rng>(
         .get(nuclide_name)
         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
 
-    let e_out = if mt >= 51 && mt <= 90 {
+    let (e_out, new_direction) = if mt >= 51 && mt <= 90 {
         // Level inelastic scattering (MT 51-90) - OpenMC LevelInelastic approach
-        // E_out = mass_ratio * (E_in - threshold) where threshold = (A+1)/A * |Q|
+        // For discrete level inelastic: E_out = (A/(A+1))^2 * (E_in + Q*(A+1)/A)
+        // where Q < 0 for endothermic reactions (energy absorbed to excite nucleus)
         let threshold = (awr + 1.0) / awr * q_value.abs();
-        let mass_ratio = (awr / (awr + 1.0)).powi(2);
-        
         if e_in < threshold {
             eprintln!("Warning: Energy {} eV below threshold {} eV for MT {}", e_in, threshold, mt);
             return Vec::new();
         }
-        
-        mass_ratio * (e_in - threshold)
+        // CM kinematics: sample angle in CM, rotate, transform to LAB
+        use nalgebra::Vector3;
+        let v_in = particle.energy.sqrt();
+        let dir_lab = Vector3::from_row_slice(&particle.direction);
+        let v_n = dir_lab * v_in;
+        let v_t = Vector3::new(0.0, 0.0, 0.0); // target at rest
+        let v_cm = (v_n + awr * v_t) / (awr + 1.0);
+        let v_n_cm = v_n - v_cm;
+        let vel_cm = v_n_cm.norm();
+        // Sample scattering angle in CM (isotropic)
+        let mu_cm = 2.0 * rng.gen::<f64>() - 1.0;
+        let u_cm = if vel_cm > 0.0 { v_n_cm / vel_cm } else { Vector3::new(0.0, 0.0, 1.0) };
+        // Rotate in CM
+        let phi = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+        let perp = if u_cm.x.abs() < 0.99 {
+            Vector3::new(1.0, 0.0, 0.0).cross(&u_cm).normalize()
+        } else {
+            Vector3::new(0.0, 1.0, 0.0).cross(&u_cm).normalize()
+        };
+        let ortho = u_cm.cross(&perp);
+        let sin_theta = (1.0 - mu_cm * mu_cm).sqrt();
+        let new_u_cm = mu_cm * u_cm + sin_theta * phi.cos() * perp + sin_theta * phi.sin() * ortho;
+        // Outgoing speed in CM
+        let mass_ratio = awr / (awr + 1.0);
+        let e_out_cm = mass_ratio * (e_in + q_value * (awr + 1.0) / awr);
+        let v_out_cm = e_out_cm.sqrt();
+        let v_n_cm_prime = new_u_cm * v_out_cm;
+        // Transform back to LAB
+        let v_n_lab = v_n_cm_prime + v_cm;
+        let e_out_lab = v_n_lab.dot(&v_n_lab);
+        let vel_lab = e_out_lab.sqrt();
+        let dir_lab_out = if vel_lab > 0.0 {
+            [v_n_lab.x / vel_lab, v_n_lab.y / vel_lab, v_n_lab.z / vel_lab]
+        } else {
+            [0.0, 0.0, 1.0]
+        };
+        (e_out_lab, dir_lab_out)
     } else if reaction.products.is_empty() {
         // No product data available - use Q-value based analytical approach (OpenMC fallback)
-        if q_value < 0.0 {
+        let energy = if q_value < 0.0 {
             // Endothermic reaction
             let threshold = (awr + 1.0) / awr * q_value.abs();
             if e_in < threshold {
@@ -153,7 +187,8 @@ pub fn analytical_inelastic_scatter<R: rand::Rng>(
         } else {
             // Exothermic reaction
             e_in + q_value * awr / (awr + 1.0)
-        }
+        };
+        (energy, particle.direction)
     } else {
         // Has products but using analytical fallback - simplified energy model
         let max_energy_loss = if q_value < 0.0 {
@@ -161,38 +196,35 @@ pub fn analytical_inelastic_scatter<R: rand::Rng>(
         } else {
             0.0
         };
-        
-        if max_energy_loss > 0.0 {
+        let energy = if max_energy_loss > 0.0 {
             let energy_loss = rng.gen_range(0.0..max_energy_loss);
             (e_in - energy_loss).max(0.1)
         } else {
             e_in + q_value.max(0.0)
-        }
+        };
+        (energy, particle.direction)
     };
 
-    // For multi-neutron reactions, divide energy among neutrons
+    // For multi-neutron reactions, divide energy among neutrons (OpenMC: all same energy/direction)
     let energy_per_neutron = if neutron_multiplicity > 1 {
-        // Simple energy sharing model - could be more sophisticated
         e_out / neutron_multiplicity as f64
     } else {
         e_out
     };
 
-    // Create the specified number of outgoing neutrons
     let mut outgoing_neutrons = Vec::with_capacity(neutron_multiplicity);
-    
     for _ in 0..neutron_multiplicity {
-        // Create new neutron particle
         let mut new_particle = particle.clone();
         new_particle.energy = energy_per_neutron;
-        
-        // Isotropic scattering angle (OpenMC default for missing angular data)
-        let mu = rng.gen_range(-1.0..=1.0);
-        rotate_direction(&mut new_particle.direction, mu, rng);
-        
+        if mt >= 51 && mt <= 90 {
+            new_particle.direction = new_direction;
+        } else {
+            // fallback: isotropic in LAB
+            let mu = rng.gen_range(-1.0..=1.0);
+            rotate_direction(&mut new_particle.direction, mu, rng);
+        }
         outgoing_neutrons.push(new_particle);
     }
-    
     outgoing_neutrons
 }
 

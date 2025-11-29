@@ -14,7 +14,7 @@ use rand::SeedableRng;
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
 use std::collections::VecDeque;
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -32,6 +32,7 @@ impl Model {
             tallies,
         }
     }
+
 
     pub fn run(&mut self) {
         // Ensure all nuclear data is loaded before transport
@@ -52,9 +53,24 @@ impl Model {
         let tallies = &self.tallies;
         let base_seed = self.settings.get_seed();
 
+        // Global counters for debugging (shared across all threads)
+        let total_particles_transported = Arc::new(AtomicUsize::new(0));
+        let total_banked_particles = Arc::new(AtomicUsize::new(0));
+        let total_mt16_events = Arc::new(AtomicUsize::new(0));
+        let total_mt105_events = Arc::new(AtomicUsize::new(0));
+        let total_collisions = Arc::new(AtomicUsize::new(0));
+        let total_absorptions = Arc::new(AtomicUsize::new(0));
+
         for batch in 0..self.settings.batches {
             println!("Starting batch {}/{}", batch + 1, self.settings.batches);
             // Parallel execution per batch with particle banking for multi-neutron reactions
+            let batch_particles_transported = Arc::clone(&total_particles_transported);
+            let batch_banked_particles = Arc::clone(&total_banked_particles);
+            let batch_mt16_events = Arc::clone(&total_mt16_events);
+            let batch_mt105_events = Arc::clone(&total_mt105_events);
+            let batch_collisions = Arc::clone(&total_collisions);
+            let batch_absorptions = Arc::clone(&total_absorptions);
+
             (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
                 // Each particle gets a unique, reproducible seed
                 const PARTICLE_STRIDE: u64 = 152917;
@@ -79,6 +95,7 @@ impl Model {
                 
                 while let Some(mut particle) = particle_queue.pop_front() {
                     particles_processed += 1;
+                    batch_particles_transported.fetch_add(1, Ordering::Relaxed);
                     if particles_processed > MAX_PARTICLES_PER_HISTORY {
                         break; // Prevent infinite particle multiplication
                     }
@@ -135,6 +152,7 @@ impl Model {
                             }
                         } else {
                             particle.move_by(dist_collision);
+                            batch_collisions.fetch_add(1, Ordering::Relaxed);
                             let material = cell.material.as_ref().unwrap().as_ref();
                             let material_id = material.material_id;
                             let nuclide_name =
@@ -213,6 +231,7 @@ impl Model {
                                                                 particle.direction = outgoing_particle.direction;
                                                                 particle.position = outgoing_particle.position;
                                                             } else {
+                                                                batch_banked_particles.fetch_add(1, Ordering::Relaxed);
                                                                 particle_queue.push_back(outgoing_particle);
                                                             }
                                                         }
@@ -224,9 +243,13 @@ impl Model {
                                             reaction = constituent_reaction;
                                         }
                                         18 => {
+                                            batch_absorptions.fetch_add(1, Ordering::Relaxed);
+                                            // Record energy at absorption
                                             particle.alive = false;
                                         }
                                         101 => {
+                                            batch_absorptions.fetch_add(1, Ordering::Relaxed);
+                                            // Record energy at absorption
                                             let constituent_reaction = nuclide.sample_absorption_constituent(
                                                 particle.energy,
                                                 &material.temperature,
@@ -239,7 +262,14 @@ impl Model {
                                             // For unknown reactions, just absorb the particle
                                             particle.alive = false;
                                         }
-                                    }                                    for tally in tallies.iter() {
+                                    }                                    // Track specific MT events for debugging
+                                    if reaction.mt_number == 16 {
+                                        batch_mt16_events.fetch_add(1, Ordering::Relaxed);
+                                    } else if reaction.mt_number == 105 {
+                                        batch_mt105_events.fetch_add(1, Ordering::Relaxed);
+                                    }
+
+                                    for tally in tallies.iter() {
                                         tally.score_event(reaction.mt_number, cell, material_id, batch as usize);
                                     }
                                 } else {
@@ -268,6 +298,23 @@ impl Model {
         }
 
         println!("Simulation complete.");
+        println!("\n=== Transport Statistics ===");
+        println!("Source particles: {}", self.settings.particles * self.settings.batches);
+        println!("Total particles transported: {}", total_particles_transported.load(Ordering::Relaxed));
+        println!("Total collisions: {}", total_collisions.load(Ordering::Relaxed));
+        println!("Total absorptions: {}", total_absorptions.load(Ordering::Relaxed));
+        println!("Secondary particles banked: {}", total_banked_particles.load(Ordering::Relaxed));
+        println!("MT 16 (n,2n) events: {}", total_mt16_events.load(Ordering::Relaxed));
+        println!("MT 105 (n,t) events: {}", total_mt105_events.load(Ordering::Relaxed));
+        
+        let source_count = (self.settings.particles * self.settings.batches) as f64;
+        println!("\nAverages per source particle:");
+        println!("  Particles transported: {:.4}", total_particles_transported.load(Ordering::Relaxed) as f64 / source_count);
+        println!("  Collisions: {:.4}", total_collisions.load(Ordering::Relaxed) as f64 / source_count);
+        println!("  Absorptions: {:.4}", total_absorptions.load(Ordering::Relaxed) as f64 / source_count);
+        println!("  Secondaries banked: {:.4}", total_banked_particles.load(Ordering::Relaxed) as f64 / source_count);
+        println!("  MT16 events: {:.4}", total_mt16_events.load(Ordering::Relaxed) as f64 / source_count);
+        println!("  MT105 events: {:.4}", total_mt105_events.load(Ordering::Relaxed) as f64 / source_count);
     }
 }
 
@@ -363,3 +410,8 @@ mod tests {
         println!("✓ Absorption tally verified successfully - tally updated in place!");
     }
 }
+
+
+
+
+
