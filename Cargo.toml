@@ -67,3 +67,7 @@ path = "examples/rust/materials_demo.rs"
 [[example]]
 name = "tbr"
 path = "examples/rust/tbr.rs"
+
+[[example]]
+name = "flux_example"
+path = "examples/rust/flux_example.rs"

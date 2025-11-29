@@ -109,6 +109,9 @@ impl Model {
                     };
                     let cell = &self.geometry.cells[cell_index];
 
+                    // Extract material_id for flux tallying
+                    let material_id = cell.material.as_ref().and_then(|m| m.material_id);
+
                     let dist_collision = match &cell.material {
                         Some(material_arc) => {
                             let material = material_arc.as_ref();
@@ -125,6 +128,10 @@ impl Model {
                         cell.closest_surface(particle.position, particle.direction)
                     {
                         if dist_surface < dist_collision {
+                            // Score track-length flux for this segment
+                            for tally in tallies.iter() {
+                                tally.score_track_length(dist_surface, cell, material_id, batch as usize);
+                            }
                             if surface_arc.boundary_type == BoundaryType::Vacuum {
                                 particle.alive = false;
                             } else {
@@ -134,9 +141,12 @@ impl Model {
                                 particle.current_cell_index = None;
                             }
                         } else {
+                            // Score track-length flux for this segment
+                            for tally in tallies.iter() {
+                                tally.score_track_length(dist_collision, cell, material_id, batch as usize);
+                            }
                             particle.move_by(dist_collision);
                             let material = cell.material.as_ref().unwrap().as_ref();
-                            let material_id = material.material_id;
                             let nuclide_name =
                                 material.sample_interacting_nuclide(particle.energy, &mut rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {

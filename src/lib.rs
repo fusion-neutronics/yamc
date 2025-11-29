@@ -19,6 +19,7 @@ pub use cell::*;
 pub use geometry::*;
 pub use region::*;
 pub use surface::*;
+pub use tally::FLUX_SCORE;
 #[cfg(feature = "wasm")]
 pub use wasm::config_wasm;
 #[cfg(feature = "wasm")]

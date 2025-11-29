@@ -5,6 +5,9 @@ use std::sync::{Arc, Mutex};
 // ...existing code...
 use crate::filter::Filter;
 
+/// Special score value for flux (track-length estimator)
+pub const FLUX_SCORE: i32 = -1;
+
 /// Unified tally structure serving as both input specification and results container
 /// Note: Cannot derive Clone because AtomicU64 is not cloneable (use Arc<Tally> for sharing)
 #[derive(Debug)]
@@ -99,6 +102,42 @@ impl Tally {
         }
         triggered
     }
+
+    /// Score a track-length contribution for flux tallies
+    /// This is called every time a particle moves through a cell
+    pub fn score_track_length(
+        &self,
+        track_length: f64,
+        cell: &crate::cell::Cell,
+        material_id: Option<u32>,
+        batch_index: usize,
+    ) {
+        // For each score, check if it's a flux score
+        for (i, &score) in self.scores.iter().enumerate() {
+            if score == FLUX_SCORE {
+                let passes_filters = if self.filters.is_empty() {
+                    true
+                } else {
+                    self.filters.iter().all(|filter| match filter {
+                        Filter::Cell(cell_filter) => {
+                            cell.cell_id.map_or(false, |id| cell_filter.matches(id))
+                        }
+                        Filter::Material(material_filter) => material_filter.matches(material_id),
+                    })
+                };
+                if passes_filters {
+                    // Lock-free: clone the Arc to get shared access to atomics
+                    let batch_arc = self.batch_data[i].lock().unwrap().clone();
+                    if let Some(atomic) = batch_arc.get(batch_index) {
+                        // Convert track_length to integer (store as micrometers * 1e6 for precision)
+                        let track_length_int = (track_length * 1e6) as u64;
+                        atomic.fetch_add(track_length_int, Ordering::Relaxed);
+                    }
+                }
+            }
+        }
+    }
+
     /// Create a new tally specification
     pub fn new() -> Self {
         Self {
@@ -284,11 +323,17 @@ impl Tally {
             let n = batch_arc.len() as f64;
             let particles_per_batch_f64 = particles_per_batch as f64;
 
+            // Check if this is a flux score (needs special handling)
+            let is_flux_score = self.scores.get(i) == Some(&FLUX_SCORE);
+
             // Normalize each batch by particles per batch to get per-source-particle values
             let normalized_data: Vec<f64> = batch_arc
                 .iter()
                 .map(|atomic_count| {
-                    atomic_count.load(Ordering::Relaxed) as f64 / particles_per_batch_f64
+                    let count = atomic_count.load(Ordering::Relaxed) as f64;
+                    // For flux scores, convert from integer representation (micrometers * 1e6)
+                    let actual_count = if is_flux_score { count / 1e6 } else { count };
+                    actual_count / particles_per_batch_f64
                 })
                 .collect();
 
