@@ -65,7 +65,13 @@ tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
 tally1.scores = [105]  # n,t
 tally1.name = "tbr"
-tallies = [tally1]
+
+tally2 = mc.Tally()
+tally2.filters = [cell_filter2]
+tally2.scores = [16]  # n,2n
+tally2.name = "multiplication"
+
+tallies = [tally1, tally2]
 
 model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
 

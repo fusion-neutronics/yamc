@@ -53,7 +53,7 @@ source = mc.IndependentSource(
     energy=mc.stats.Discrete([14060000.0], [1.0])
 )
 settings = mc.Settings(
-    particles=500,
+    particles=50000,
     batches=2,
     source=source,
     seed=1,
@@ -66,7 +66,12 @@ tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
 tally1.scores = ['105']  # n,t
 tally1.name = "tbr"
-tallies = [tally1]
+
+tally2 = mc.Tally()
+tally2.filters = [cell_filter2]
+tally2.scores = ['16']  # n,2n
+tally2.name = "multiplication"
+tallies = [tally1, tally2]
 
 model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
 
@@ -75,3 +80,4 @@ model.run(apply_tally_results=True)
 print(f"Simulation completed in {time.time() - time.start} seconds.")
 # Tallies are updated in place!
 print(f"TBR (tritium breeding ratio): {tally1.mean}")
+print(f"Neutron multiplication factor: {tally2.mean}")

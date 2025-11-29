@@ -113,14 +113,20 @@ fn main() {
     // Create tallies with CellFilters
     let cell_filter2 = Filter::Cell(CellFilter::new(&cell2));
     let mut tally1 = Tally::new();
-    tally1.filters = vec![cell_filter2];
+    tally1.filters = vec![cell_filter2.clone()];
     tally1.scores = vec![105]; // n,t (tritium production)
     tally1.name = Some("tbr".to_string());
 
     // Initialize batch data
     tally1.initialize_batches(settings.batches as usize);
 
-    let tallies = vec![Arc::new(tally1)];
+    let mut tally2 = Tally::new();
+    tally2.filters = vec![cell_filter2];
+    tally2.scores = vec![16]; // n,2n (neutron multiplication)
+    tally2.name = Some("multiplication".to_string());
+    tally2.initialize_batches(settings.batches as usize);
+
+    let tallies = vec![Arc::new(tally1), Arc::new(tally2)];
 
     let mut model = Model {
         geometry,
@@ -138,6 +144,9 @@ fn main() {
     );
 
     // Tallies are updated in place!
-    let mean = model.tallies[0].get_mean();
-    println!("TBR (tritium breeding ratio): {}", mean[0]);
+    let tbr_mean = model.tallies[0].get_mean();
+    println!("TBR (tritium breeding ratio): {}", tbr_mean[0]);
+    
+    let mult_mean = model.tallies[1].get_mean();
+    println!("Neutron multiplication (n,2n): {}", mult_mean[0]);
 }
