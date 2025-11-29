@@ -8,6 +8,31 @@ use crate::filter::Filter;
 /// Special score value for flux (track-length estimator)
 pub const FLUX_SCORE: i32 = -1;
 
+/// Represents a score - either an MT number or a named score like "flux"
+#[derive(Debug, Clone)]
+pub enum Score {
+    MT(i32),
+    Flux,
+}
+
+impl Score {
+    /// Convert to i32 representation
+    pub fn to_i32(&self) -> i32 {
+        match self {
+            Score::MT(mt) => *mt,
+            Score::Flux => FLUX_SCORE,
+        }
+    }
+    
+    /// Parse from string
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s {
+            "flux" => Ok(Score::Flux),
+            _ => Err(format!("Unknown score: '{}'", s)),
+        }
+    }
+}
+
 /// Unified tally structure serving as both input specification and results container
 /// Note: Cannot derive Clone because AtomicU64 is not cloneable (use Arc<Tally> for sharing)
 #[derive(Debug)]
@@ -253,6 +278,24 @@ impl Tally {
             n_batches: AtomicU32::new(0),
             particles_per_batch: AtomicU32::new(0),
         }
+    }
+
+    /// Set scores from a mix of integers and score names
+    pub fn set_scores_mixed(&mut self, scores: Vec<Score>) {
+        self.scores = scores.iter().map(|s| s.to_i32()).collect();
+        // Re-initialize storage
+        self.batch_data = (0..self.scores.len())
+            .map(|_| Mutex::new(Arc::new(Vec::new())))
+            .collect();
+        self.mean = (0..self.scores.len())
+            .map(|_| AtomicU64::new(0))
+            .collect();
+        self.std_dev = (0..self.scores.len())
+            .map(|_| AtomicU64::new(0))
+            .collect();
+        self.rel_error = (0..self.scores.len())
+            .map(|_| AtomicU64::new(0))
+            .collect();
     }
 
     /// Set the MT number to score

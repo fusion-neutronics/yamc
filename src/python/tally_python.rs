@@ -1,5 +1,5 @@
 #[cfg(feature = "pyo3")]
-use crate::tally::Tally;
+use crate::tally::{Tally, FLUX_SCORE, Score};
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 #[cfg(feature = "pyo3")]
@@ -30,25 +30,30 @@ impl PyTally {
     }
 
     #[setter]
-    pub fn set_scores(&mut self, scores: Vec<i32>) {
-        if let Some(tally) = Arc::get_mut(&mut self.inner) {
-            tally.scores = scores.clone();
-            // Pre-allocate vecs (but don't initialize batch_data yet - we don't know n_batches)
-            tally.batch_data = (0..scores.len())
-                .map(|_| std::sync::Mutex::new(std::sync::Arc::new(Vec::new())))
-                .collect();
-            tally.mean = (0..scores.len())
-                .map(|_| std::sync::atomic::AtomicU64::new(0))
-                .collect();
-            tally.std_dev = (0..scores.len())
-                .map(|_| std::sync::atomic::AtomicU64::new(0))
-                .collect();
-            tally.rel_error = (0..scores.len())
-                .map(|_| std::sync::atomic::AtomicU64::new(0))
-                .collect();
+    pub fn set_scores(&mut self, scores: &PyAny) -> PyResult<()> {
+        // Convert Python input to Vec<Score>
+        let score_list: Vec<Score> = if let Ok(ints) = scores.extract::<Vec<i32>>() {
+            ints.into_iter().map(Score::MT).collect()
+        } else if let Ok(items) = scores.extract::<Vec<&PyAny>>() {
+            items.iter().map(|item| {
+                if let Ok(i) = item.extract::<i32>() {
+                    Ok(Score::MT(i))
+                } else if let Ok(s) = item.extract::<String>() {
+                    Score::from_str(&s).map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+                } else {
+                    Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>("Score must be int or string"))
+                }
+            }).collect::<PyResult<Vec<Score>>>()?
         } else {
-            panic!("Cannot modify tally: multiple references exist");
-        }
+            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>("scores must be a list"));
+        };
+
+        Arc::get_mut(&mut self.inner)
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Cannot modify tally: multiple references exist"
+            ))?
+            .set_scores_mixed(score_list);
+        Ok(())
     }
 
     #[getter]
@@ -189,5 +194,6 @@ impl From<Tally> for PyTally {
 #[cfg(feature = "pyo3")]
 pub fn register_tally_classes(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyTally>()?;
+    m.add("FLUX_SCORE", FLUX_SCORE)?;
     Ok(())
 }
