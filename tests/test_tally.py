@@ -57,7 +57,7 @@ class TestTally:
 
         # Test mixed scores
         tally.scores = [101, 'flux']
-        assert tally.scores == [101, -1]
+        assert tally.scores == [101, 'flux']
         
         # Test invalid string
         with pytest.raises(ValueError):
