@@ -1,5 +1,5 @@
 #[cfg(feature = "pyo3")]
-use crate::tally::{Tally, FLUX_SCORE, Score};
+use crate::tally::{Tally, Score};
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 #[cfg(feature = "pyo3")]
@@ -24,9 +24,15 @@ impl PyTally {
         }
     }
 
+
     #[getter]
-    pub fn scores(&self) -> Vec<i32> {
-        self.inner.scores.clone()
+    pub fn scores(&self) -> Vec<PyObject> {
+        Python::with_gil(|py| {
+            self.inner.scores.iter().map(|score| match score {
+                Score::MT(mt) => mt.into_py(py),
+                Score::Flux => "flux".into_py(py),
+            }).collect()
+        })
     }
 
     #[setter]
@@ -39,7 +45,11 @@ impl PyTally {
                 if let Ok(i) = item.extract::<i32>() {
                     Ok(Score::MT(i))
                 } else if let Ok(s) = item.extract::<String>() {
-                    Score::from_str(&s).map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+                    if s == "flux" {
+                        Ok(Score::Flux)
+                    } else {
+                        Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Unknown score: {}", s)))
+                    }
                 } else {
                     Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>("Score must be int or string"))
                 }
@@ -194,6 +204,5 @@ impl From<Tally> for PyTally {
 #[cfg(feature = "pyo3")]
 pub fn register_tally_classes(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyTally>()?;
-    m.add("FLUX_SCORE", FLUX_SCORE)?;
     Ok(())
 }

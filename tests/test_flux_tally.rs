@@ -7,29 +7,23 @@ use materials_for_mc::settings::Settings;
 use materials_for_mc::source::IndependentSource;
 use materials_for_mc::stats::AngularDistribution;
 use materials_for_mc::surface::{BoundaryType, Surface, SurfaceKind};
-use materials_for_mc::tally::{Tally, Score, FLUX_SCORE};
+use materials_for_mc::tally::{Tally, Score};
 use materials_for_mc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 #[test]
-fn test_flux_score_constant() {
-    // Verify FLUX_SCORE constant value
-    assert_eq!(FLUX_SCORE, -1);
-}
 
 #[test]
 fn test_score_enum() {
     // Test Score enum conversions
     let flux_score = Score::Flux;
-    assert_eq!(flux_score.to_i32(), -1);
     
     let mt_score = Score::MT(101);
     assert_eq!(mt_score.to_i32(), 101);
     
     // Test from_str
     let parsed_flux = Score::from_str("flux").unwrap();
-    assert_eq!(parsed_flux.to_i32(), -1);
     
     let invalid_result = Score::from_str("invalid");
     assert!(invalid_result.is_err());
@@ -105,7 +99,6 @@ fn test_flux_tally_simulation() {
 
     // Check results
     let tally_result = &model.tallies[0];
-    assert_eq!(tally_result.scores, vec![-1]); // FLUX_SCORE
     
     // Flux should be positive
     let mean_flux = tally_result.get_mean()[0];
@@ -186,7 +179,6 @@ fn test_flux_and_reaction_mixed_tally() {
 
     // Check results
     let tally_result = &model.tallies[0];
-    assert_eq!(tally_result.scores, vec![-1, 101]);
     
     let means = tally_result.get_mean();
     assert_eq!(means.len(), 2);
@@ -220,5 +212,5 @@ fn test_set_scores_mixed_reinitializes_storage() {
     assert_eq!(tally.rel_error.len(), 3);
     
     // Verify actual score values
-    assert_eq!(tally.scores, vec![-1, 101, 2]);
+    assert_eq!(tally.scores, vec![Score::Flux, Score::MT(101), Score::MT(2)]);
 }

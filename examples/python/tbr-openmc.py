@@ -64,7 +64,7 @@ settings = mc.Settings(
 cell_filter2 = mc.CellFilter(cell2)
 tally1 = mc.Tally()
 tally1.filters = [cell_filter2]
-tally1.scores = ['flux']  # n,t
+tally1.scores = ['105']  # n,t
 tally1.name = "tbr"
 tallies = [tally1]
 

@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use crate::filter::Filter;
 
 /// Special score value for flux (track-length estimator)
-pub const FLUX_SCORE: i32 = -1;
 
 /// Represents a score - either an MT number or a named score like "flux"
 #[derive(Debug, Clone)]
@@ -20,7 +19,7 @@ impl Score {
     pub fn to_i32(&self) -> i32 {
         match self {
             Score::MT(mt) => *mt,
-            Score::Flux => FLUX_SCORE,
+            Score::Flux => panic!("Direct integer value for flux score is not supported. Use 'flux' string only."),
         }
     }
     
@@ -40,7 +39,7 @@ pub struct Tally {
     // Input specification fields
     pub id: Option<u32>,      // Optional tally ID
     pub name: Option<String>, // Optional tally name
-    pub scores: Vec<i32>,     // MT numbers to score (e.g., [101] for absorption)
+    pub scores: Vec<Score>,   // Score enum (MT or Flux)
     pub filters: Vec<Filter>, // Filters for this tally
 
     // Results fields (populated during simulation)
@@ -66,43 +65,53 @@ impl Tally {
     ) -> bool {
         let mut triggered = false;
         // For each score, check if it should be incremented
-        for (i, &score) in self.scores.iter().enumerate() {
-            let mut should_score = score == reaction_mt;
-            // If this is an inelastic constituent (MT 50-91), also score for MT 4
-            if (50..92).contains(&reaction_mt) && score == 4 {
-                should_score = true;
-            }
-            // If this is a constituent absorption (explicit list and continuum), also score for MT 101
-            let is_absorption_constituent = score == 101
-                && (matches!(
-                    reaction_mt,
-                    102 | 103
-                        | 104
-                        | 105
-                        | 106
-                        | 107
-                        | 108
-                        | 109
-                        | 111
-                        | 112
-                        | 113
-                        | 114
-                        | 115
-                        | 116
-                        | 117
-                        | 155
-                        | 182
-                        | 191
-                        | 192
-                        | 193
-                        | 197
-                ) || (600..650).contains(&reaction_mt)
-                    || (650..700).contains(&reaction_mt)
-                    || (700..750).contains(&reaction_mt)
-                    || (750..800).contains(&reaction_mt)
-                    || (800..850).contains(&reaction_mt));
-            if is_absorption_constituent && score == 101 {
-                should_score = true;
+        for (i, score) in self.scores.iter().enumerate() {
+            let mut should_score = false;
+            match score {
+                Score::MT(mt) => {
+                    if *mt == reaction_mt {
+                        should_score = true;
+                    }
+                    // If this is an inelastic constituent (MT 50-91), also score for MT 4
+                    if (50..92).contains(&reaction_mt) && *mt == 4 {
+                        should_score = true;
+                    }
+                    // If this is a constituent absorption (explicit list and continuum), also score for MT 101
+                    let is_absorption_constituent = *mt == 101
+                        && (matches!(
+                            reaction_mt,
+                            102 | 103
+                                | 104
+                                | 105
+                                | 106
+                                | 107
+                                | 108
+                                | 109
+                                | 111
+                                | 112
+                                | 113
+                                | 114
+                                | 115
+                                | 116
+                                | 117
+                                | 155
+                                | 182
+                                | 191
+                                | 192
+                                | 193
+                                | 197
+                        ) || (600..650).contains(&reaction_mt)
+                            || (650..700).contains(&reaction_mt)
+                            || (700..750).contains(&reaction_mt)
+                            || (750..800).contains(&reaction_mt)
+                            || (800..850).contains(&reaction_mt));
+                    if is_absorption_constituent {
+                        should_score = true;
+                    }
+                }
+                Score::Flux => {
+                    // No event-based scoring for flux
+                }
             }
             if should_score {
                 let passes_filters = if self.filters.is_empty() {
@@ -138,8 +147,8 @@ impl Tally {
         batch_index: usize,
     ) {
         // For each score, check if it's a flux score
-        for (i, &score) in self.scores.iter().enumerate() {
-            if score == FLUX_SCORE {
+        for (i, score) in self.scores.iter().enumerate() {
+            if let Score::Flux = score {
                 let passes_filters = if self.filters.is_empty() {
                     true
                 } else {
@@ -282,7 +291,7 @@ impl Tally {
 
     /// Set scores from a mix of integers and score names
     pub fn set_scores_mixed(&mut self, scores: Vec<Score>) {
-        self.scores = scores.iter().map(|s| s.to_i32()).collect();
+        self.scores = scores;
         // Re-initialize storage
         self.batch_data = (0..self.scores.len())
             .map(|_| Mutex::new(Arc::new(Vec::new())))
@@ -300,7 +309,7 @@ impl Tally {
 
     /// Set the MT number to score
     pub fn set_scores(&mut self, mt_numbers: Vec<i32>) {
-        self.scores = mt_numbers;
+        self.scores = mt_numbers.into_iter().map(Score::MT).collect();
     }
 
     /// Validate that the tally configuration is valid
@@ -367,7 +376,7 @@ impl Tally {
             let particles_per_batch_f64 = particles_per_batch as f64;
 
             // Check if this is a flux score (needs special handling)
-            let is_flux_score = self.scores.get(i) == Some(&FLUX_SCORE);
+            let is_flux_score = matches!(self.scores.get(i), Some(Score::Flux));
 
             // Normalize each batch by particles per batch to get per-source-particle values
             let normalized_data: Vec<f64> = batch_arc
@@ -487,7 +496,11 @@ impl fmt::Display for Tally {
         let total_counts = self.total_count();
 
         for (i, score) in self.scores.iter().enumerate() {
-            writeln!(f, "  Score {}:", score)?;
+            let score_name = match score {
+                Score::MT(mt) => format!("MT {}", mt),
+                Score::Flux => "Flux".to_string(),
+            };
+            writeln!(f, "  Score {}:", score_name)?;
             let mean = means.get(i).copied().unwrap_or(0.0);
             let std_dev = std_devs.get(i).copied().unwrap_or(0.0);
             let rel_error = rel_errors.get(i).copied().unwrap_or(0.0);
@@ -563,7 +576,7 @@ mod tests {
         use std::sync::atomic::Ordering;
         let mut tally = Tally::new();
         // Add the same score twice
-        tally.scores = vec![101, 101];
+        tally.scores = vec![Score::MT(101), Score::MT(101)];
         tally.initialize_batches(1);
         let cell = dummy_cell(1);
         // Trigger the score event
