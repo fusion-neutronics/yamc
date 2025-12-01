@@ -1,5 +1,6 @@
 import pytest
 import materials_for_mc as mmc
+import numpy as np
 
 
 def test_cell_filter_creation():
@@ -140,3 +141,100 @@ def test_tally_with_mixed_filters():
     filter_types = [type(f).__name__ for f in retrieved_filters]
     assert "CellFilter" in filter_types
     assert "MaterialFilter" in filter_types
+
+
+def test_energy_filter_creation():
+    """Test that EnergyFilter can be created with valid bin boundaries."""
+    # Create simple energy bins
+    bins = [0.0, 1e6, 10e6, 20e6]
+    energy_filter = mmc.EnergyFilter(bins)
+    
+    assert energy_filter is not None
+    assert isinstance(energy_filter, mmc.EnergyFilter)
+    assert energy_filter.num_bins() == 3
+
+
+def test_energy_filter_creation_from_array():
+    """Test that EnergyFilter can be created from numpy array."""
+    bins = np.array([0.0, 1e3, 100e3, 1e6, 10e6, 20e6])
+    energy_filter = mmc.EnergyFilter(bins)
+    
+    assert energy_filter is not None
+    assert energy_filter.num_bins() == 5
+
+
+def test_energy_filter_logspace():
+    """Test EnergyFilter with logarithmically spaced bins (like in flux.py example)."""
+    # Create logspace bins from 0.1 eV to 20 MeV
+    bins = np.logspace(np.log10(0.1), np.log10(20e6), 50)
+    energy_filter = mmc.EnergyFilter(bins)
+    
+    # Verify filter properties
+    assert energy_filter.num_bins() == 49
+    assert len(bins) == 50
+    
+    # Verify bins are accessible
+    retrieved_bins = energy_filter.bins
+    assert len(retrieved_bins) == 50
+    np.testing.assert_allclose(retrieved_bins[0], 0.1, rtol=1e-10)
+    np.testing.assert_allclose(retrieved_bins[-1], 20e6, rtol=1e-3)
+    
+    # Verify bins are monotonically increasing
+    for i in range(1, len(retrieved_bins)):
+        assert retrieved_bins[i] > retrieved_bins[i-1], \
+            f"Bins should be strictly increasing: bins[{i}]={retrieved_bins[i]} should be > bins[{i-1}]={retrieved_bins[i-1]}"
+
+
+def test_energy_filter_validation():
+    """Test that EnergyFilter validates input properly."""
+    # Too few bins (need at least 2)
+    with pytest.raises(ValueError, match="at least 2 bin boundaries"):
+        mmc.EnergyFilter([1e6])
+    
+    # Non-ascending order
+    with pytest.raises(ValueError, match="strictly ascending order"):
+        mmc.EnergyFilter([1e6, 10e6, 5e6])
+    
+    # Duplicate bins
+    with pytest.raises(ValueError, match="strictly ascending order"):
+        mmc.EnergyFilter([1e6, 10e6, 10e6, 20e6])
+
+
+def test_energy_filter_representation():
+    """Test EnergyFilter string representations."""
+    bins = [0.0, 1e6, 10e6, 20e6]
+    energy_filter = mmc.EnergyFilter(bins)
+    
+    repr_str = repr(energy_filter)
+    assert "EnergyFilter" in repr_str
+    assert "bins" in repr_str or str(len(bins)) in repr_str
+    
+    str_str = str(energy_filter)
+    assert "EnergyFilter" in str_str
+
+
+def test_tally_with_energy_filter():
+    """Test that Tally can use EnergyFilter and expands results per bin."""
+    # Create geometry
+    sphere = mmc.Sphere(surface_id=1, x0=0.0, y0=0.0, z0=0.0, r=2.0, boundary_type='vacuum')
+    region = -sphere
+    cell = mmc.Cell(region, 42, "test_cell")
+    
+    # Create energy filter with 5 bins
+    bins = [0.0, 1e3, 100e3, 1e6, 10e6, 20e6]
+    energy_filter = mmc.EnergyFilter(bins)
+    cell_filter = mmc.CellFilter(cell)
+    
+    # Create tally with energy filter
+    tally = mmc.Tally()
+    tally.filters = [cell_filter, energy_filter]
+    tally.scores = ['flux']
+    
+    # Verify tally has the filter
+    assert len(tally.filters) == 2
+    retrieved_filters = tally.filters
+    
+    # Check that we got EnergyFilter back
+    filter_types = [type(f).__name__ for f in retrieved_filters]
+    assert "EnergyFilter" in filter_types
+    assert "CellFilter" in filter_types

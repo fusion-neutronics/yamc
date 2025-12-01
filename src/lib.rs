@@ -166,6 +166,7 @@ fn materials_for_mc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     use crate::python::filters_python;
     m.add_class::<filters_python::PyCellFilter>()?;
     m.add_class::<filters_python::PyMaterialFilter>()?;
+    m.add_class::<filters_python::PyEnergyFilter>()?;
     use crate::python::source_python;
     m.add_class::<source_python::PyIndependentSource>()?;
     use crate::python::stats_python;

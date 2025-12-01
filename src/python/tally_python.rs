@@ -65,18 +65,20 @@ impl PyTally {
                 "Cannot modify tally: multiple references exist"
             ))?;
         
-        // Set scores and pre-allocate storage
+        // Set scores and pre-allocate storage accounting for energy bins
         tally.scores = score_list;
-        tally.batch_data = (0..tally.scores.len())
+        let num_bins = tally.scores.len() * tally.num_energy_bins();
+        
+        tally.batch_data = (0..num_bins)
             .map(|_| Mutex::new(StdArc::new(Vec::new())))
             .collect();
-        tally.mean = (0..tally.scores.len())
+        tally.mean = (0..num_bins)
             .map(|_| AtomicU64::new(0))
             .collect();
-        tally.std_dev = (0..tally.scores.len())
+        tally.std_dev = (0..num_bins)
             .map(|_| AtomicU64::new(0))
             .collect();
-        tally.rel_error = (0..tally.scores.len())
+        tally.rel_error = (0..num_bins)
             .map(|_| AtomicU64::new(0))
             .collect();
         

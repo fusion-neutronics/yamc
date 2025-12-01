@@ -45,27 +45,74 @@ pub struct Tally {
     // Results fields (populated during simulation)
     pub units: String, // Units (e.g., "particles", "collisions", "reactions")
     // Mutex ONLY for initialization; scoring is lock-free via Arc clones
-    pub batch_data: Vec<Mutex<Arc<Vec<AtomicU64>>>>, // One per score, Mutex only for init
+    // Length = num_scores * num_energy_bins (or just num_scores if no energy filter)
+    pub batch_data: Vec<Mutex<Arc<Vec<AtomicU64>>>>, // One per score*energy_bin, Mutex only for init
     // Statistics (calculated from batch_data, use Atomic types for thread-safety)
-    pub mean: Vec<AtomicU64>,      // Mean per score (stored as f64 bits)
-    pub std_dev: Vec<AtomicU64>,   // Std dev per score
-    pub rel_error: Vec<AtomicU64>, // Rel error per score
+    pub mean: Vec<AtomicU64>,      // Mean per score*energy_bin (stored as f64 bits)
+    pub std_dev: Vec<AtomicU64>,   // Std dev per score*energy_bin
+    pub rel_error: Vec<AtomicU64>, // Rel error per score*energy_bin
     pub n_batches: AtomicU32,      // Number of batches
     pub particles_per_batch: AtomicU32, // Particles per batch for normalization
 }
 
 impl Tally {
+    /// Get the number of energy bins from the energy filter (1 if no energy filter)
+    pub fn num_energy_bins(&self) -> usize {
+        self.filters
+            .iter()
+            .find_map(|f| {
+                if let Filter::Energy(ef) = f {
+                    Some(ef.num_bins())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(1)
+    }
+
+    /// Get the flat index for a score and energy bin
+    /// Returns None if out of range
+    pub fn get_bin_index(&self, score_index: usize, energy_bin: usize) -> Option<usize> {
+        let num_energy_bins = self.num_energy_bins();
+        if score_index >= self.scores.len() || energy_bin >= num_energy_bins {
+            return None;
+        }
+        Some(score_index * num_energy_bins + energy_bin)
+    }
+
+    /// Get the energy filter if present
+    pub fn get_energy_filter(&self) -> Option<&crate::filters::EnergyFilter> {
+        self.filters.iter().find_map(|f| {
+            if let Filter::Energy(ef) = f {
+                Some(ef)
+            } else {
+                None
+            }
+        })
+    }
     /// Score a reaction event for this tally, including MT 4/inelastic constituent logic
     pub fn score_event(
         &self,
         reaction_mt: i32,
         cell: &crate::cell::Cell,
         material_id: Option<u32>,
+        energy: f64,
         batch_index: usize,
     ) -> bool {
         let mut triggered = false;
+        
+        // Get the energy bin if there's an energy filter
+        let energy_bin = if let Some(energy_filter) = self.get_energy_filter() {
+            match energy_filter.get_bin(energy) {
+                Some(bin) => bin,
+                None => return false, // Energy outside filter range, don't score
+            }
+        } else {
+            0 // No energy filter, use bin 0
+        };
+        
         // For each score, check if it should be incremented
-        for (i, score) in self.scores.iter().enumerate() {
+        for (score_idx, score) in self.scores.iter().enumerate() {
             let mut should_score = false;
             match score {
                 Score::MT(mt) => {
@@ -122,14 +169,18 @@ impl Tally {
                             cell.cell_id.map_or(false, |id| cell_filter.matches(id))
                         }
                         Filter::Material(material_filter) => material_filter.matches(material_id),
+                        Filter::Energy(_) => true, // Energy already checked above
                     })
                 };
                 if passes_filters {
-                    // Lock-free: clone the Arc to get shared access to atomics
-                    let batch_arc = self.batch_data[i].lock().unwrap().clone();
-                    if let Some(atomic) = batch_arc.get(batch_index) {
-                        atomic.fetch_add(1, Ordering::Relaxed);
-                        triggered = true;
+                    // Get the flat bin index combining score and energy bin
+                    if let Some(bin_idx) = self.get_bin_index(score_idx, energy_bin) {
+                        // Lock-free: clone the Arc to get shared access to atomics
+                        let batch_arc = self.batch_data[bin_idx].lock().unwrap().clone();
+                        if let Some(atomic) = batch_arc.get(batch_index) {
+                            atomic.fetch_add(1, Ordering::Relaxed);
+                            triggered = true;
+                        }
                     }
                 }
             }
@@ -144,10 +195,21 @@ impl Tally {
         track_length: f64,
         cell: &crate::cell::Cell,
         material_id: Option<u32>,
+        energy: f64,
         batch_index: usize,
     ) {
+        // Get the energy bin if there's an energy filter
+        let energy_bin = if let Some(energy_filter) = self.get_energy_filter() {
+            match energy_filter.get_bin(energy) {
+                Some(bin) => bin,
+                None => return, // Energy outside filter range, don't score
+            }
+        } else {
+            0 // No energy filter, use bin 0
+        };
+        
         // For each score, check if it's a flux score
-        for (i, score) in self.scores.iter().enumerate() {
+        for (score_idx, score) in self.scores.iter().enumerate() {
             if let Score::Flux = score {
                 let passes_filters = if self.filters.is_empty() {
                     true
@@ -157,27 +219,31 @@ impl Tally {
                             cell.cell_id.map_or(false, |id| cell_filter.matches(id))
                         }
                         Filter::Material(material_filter) => material_filter.matches(material_id),
+                        Filter::Energy(_) => true, // Energy already checked above
                     })
                 };
                 if passes_filters {
-                    // Lock-free: clone the Arc to get shared access to atomics
-                    let batch_arc = self.batch_data[i].lock().unwrap().clone();
-                    if let Some(atomic) = batch_arc.get(batch_index) {
-                        // Atomically add to floating point accumulator using f64 bits
-                        // This is lock-free but requires a compare-exchange loop
-                        let mut current = atomic.load(Ordering::Relaxed);
-                        loop {
-                            let current_f64 = f64::from_bits(current);
-                            let new_f64 = current_f64 + track_length;
-                            let new_bits = new_f64.to_bits();
-                            match atomic.compare_exchange_weak(
-                                current,
-                                new_bits,
-                                Ordering::Relaxed,
-                                Ordering::Relaxed,
-                            ) {
-                                Ok(_) => break,
-                                Err(x) => current = x,
+                    // Get the flat bin index combining score and energy bin
+                    if let Some(bin_idx) = self.get_bin_index(score_idx, energy_bin) {
+                        // Lock-free: clone the Arc to get shared access to atomics
+                        let batch_arc = self.batch_data[bin_idx].lock().unwrap().clone();
+                        if let Some(atomic) = batch_arc.get(batch_index) {
+                            // Atomically add to floating point accumulator using f64 bits
+                            // This is lock-free but requires a compare-exchange loop
+                            let mut current = atomic.load(Ordering::Relaxed);
+                            loop {
+                                let current_f64 = f64::from_bits(current);
+                                let new_f64 = current_f64 + track_length;
+                                let new_bits = new_f64.to_bits();
+                                match atomic.compare_exchange_weak(
+                                    current,
+                                    new_bits,
+                                    Ordering::Relaxed,
+                                    Ordering::Relaxed,
+                                ) {
+                                    Ok(_) => break,
+                                    Err(x) => current = x,
+                                }
                             }
                         }
                     }
@@ -205,28 +271,22 @@ impl Tally {
 
     /// Initialize batch_data for a given number of batches (mutable version)
     pub fn initialize_batches(&mut self, n_batches: usize) {
-        self.batch_data = self
-            .scores
-            .iter()
+        let num_bins = self.scores.len() * self.num_energy_bins();
+        
+        self.batch_data = (0..num_bins)
             .map(|_| {
                 Mutex::new(Arc::new(
                     (0..n_batches).map(|_| AtomicU64::new(0)).collect(),
                 ))
             })
             .collect();
-        self.mean = self
-            .scores
-            .iter()
+        self.mean = (0..num_bins)
             .map(|_| AtomicU64::new(0.0_f64.to_bits()))
             .collect();
-        self.std_dev = self
-            .scores
-            .iter()
+        self.std_dev = (0..num_bins)
             .map(|_| AtomicU64::new(0.0_f64.to_bits()))
             .collect();
-        self.rel_error = self
-            .scores
-            .iter()
+        self.rel_error = (0..num_bins)
             .map(|_| AtomicU64::new(0.0_f64.to_bits()))
             .collect();
         self.n_batches.store(n_batches as u32, Ordering::Relaxed);
@@ -235,15 +295,18 @@ impl Tally {
     /// Initialize through shared reference (for use with Arc<Tally>)
     /// This uses Mutex for initialization, but scoring remains lock-free
     pub fn initialize_batches_shared(&self, n_batches: usize) {
-        // Initialize each score's batch data
+        let num_bins = self.scores.len() * self.num_energy_bins();
+        
+        // Initialize each score*energy_bin's batch data
         for (i, batch_mutex) in self.batch_data.iter().enumerate() {
-            if i < self.scores.len() {
+            if i < num_bins {
                 let new_arc = Arc::new((0..n_batches).map(|_| AtomicU64::new(0)).collect());
                 *batch_mutex.lock().unwrap() = new_arc;
             }
         }
         // Initialize statistics
-        for i in 0..self.scores.len() {
+        let num_bins = self.scores.len() * self.num_energy_bins();
+        for i in 0..num_bins {
             if let Some(m) = self.mean.get(i) {
                 m.store(0.0_f64.to_bits(), Ordering::Relaxed);
             }
@@ -259,6 +322,8 @@ impl Tally {
 
     /// Clone the tally specification (without batch_data) for creating a new working copy
     pub fn clone_spec(&self) -> Self {
+        let num_bins = self.scores.len() * self.num_energy_bins();
+        
         Self {
             id: self.id,
             name: self.name.clone(),
@@ -266,19 +331,13 @@ impl Tally {
             filters: self.filters.clone(),
             units: self.units.clone(),
             batch_data: Vec::new(), // Empty - will be initialized separately
-            mean: self
-                .scores
-                .iter()
+            mean: (0..num_bins)
                 .map(|_| AtomicU64::new(0.0_f64.to_bits()))
                 .collect(),
-            std_dev: self
-                .scores
-                .iter()
+            std_dev: (0..num_bins)
                 .map(|_| AtomicU64::new(0.0_f64.to_bits()))
                 .collect(),
-            rel_error: self
-                .scores
-                .iter()
+            rel_error: (0..num_bins)
                 .map(|_| AtomicU64::new(0.0_f64.to_bits()))
                 .collect(),
             n_batches: AtomicU32::new(0),
@@ -306,17 +365,19 @@ impl Tally {
     /// Set scores from a mix of integers and score names
     pub fn set_scores_mixed(&mut self, scores: Vec<Score>) {
         self.scores = scores;
+        let num_bins = self.scores.len() * self.num_energy_bins();
+        
         // Re-initialize storage
-        self.batch_data = (0..self.scores.len())
+        self.batch_data = (0..num_bins)
             .map(|_| Mutex::new(Arc::new(Vec::new())))
             .collect();
-        self.mean = (0..self.scores.len())
+        self.mean = (0..num_bins)
             .map(|_| AtomicU64::new(0))
             .collect();
-        self.std_dev = (0..self.scores.len())
+        self.std_dev = (0..num_bins)
             .map(|_| AtomicU64::new(0))
             .collect();
-        self.rel_error = (0..self.scores.len())
+        self.rel_error = (0..num_bins)
             .map(|_| AtomicU64::new(0))
             .collect();
     }
@@ -598,7 +659,7 @@ mod tests {
         tally.initialize_batches(1);
         let cell = dummy_cell(1);
         // Trigger the score event
-        assert!(tally.score_event(101, &cell, Some(42), 0));
+        assert!(tally.score_event(101, &cell, Some(42), 1e6, 0));
         // Should only increment once
         let batch_arc = tally.batch_data[0].lock().unwrap();
         assert_eq!(
@@ -648,7 +709,7 @@ mod tests {
         tally.set_scores(vec![101]); // Absorption
         tally.initialize_batches(1); // Start batch
         let cell = dummy_cell(1);
-        assert!(tally.score_event(101, &cell, Some(42), 0));
+        assert!(tally.score_event(101, &cell, Some(42), 1e6, 0));
         let batch_arc = tally.batch_data[0].lock().unwrap();
         assert_eq!(
             batch_arc[0].load(Ordering::Relaxed),
@@ -664,7 +725,7 @@ mod tests {
         tally.set_scores(vec![4]); // MT 4 (inelastic)
         tally.initialize_batches(1); // Start batch
         let cell = dummy_cell(1);
-        assert!(tally.score_event(53, &cell, Some(42), 0)); // MT 53 is inelastic constituent
+        assert!(tally.score_event(53, &cell, Some(42), 1e6, 0)); // MT 53 is inelastic constituent
         let batch_arc = tally.batch_data[0].lock().unwrap();
         assert_eq!(
             batch_arc[0].load(Ordering::Relaxed),
@@ -680,7 +741,7 @@ mod tests {
         tally.set_scores(vec![53]); // MT 53
         tally.initialize_batches(1); // Start batch
         let cell = dummy_cell(1);
-        assert!(tally.score_event(53, &cell, Some(42), 0));
+        assert!(tally.score_event(53, &cell, Some(42), 1e6, 0));
         {
             let batch_arc = tally.batch_data[0].lock().unwrap();
             assert_eq!(
@@ -689,7 +750,7 @@ mod tests {
                 "Should increment for direct constituent MT match"
             );
         }
-        assert!(!tally.score_event(4, &cell, Some(42), 0));
+        assert!(!tally.score_event(4, &cell, Some(42), 1e6, 0));
         let batch_arc = tally.batch_data[0].lock().unwrap();
         assert_eq!(
             batch_arc[0].load(Ordering::Relaxed),
@@ -709,7 +770,7 @@ mod tests {
             .filters
             .push(Filter::Cell(crate::filters::CellFilter { cell_id: 1 }));
         let cell = dummy_cell(1);
-        assert!(tally.score_event(101, &cell, Some(42), 0));
+        assert!(tally.score_event(101, &cell, Some(42), 1e6, 0));
         {
             let batch_arc = tally.batch_data[0].lock().unwrap();
             assert_eq!(
@@ -719,7 +780,7 @@ mod tests {
             );
         }
         let cell2 = dummy_cell(2);
-        assert!(!tally.score_event(101, &cell2, Some(42), 0));
+        assert!(!tally.score_event(101, &cell2, Some(42), 1e6, 0));
         let batch_arc = tally.batch_data[0].lock().unwrap();
         assert_eq!(
             batch_arc[0].load(Ordering::Relaxed),
