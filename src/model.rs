@@ -338,7 +338,7 @@ mod tests {
 
         // Create a tally for absorption reactions with a custom name
         let mut absorption_tally = crate::tally::Tally::new();
-        absorption_tally.scores = vec![101]; // MT 101 = absorption
+        absorption_tally.scores = vec![crate::tally::Score::MT(101)]; // MT 101 = absorption
         absorption_tally.name = Some("Absorption Tally".to_string());
         absorption_tally.units = "events".to_string();
         absorption_tally.initialize_batches(settings.batches as usize);

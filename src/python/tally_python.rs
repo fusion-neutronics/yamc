@@ -24,7 +24,6 @@ impl PyTally {
         }
     }
 
-
     #[getter]
     pub fn scores(&self) -> Vec<PyObject> {
         Python::with_gil(|py| {
@@ -37,6 +36,9 @@ impl PyTally {
 
     #[setter]
     pub fn set_scores(&mut self, scores: &PyAny) -> PyResult<()> {
+        use std::sync::atomic::AtomicU64;
+        use std::sync::{Arc as StdArc, Mutex};
+        
         // Convert Python input to Vec<Score>
         let score_list: Vec<Score> = if let Ok(ints) = scores.extract::<Vec<i32>>() {
             ints.into_iter().map(Score::MT).collect()
@@ -58,11 +60,26 @@ impl PyTally {
             return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>("scores must be a list"));
         };
 
-        Arc::get_mut(&mut self.inner)
+        let tally = Arc::get_mut(&mut self.inner)
             .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
                 "Cannot modify tally: multiple references exist"
-            ))?
-            .set_scores_mixed(score_list);
+            ))?;
+        
+        // Set scores and pre-allocate storage
+        tally.scores = score_list;
+        tally.batch_data = (0..tally.scores.len())
+            .map(|_| Mutex::new(StdArc::new(Vec::new())))
+            .collect();
+        tally.mean = (0..tally.scores.len())
+            .map(|_| AtomicU64::new(0))
+            .collect();
+        tally.std_dev = (0..tally.scores.len())
+            .map(|_| AtomicU64::new(0))
+            .collect();
+        tally.rel_error = (0..tally.scores.len())
+            .map(|_| AtomicU64::new(0))
+            .collect();
+        
         Ok(())
     }
 
@@ -181,9 +198,15 @@ impl PyTally {
     }
 
     fn __repr__(&self) -> String {
+        // Format scores as Python list: integers for MT, "flux" for Flux
+        let scores_str = self.inner.scores.iter().map(|score| match score {
+            Score::MT(mt) => mt.to_string(),
+            Score::Flux => "\"flux\"".to_string(),
+        }).collect::<Vec<_>>().join(", ");
+        
         format!(
-            "Tally(scores={:?}, name={:?}, id={:?})",
-            self.inner.scores, self.inner.name, self.inner.id
+            "Tally(scores=[{}], name={:?}, id={:?})",
+            scores_str, self.inner.name, self.inner.id
         )
     }
 

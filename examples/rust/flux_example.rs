@@ -3,7 +3,7 @@ use materials_for_mc::model::Model;
 use materials_for_mc::source::IndependentSource;
 use materials_for_mc::stats::AngularDistribution;
 use materials_for_mc::settings::Settings;
-use materials_for_mc::tally::Tally;
+use materials_for_mc::tally::{Score, Tally};
 use materials_for_mc::filter::Filter;
 use materials_for_mc::filters::CellFilter;
 use std::sync::Arc;
@@ -87,13 +87,13 @@ fn main() {
     
     let mut flux_tally = Tally::new();
     flux_tally.filters = vec![cell_filter.clone()];
-    flux_tally.scores = vec![FLUX_SCORE]; // Use FLUX_SCORE constant
+    flux_tally.scores = vec![Score::Flux]; // Use Flux score
     flux_tally.name = Some("flux".to_string());
     flux_tally.initialize_batches(settings.batches as usize);
 
     let mut tbr_tally = Tally::new();
     tbr_tally.filters = vec![cell_filter];
-    tbr_tally.scores = vec![105]; // n,t (tritium production)
+    tbr_tally.scores = vec![Score::MT(105)]; // n,t (tritium production)
     tbr_tally.name = Some("tbr".to_string());
     tbr_tally.initialize_batches(settings.batches as usize);
 

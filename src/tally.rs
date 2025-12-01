@@ -8,7 +8,7 @@ use crate::filter::Filter;
 /// Special score value for flux (track-length estimator)
 
 /// Represents a score - either an MT number or a named score like "flux"
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Score {
     MT(i32),
     Flux,
@@ -163,9 +163,23 @@ impl Tally {
                     // Lock-free: clone the Arc to get shared access to atomics
                     let batch_arc = self.batch_data[i].lock().unwrap().clone();
                     if let Some(atomic) = batch_arc.get(batch_index) {
-                        // Convert track_length to integer (store as micrometers * 1e6 for precision)
-                        let track_length_int = (track_length * 1e6) as u64;
-                        atomic.fetch_add(track_length_int, Ordering::Relaxed);
+                        // Atomically add to floating point accumulator using f64 bits
+                        // This is lock-free but requires a compare-exchange loop
+                        let mut current = atomic.load(Ordering::Relaxed);
+                        loop {
+                            let current_f64 = f64::from_bits(current);
+                            let new_f64 = current_f64 + track_length;
+                            let new_bits = new_f64.to_bits();
+                            match atomic.compare_exchange_weak(
+                                current,
+                                new_bits,
+                                Ordering::Relaxed,
+                                Ordering::Relaxed,
+                            ) {
+                                Ok(_) => break,
+                                Err(x) => current = x,
+                            }
+                        }
                     }
                 }
             }
@@ -382,10 +396,14 @@ impl Tally {
             let normalized_data: Vec<f64> = batch_arc
                 .iter()
                 .map(|atomic_count| {
-                    let count = atomic_count.load(Ordering::Relaxed) as f64;
-                    // For flux scores, convert from integer representation (micrometers * 1e6)
-                    let actual_count = if is_flux_score { count / 1e6 } else { count };
-                    actual_count / particles_per_batch_f64
+                    // For flux scores, value is stored as f64 bits
+                    // For reaction scores, value is stored as integer count
+                    let count = if is_flux_score {
+                        f64::from_bits(atomic_count.load(Ordering::Relaxed))
+                    } else {
+                        atomic_count.load(Ordering::Relaxed) as f64
+                    };
+                    count / particles_per_batch_f64
                 })
                 .collect();
 

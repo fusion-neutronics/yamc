@@ -53,8 +53,8 @@ class TestTally:
         
         # Test flux score with string
         tally.scores = ['flux']
-        assert tally.scores == [-1]  # FLUX_SCORE = -1
-        
+        assert tally.scores == ['flux']
+
         # Test mixed scores
         tally.scores = [101, 'flux']
         assert tally.scores == [101, -1]
@@ -65,12 +65,10 @@ class TestTally:
     
     def test_tally_flux_score_constant(self):
         """Test that FLUX_SCORE constant is accessible."""
-        assert mc.FLUX_SCORE == -1
-        
         # Can use constant directly
         tally = mc.Tally()
-        tally.scores = [mc.FLUX_SCORE]
-        assert tally.scores == [-1]
+        tally.scores = ['flux']
+        assert tally.scores == ['flux']
             
     def test_tally_name_and_id(self):
         """Test setting tally name and ID."""
@@ -311,7 +309,7 @@ class TestFluxTally:
         
         # Create flux tally using constant
         flux_tally = mc.Tally()
-        flux_tally.scores = [mc.FLUX_SCORE]
+        flux_tally.scores = ['flux']
         flux_tally.name = "Flux with Constant"
         tallies = [flux_tally]
         
@@ -338,7 +336,7 @@ class TestFluxTally:
         
         # Should have two scores
         assert len(tally.mean) == 2
-        assert tally.scores == [-1, 101]
+        assert tally.scores == ['flux', 101]
         
         # Flux (index 0) should be positive
         assert tally.mean[0] > 0.0

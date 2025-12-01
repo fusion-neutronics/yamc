@@ -12,7 +12,7 @@ use materials_for_mc::settings::Settings;
 use materials_for_mc::source::IndependentSource;
 use materials_for_mc::stats::AngularDistribution;
 use materials_for_mc::surface::{BoundaryType, Surface, SurfaceKind};
-use materials_for_mc::tally::Tally;
+use materials_for_mc::tally::{Score, Tally};
 use materials_for_mc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -77,7 +77,7 @@ fn test_batch_tally_variation() {
     let cell_filter = Filter::Cell(CellFilter::new(&cell));
     let mut tally = Tally::new();
     tally.filters = vec![cell_filter];
-    tally.scores = vec![16]; // MT 16 = (n,2n)
+    tally.scores = vec![Score::MT(16)]; // MT 16 = (n,2n)
     tally.name = Some("n2n_tally".to_string());
 
     // Initialize batch data
@@ -241,7 +241,7 @@ fn test_different_seeds_produce_different_results() {
         let cell_filter = Filter::Cell(CellFilter::new(&cell));
         let mut tally = Tally::new();
         tally.filters = vec![cell_filter];
-        tally.scores = vec![16];
+        tally.scores = vec![Score::MT(16)];
         tally.name = Some("n2n_tally".to_string());
         tally.initialize_batches(settings.batches as usize);
 
@@ -334,7 +334,7 @@ fn test_same_seed_produces_reproducible_results() {
         let cell_filter = Filter::Cell(CellFilter::new(&cell));
         let mut tally = Tally::new();
         tally.filters = vec![cell_filter];
-        tally.scores = vec![105]; // MT 105 = (n,t)
+        tally.scores = vec![Score::MT(105)]; // MT 105 = (n,t)
         tally.name = Some("tritium_tally".to_string());
         tally.initialize_batches(settings.batches as usize);
 
