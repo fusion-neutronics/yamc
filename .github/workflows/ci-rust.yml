@@ -35,6 +35,8 @@ jobs:
           cargo run --example test_sampling
           cargo run --example test_real_sampling
           cargo run --example materials_demo
+          cargo run --example tbr
+          cargo run --example flux_example
           
       - name: Test ARM cross-compilation
         run: |

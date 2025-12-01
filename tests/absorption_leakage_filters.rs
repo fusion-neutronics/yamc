@@ -11,7 +11,7 @@ use materials_for_mc::settings::Settings;
 use materials_for_mc::source::IndependentSource;
 use materials_for_mc::stats::AngularDistribution;
 use materials_for_mc::surface::{BoundaryType, Surface, SurfaceKind};
-use materials_for_mc::tally::Tally;
+use materials_for_mc::tally::{Score, Tally};
 use materials_for_mc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -108,40 +108,40 @@ fn test_absorption_leakage_filters() {
     let cell_filter1 = Filter::Cell(CellFilter::new(&cell1));
     let mut tally1 = Tally::new();
     tally1.filters = vec![cell_filter1.clone()];
-    tally1.scores = vec![101];
+    tally1.scores = vec![Score::MT(101)];
     tally1.name = Some("absorption in cell 1".to_string());
 
     let cell_filter2 = Filter::Cell(CellFilter::new(&cell2));
     let mut tally2 = Tally::new();
     tally2.filters = vec![cell_filter2.clone()];
-    tally2.scores = vec![101];
+    tally2.scores = vec![Score::MT(101)];
     tally2.name = Some("absorption in cell 2".to_string());
 
     let material_filter1 = Filter::Material(MaterialFilter::new(&mat1_arc));
     let mut tally1_mat = Tally::new();
     tally1_mat.filters = vec![material_filter1.clone()];
-    tally1_mat.scores = vec![101];
+    tally1_mat.scores = vec![Score::MT(101)];
     tally1_mat.name = Some("absorption in material 1 (MaterialFilter)".to_string());
 
     let material_filter2 = Filter::Material(MaterialFilter::new(&mat2_arc));
     let mut tally2_mat = Tally::new();
     tally2_mat.filters = vec![material_filter2.clone()];
-    tally2_mat.scores = vec![101];
+    tally2_mat.scores = vec![Score::MT(101)];
     tally2_mat.name = Some("absorption in material 2 (MaterialFilter)".to_string());
 
     let mut tally3 = Tally::new();
-    tally3.scores = vec![101];
+    tally3.scores = vec![Score::MT(101)];
     tally3.name = Some("total absorption".to_string());
 
     let mut tally4_match = Tally::new();
     tally4_match.filters = vec![material_filter1.clone(), cell_filter1.clone()];
-    tally4_match.scores = vec![101];
+    tally4_match.scores = vec![Score::MT(101)];
     tally4_match.name =
         Some("absorption in material 1 AND cell 1 (should match cell 1)".to_string());
 
     let mut tally5_zero = Tally::new();
     tally5_zero.filters = vec![material_filter2.clone(), cell_filter1.clone()];
-    tally5_zero.scores = vec![101];
+    tally5_zero.scores = vec![Score::MT(101)];
     tally5_zero.name = Some("absorption in material 2 AND cell 1 (should be zero)".to_string());
 
     // Initialize batch data for all tallies before wrapping in Arc

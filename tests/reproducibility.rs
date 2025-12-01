@@ -8,7 +8,7 @@ use materials_for_mc::settings::Settings;
 use materials_for_mc::source::IndependentSource;
 use materials_for_mc::stats::AngularDistribution;
 use materials_for_mc::surface::{BoundaryType, Surface, SurfaceKind};
-use materials_for_mc::tally::Tally;
+use materials_for_mc::tally::{Score, Tally};
 use materials_for_mc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -63,12 +63,12 @@ fn test_separate_vs_multi_score_tallies_equivalence() {
 
     // --- Two tallies, one score each ---
     let mut tally_a = Tally::new();
-    tally_a.scores = vec![101];
+    tally_a.scores = vec![Score::MT(101)];
     tally_a.name = Some("absorption_101".to_string());
     tally_a.initialize_batches(num_batches);
 
     let mut tally_b = Tally::new();
-    tally_b.scores = vec![102];
+    tally_b.scores = vec![Score::MT(102)];
     tally_b.name = Some("absorption_102".to_string());
     tally_b.initialize_batches(num_batches);
 
@@ -81,9 +81,9 @@ fn test_separate_vs_multi_score_tallies_equivalence() {
     let mean_a = model_sep.tallies[0].get_mean()[0];
     let mean_b = model_sep.tallies[1].get_mean()[0];
 
-    // --- Single tally, two scores ---
+    // --- One tally, two scores ---
     let mut tally_multi = Tally::new();
-    tally_multi.scores = vec![101, 102];
+    tally_multi.scores = vec![Score::MT(101), Score::MT(102)];
     tally_multi.name = Some("absorption_101_102".to_string());
     tally_multi.initialize_batches(num_batches);
 
@@ -108,17 +108,17 @@ fn test_separate_vs_multi_score_tallies_equivalence() {
 
     // Create fresh tallies for three-tally test
     let mut tally_a3 = Tally::new();
-    tally_a3.scores = vec![101];
+    tally_a3.scores = vec![Score::MT(101)];
     tally_a3.name = Some("absorption_101".to_string());
     tally_a3.initialize_batches(num_batches);
 
     let mut tally_b3 = Tally::new();
-    tally_b3.scores = vec![102];
+    tally_b3.scores = vec![Score::MT(102)];
     tally_b3.name = Some("absorption_102".to_string());
     tally_b3.initialize_batches(num_batches);
 
     let mut tally_c = Tally::new();
-    tally_c.scores = vec![103];
+    tally_c.scores = vec![Score::MT(103)];
     tally_c.name = Some("absorption_103".to_string());
     tally_c.initialize_batches(num_batches);
 
@@ -132,9 +132,9 @@ fn test_separate_vs_multi_score_tallies_equivalence() {
     let mean_b3 = model_sep3.tallies[1].get_mean()[0];
     let mean_c3 = model_sep3.tallies[2].get_mean()[0];
 
-    // --- Single tally, three scores ---
+    // --- One tally, three scores ---
     let mut tally_multi3 = Tally::new();
-    tally_multi3.scores = vec![101, 102, 103];
+    tally_multi3.scores = vec![Score::MT(101), Score::MT(102), Score::MT(103)];
     tally_multi3.name = Some("absorption_101_102_103".to_string());
     tally_multi3.initialize_batches(num_batches);
 
@@ -216,13 +216,13 @@ fn test_reproducibility_with_same_seed() {
 
     // Create tallies
     let mut tally1 = Tally::new();
-    tally1.scores = vec![101];
+    tally1.scores = vec![Score::MT(101)];
     tally1.name = Some("test_absorption_1".to_string());
     let mut tally2 = Tally::new();
-    tally2.scores = vec![101];
+    tally2.scores = vec![Score::MT(101)];
     tally2.name = Some("test_absorption_2".to_string());
     let mut tally3 = Tally::new();
-    tally3.scores = vec![101];
+    tally3.scores = vec![Score::MT(101)];
     tally3.name = Some("test_absorption_3".to_string());
     // Initialize batch data for all tallies before wrapping in Arc
     let num_batches = settings.batches as usize;
@@ -367,10 +367,10 @@ fn test_different_seeds_produce_different_results() {
 
     // Create tallies
     let mut tally1 = Tally::new();
-    tally1.scores = vec![101]; // absorption
+    tally1.scores = vec![Score::MT(101)]; // absorption
     tally1.name = Some("test_absorption_1".to_string());
     let mut tally2 = Tally::new();
-    tally2.scores = vec![101]; // absorption
+    tally2.scores = vec![Score::MT(101)]; // absorption
     tally2.name = Some("test_absorption_2".to_string());
     // Initialize batch data for all tallies before wrapping in Arc
     let num_batches = settings1.batches as usize;

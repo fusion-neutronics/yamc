@@ -8,7 +8,7 @@ use materials_for_mc::settings::Settings;
 use materials_for_mc::source::IndependentSource;
 use materials_for_mc::stats::AngularDistribution;
 use materials_for_mc::surface::{BoundaryType, Surface, SurfaceKind};
-use materials_for_mc::tally::Tally;
+use materials_for_mc::tally::{Score, Tally};
 use materials_for_mc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -114,7 +114,7 @@ fn main() {
     let cell_filter2 = Filter::Cell(CellFilter::new(&cell2));
     let mut tally1 = Tally::new();
     tally1.filters = vec![cell_filter2];
-    tally1.scores = vec![105]; // n,t (tritium production)
+    tally1.scores = vec![Score::MT(105)]; // n,t (tritium production)
     tally1.name = Some("tbr".to_string());
 
     // Initialize batch data

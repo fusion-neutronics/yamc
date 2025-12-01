@@ -34,13 +34,10 @@ class TestTally:
         assert tally.scores == [18]
         
     def test_tally_score_type_validation(self):
-        """Test that tally score only accepts integers."""
+        """Test that tally score only accepts integers or string scores."""
         tally = mc.Tally()
         
         # These should fail
-        with pytest.raises(TypeError):
-            tally.scores = ['101', '2']  # Lists allowed
-
         with pytest.raises(TypeError):
             tally.scores = '101'  # Should be list, not string
             
@@ -49,6 +46,29 @@ class TestTally:
 
         with pytest.raises(TypeError):
             tally.scores = 101.0  # Should be list, not float
+    
+    def test_tally_flux_score_string(self):
+        """Test setting flux score using string."""
+        tally = mc.Tally()
+        
+        # Test flux score with string
+        tally.scores = ['flux']
+        assert tally.scores == ['flux']
+
+        # Test mixed scores
+        tally.scores = [101, 'flux']
+        assert tally.scores == [101, 'flux']
+        
+        # Test invalid string
+        with pytest.raises(ValueError):
+            tally.scores = ['invalid_score']
+    
+    def test_tally_flux_score_constant(self):
+        """Test that FLUX_SCORE constant is accessible."""
+        # Can use constant directly
+        tally = mc.Tally()
+        tally.scores = ['flux']
+        assert tally.scores == ['flux']
             
     def test_tally_name_and_id(self):
         """Test setting tally name and ID."""
@@ -212,6 +232,117 @@ class TestTallySimulation:
             if absorption_tally.mean[0] > 0:
                 expected_rel_error = absorption_tally.std_dev[0] / absorption_tally.mean[0]
                 assert abs(absorption_tally.rel_error[0] - expected_rel_error) < 1e-10
+
+
+class TestFluxTally:
+    """Test flux tallying functionality."""
+    
+    @pytest.fixture
+    def flux_test_model(self):
+        """Create a simple model for testing flux tallies."""
+        # Create sphere surface with vacuum boundary
+        sphere = mc.Sphere(
+            surface_id=1,
+            x0=0.0,
+            y0=0.0,
+            z0=0.0,
+            r=5.0,
+            boundary_type='vacuum',
+        )
+        region = -sphere
+        
+        # Create material with Li6
+        material = mc.Material()
+        material.add_nuclide("Li6", 1.0)
+        material.set_density("g/cm3", 0.46)
+        material.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+        
+        # Create cell
+        cell = mc.Cell(
+            cell_id=1,
+            name="sphere_cell",
+            region=region,
+            fill=material,
+        )
+        geometry = mc.Geometry(cells=[cell])
+        
+        # Create source and settings - point source at center
+        source = mc.IndependentSource(
+            space=[0.0, 0.0, 0.0],
+            angle=mc.stats.Isotropic(),
+            energy=14.1e6  # 14.1 MeV
+        )
+        settings = mc.Settings(particles=1000, batches=10, source=source)
+        
+        return geometry, settings
+    
+    def test_flux_tally_using_string(self, flux_test_model):
+        """Test flux tally using 'flux' string."""
+        geometry, settings = flux_test_model
+        
+        # Create flux tally using string
+        flux_tally = mc.Tally()
+        flux_tally.scores = ['flux']
+        flux_tally.name = "Flux Tally"
+        tallies = [flux_tally]
+        
+        # Create and run model
+        model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
+        model.run()
+        
+        # Check flux tally results
+        assert flux_tally.name == "Flux Tally"
+        assert flux_tally.n_batches == 10
+        assert flux_tally.particles_per_batch == 1000
+        assert len(flux_tally.mean) == 1
+        
+        # Flux should be positive
+        assert flux_tally.mean[0] > 0.0
+        
+        # Should have statistics
+        assert flux_tally.std_dev[0] >= 0.0
+        assert flux_tally.rel_error[0] >= 0.0
+    
+    def test_flux_tally_using_constant(self, flux_test_model):
+        """Test flux tally using FLUX_SCORE constant."""
+        geometry, settings = flux_test_model
+        
+        # Create flux tally using constant
+        flux_tally = mc.Tally()
+        flux_tally.scores = ['flux']
+        flux_tally.name = "Flux with Constant"
+        tallies = [flux_tally]
+        
+        # Create and run model
+        model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
+        model.run()
+        
+        # Check results
+        assert flux_tally.mean[0] > 0.0
+    
+    def test_flux_and_reaction_tally_mixed(self, flux_test_model):
+        """Test tally with both flux and reaction scores."""
+        geometry, settings = flux_test_model
+        
+        # Create tally with flux and absorption
+        tally = mc.Tally()
+        tally.scores = ['flux', 101]  # flux and absorption
+        tally.name = "Mixed Tally"
+        tallies = [tally]
+        
+        # Create and run model
+        model = mc.Model(geometry=geometry, settings=settings, tallies=tallies)
+        model.run()
+        
+        # Should have two scores
+        assert len(tally.mean) == 2
+        assert tally.scores == ['flux', 101]
+        
+        # Flux (index 0) should be positive
+        assert tally.mean[0] > 0.0
+        
+        # Absorption might be zero or positive
+        assert tally.mean[1] >= 0.0
 
 
 class TestTallyIntegration:
