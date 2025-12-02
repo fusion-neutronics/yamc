@@ -98,7 +98,7 @@ for code in ['openmc', 'materials_for_mc']:
 
     # Create energy-binned flux tally
     # Energy bins: logarithmically spaced from 0.1 eV to 20 MeV
-    energy_bins = np.logspace(np.log10(0.1), np.log10(20e6), 50)  # 49 bins in eV
+    energy_bins = np.logspace(np.log10(0.01), np.log10(20e6), 50)  # 49 bins in eV
     energy_filter = mc.EnergyFilter(energy_bins)
 
     tally2 = mc.Tally()
@@ -123,8 +123,10 @@ for code in ['openmc', 'materials_for_mc']:
 
     if code == 'materials_for_mc':
         ax.step(energy_bins[:-1], tally2.mean, where='post', label=code)
+        assert sum(tally2.mean) == tally1.mean, f"{sum(tally2.mean)} vs {tally1.mean}"
     elif code == 'openmc':
         ax.step(energy_bins[:-1], tally2.mean.squeeze(), where='post', label=code)
+        assert np.isclose(sum(tally2.mean.squeeze()), tally1.mean.squeeze())
 
 ax.set_xscale('log')
 ax.set_yscale('log')
