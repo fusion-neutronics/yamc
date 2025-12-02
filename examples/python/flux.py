@@ -123,7 +123,7 @@ for code in ['openmc', 'materials_for_mc']:
 
     if code == 'materials_for_mc':
         ax.step(energy_bins[:-1], tally2.mean, where='post', label=code)
-        assert sum(tally2.mean) == tally1.mean, f"{sum(tally2.mean)} vs {tally1.mean}"
+        assert np.isclose(sum(tally2.mean), tally1.mean[0])
     elif code == 'openmc':
         ax.step(energy_bins[:-1], tally2.mean.squeeze(), where='post', label=code)
         assert np.isclose(sum(tally2.mean.squeeze()), tally1.mean.squeeze())

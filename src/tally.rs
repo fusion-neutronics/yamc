@@ -451,7 +451,11 @@ impl Tally {
             let particles_per_batch_f64 = particles_per_batch as f64;
 
             // Check if this is a flux score (needs special handling)
-            let is_flux_score = matches!(self.scores.get(i), Some(Score::Flux));
+            // i is the flat bin index (score_index * num_energy_bins + energy_bin)
+            // We need to extract the score_index to check the score type
+            let num_energy_bins = self.num_energy_bins();
+            let score_index = i / num_energy_bins;
+            let is_flux_score = matches!(self.scores.get(score_index), Some(Score::Flux));
 
             // Normalize each batch by particles per batch to get per-source-particle values
             let normalized_data: Vec<f64> = batch_arc
