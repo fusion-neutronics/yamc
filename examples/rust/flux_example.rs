@@ -5,7 +5,7 @@ use materials_for_mc::stats::AngularDistribution;
 use materials_for_mc::settings::Settings;
 use materials_for_mc::tally::{Score, Tally};
 use materials_for_mc::filter::Filter;
-use materials_for_mc::filters::CellFilter;
+use materials_for_mc::filters::{CellFilter, EnergyFilter};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -91,13 +91,20 @@ fn main() {
     flux_tally.name = Some("flux".to_string());
     flux_tally.initialize_batches(settings.batches as usize);
 
-    let mut tbr_tally = Tally::new();
-    tbr_tally.filters = vec![cell_filter];
-    tbr_tally.scores = vec![Score::MT(105)]; // n,t (tritium production)
-    tbr_tally.name = Some("tbr".to_string());
-    tbr_tally.initialize_batches(settings.batches as usize);
+    // Create energy-binned flux tally
+    // Energy bins: logarithmically spaced from 0.01 eV to 20 MeV
+    let energy_bins: Vec<f64> = (0..50)
+        .map(|i| 10_f64.powf((i as f64) / 49.0 * (20e6_f64.log10() - 0.01_f64.log10()) + 0.01_f64.log10()))
+        .collect();
+    let energy_filter = EnergyFilter::new(energy_bins);
+    
+    let mut flux_energy_tally = Tally::new();
+    flux_energy_tally.filters = vec![cell_filter, Filter::Energy(energy_filter)];
+    flux_energy_tally.scores = vec![Score::Flux];
+    flux_energy_tally.name = Some("flux_energy_binned".to_string());
+    flux_energy_tally.initialize_batches(settings.batches as usize);
 
-    let tallies = vec![Arc::new(flux_tally), Arc::new(tbr_tally)];
+    let tallies = vec![Arc::new(flux_tally), Arc::new(flux_energy_tally)];
 
     let mut model = Model::new(geometry, settings, tallies);
 
@@ -112,8 +119,20 @@ fn main() {
 
     // Print results
     let flux_mean = model.tallies[0].get_mean();
-    let tbr_mean = model.tallies[1].get_mean();
+    let flux_energy_mean = model.tallies[1].get_mean();
     
-    println!("Flux (track-length): {:.6e} cm", flux_mean[0]);
-    println!("TBR (tritium breeding ratio): {:.6}", tbr_mean[0]);
+    println!("Total Flux: {:.6e}", flux_mean[0]);
+    println!("Energy-binned flux has {} bins", flux_energy_mean.len());
+    println!("Sum of energy bins: {:.6e}", flux_energy_mean.iter().sum::<f64>());
+    
+    // Verify that sum of energy bins equals total flux
+    let sum_energy_bins: f64 = flux_energy_mean.iter().sum();
+    let relative_diff = (sum_energy_bins - flux_mean[0]).abs() / flux_mean[0];
+    println!("Relative difference: {:.6e}", relative_diff);
+    
+    if relative_diff < 0.01 {
+        println!("✓ Energy binning is consistent with total flux");
+    } else {
+        println!("⚠ Warning: Energy bins don't sum to total flux!");
+    }
 }
