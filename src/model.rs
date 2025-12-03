@@ -282,14 +282,29 @@ impl Model {
 
         let elapsed = start_time.elapsed();
         let total_particles = self.settings.particles * self.settings.batches;
-        let particles_per_second = total_particles as f64 / elapsed.as_secs_f64();
+        let particles_per_second = (total_particles as f64 / elapsed.as_secs_f64()) as u64;
+        
+        // Format numbers with thousand separators
+        let format_with_commas = |n: u64| -> String {
+            n.to_string()
+                .as_bytes()
+                .rchunks(3)
+                .rev()
+                .map(std::str::from_utf8)
+                .collect::<Result<Vec<&str>, _>>()
+                .unwrap()
+                .join(",")
+        };
+        
+        let formatted_pps = format_with_commas(particles_per_second);
+        let formatted_total = format_with_commas(total_particles as u64);
         
         println!("Simulation complete.");
         println!(
-            "Time: {:.3} s | Particles/s: {:.2e} | Total: {} particles",
+            "Time: {:.3} s | Particles/s: {} | Total: {} particles",
             elapsed.as_secs_f64(),
-            particles_per_second,
-            total_particles
+            formatted_pps,
+            formatted_total
         );
     }
 }
