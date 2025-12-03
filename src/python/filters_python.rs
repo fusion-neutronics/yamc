@@ -1,4 +1,4 @@
-use crate::filters::{CellFilter, MaterialFilter};
+use crate::filters::{CellFilter, EnergyFilter, MaterialFilter};
 use crate::python::cell_python::PyCell;
 use crate::python::material_python::PyMaterial;
 use pyo3::prelude::*;
@@ -72,3 +72,68 @@ impl PyMaterialFilter {
         format!("MaterialFilter for material {}", self.internal.material_id)
     }
 }
+
+#[pyclass(name = "EnergyFilter")]
+#[derive(Clone)]
+pub struct PyEnergyFilter {
+    pub internal: EnergyFilter,
+}
+
+#[pymethods]
+impl PyEnergyFilter {
+    /// Create a new EnergyFilter with energy bin boundaries
+    ///
+    /// Args:
+    ///     bins (list[float]): Energy bin boundaries in eV, must be in ascending order
+    ///
+    /// Returns:
+    ///     EnergyFilter: A new EnergyFilter with the specified energy bins
+    ///
+    /// Example:
+    ///     # Create 3 energy bins: [0-1 MeV), [1-10 MeV), [10-20 MeV]
+    ///     energy_filter = mc.EnergyFilter([0.0, 1e6, 10e6, 20e6])
+    #[new]
+    fn new(bins: Vec<f64>) -> PyResult<Self> {
+        // Validate manually before calling EnergyFilter::new to avoid panic
+        if bins.len() < 2 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "EnergyFilter requires at least 2 bin boundaries (to create at least 1 bin)",
+            ));
+        }
+        
+        // Verify bins are in ascending order
+        for i in 1..bins.len() {
+            if bins[i] <= bins[i - 1] {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "Energy bins must be in strictly ascending order",
+                ));
+            }
+        }
+        
+        Ok(PyEnergyFilter {
+            internal: EnergyFilter::new(bins),
+        })
+    }
+
+    /// Get the energy bin boundaries
+    #[getter]
+    fn bins(&self) -> Vec<f64> {
+        self.internal.bins.clone()
+    }
+
+    /// Get the number of energy bins (number of boundaries - 1)
+    fn num_bins(&self) -> usize {
+        self.internal.num_bins()
+    }
+
+    /// String representation of the EnergyFilter
+    fn __repr__(&self) -> String {
+        format!("EnergyFilter(bins={:?})", self.internal.bins)
+    }
+
+    /// String representation of the EnergyFilter
+    fn __str__(&self) -> String {
+        format!("EnergyFilter with {} bins", self.internal.num_bins())
+    }
+}
+

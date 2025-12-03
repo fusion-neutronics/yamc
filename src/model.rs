@@ -130,7 +130,7 @@ impl Model {
                         if dist_surface < dist_collision {
                             // Score track-length flux for this segment
                             for tally in tallies.iter() {
-                                tally.score_track_length(dist_surface, cell, material_id, batch as usize);
+                                tally.score_track_length(dist_surface, cell, material_id, particle.energy, batch as usize);
                             }
                             if surface_arc.boundary_type == BoundaryType::Vacuum {
                                 particle.alive = false;
@@ -143,7 +143,7 @@ impl Model {
                         } else {
                             // Score track-length flux for this segment
                             for tally in tallies.iter() {
-                                tally.score_track_length(dist_collision, cell, material_id, batch as usize);
+                                tally.score_track_length(dist_collision, cell, material_id, particle.energy, batch as usize);
                             }
                             particle.move_by(dist_collision);
                             let material = cell.material.as_ref().unwrap().as_ref();
@@ -250,7 +250,7 @@ impl Model {
                                             particle.alive = false;
                                         }
                                     }                                    for tally in tallies.iter() {
-                                        tally.score_event(reaction.mt_number, cell, material_id, batch as usize);
+                                        tally.score_event(reaction.mt_number, cell, material_id, particle.energy, batch as usize);
                                     }
                                 } else {
                                     panic!(

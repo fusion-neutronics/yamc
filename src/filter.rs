@@ -1,10 +1,11 @@
-use crate::filters::{CellFilter, MaterialFilter};
+use crate::filters::{CellFilter, EnergyFilter, MaterialFilter};
 
 /// Unified filter enum for tallies
 #[derive(Debug, Clone, PartialEq)]
 pub enum Filter {
     Cell(CellFilter),
     Material(MaterialFilter),
+    Energy(EnergyFilter),
 }
 
 impl Filter {
@@ -13,6 +14,7 @@ impl Filter {
         match self {
             Filter::Cell(_) => "CellFilter",
             Filter::Material(_) => "MaterialFilter",
+            Filter::Energy(_) => "EnergyFilter",
         }
     }
 }

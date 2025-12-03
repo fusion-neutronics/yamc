@@ -13,9 +13,13 @@ pub fn py_filter_to_rust(filter_obj: &PyAny) -> PyResult<Filter> {
         filter_obj.extract::<crate::python::filters_python::PyMaterialFilter>()
     {
         Ok(Filter::Material(material_filter.internal))
+    } else if let Ok(energy_filter) =
+        filter_obj.extract::<crate::python::filters_python::PyEnergyFilter>()
+    {
+        Ok(Filter::Energy(energy_filter.internal))
     } else {
         Err(pyo3::exceptions::PyTypeError::new_err(
-            "Filter must be either CellFilter or MaterialFilter",
+            "Filter must be CellFilter, MaterialFilter, or EnergyFilter",
         ))
     }
 }
@@ -34,6 +38,12 @@ pub fn rust_filter_to_py(py: Python, filter: &Filter) -> PyObject {
                 internal: material_filter.clone(),
             };
             py_material_filter.into_py(py)
+        }
+        Filter::Energy(energy_filter) => {
+            let py_energy_filter = crate::python::filters_python::PyEnergyFilter {
+                internal: energy_filter.clone(),
+            };
+            py_energy_filter.into_py(py)
         }
     }
 }
