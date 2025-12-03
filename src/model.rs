@@ -34,6 +34,8 @@ impl Model {
     }
 
     pub fn run(&mut self) {
+        let start_time = std::time::Instant::now();
+        
         // Ensure all nuclear data is loaded before transport
         for cell in &mut self.geometry.cells {
             if let Some(material_arc) = &cell.material {
@@ -278,7 +280,17 @@ impl Model {
             }
         }
 
+        let elapsed = start_time.elapsed();
+        let total_particles = self.settings.particles * self.settings.batches;
+        let particles_per_second = total_particles as f64 / elapsed.as_secs_f64();
+        
         println!("Simulation complete.");
+        println!(
+            "Time: {:.3} s | Particles/s: {:.2e} | Total: {} particles",
+            elapsed.as_secs_f64(),
+            particles_per_second,
+            total_particles
+        );
     }
 }
 
