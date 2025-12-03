@@ -173,7 +173,8 @@ impl Model {
                                                     let awr = *ATOMIC_WEIGHT_RATIO
                                                         .get(nuclide_name.as_str())
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-                                                    elastic_scatter(&mut particle, awr, &mut rng);
+                                                    let temperature_k = material.temperature.parse::<f64>().unwrap_or(294.0);
+                                                    elastic_scatter(&mut particle, awr, temperature_k, &mut rng);
                                                 }
                                                 50..=91 => {
                                                     // Inelastic scatter (MT 50-91) - always produces exactly 1 neutron
