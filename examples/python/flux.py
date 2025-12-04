@@ -15,8 +15,8 @@ for isotope in ['Cr52']:
 
         if code == 'openmc':
             import openmc as mc
-            # mc.config['cross_sections'] = "/home/jon/nuclear_data/tendl-2021-hdf5/tendl-2021-hdf5/cross_sections.xml"
-            mc.config['cross_sections'] = "/home/jon/nuclear_data/cross_sections.xml"
+            mc.config['cross_sections'] = "/home/jon/nuclear_data/tendl-2021-hdf5/tendl-2021-hdf5/cross_sections.xml"
+            # mc.config['cross_sections'] = "/home/jon/nuclear_data/cross_sections.xml"
         elif code == 'materials_for_mc':
             import materials_for_mc as mc
 
@@ -125,9 +125,13 @@ for isotope in ['Cr52']:
 
         if code == 'materials_for_mc':
             ax.step(energy_bins[:-1], tally2.mean, where='post', label=code)
+            bin_centers = np.sqrt(energy_bins[:-1] * energy_bins[1:])
+            ax.errorbar(bin_centers, tally2.mean, yerr=tally2.std_dev, fmt='none', capsize=3, color=ax.lines[-1].get_color())
             # assert np.isclose(sum(tally1.mean), tally1.mean[0])
         elif code == 'openmc':
             ax.step(energy_bins[:-1], tally2.mean.squeeze(), where='post', label=code)
+            bin_centers = np.sqrt(energy_bins[:-1] * energy_bins[1:])
+            ax.errorbar(bin_centers, tally2.mean.squeeze(), yerr=tally2.std_dev.squeeze(), fmt='none', capsize=3, color=ax.lines[-1].get_color())
             # assert np.isclose(sum(tally2.mean.squeeze()), tally2.mean.squeeze())
 
     ax.set_xscale('log')
