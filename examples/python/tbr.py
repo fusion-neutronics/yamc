@@ -64,25 +64,22 @@ for code in ['materials_for_mc']:
             angle=mc.stats.Isotropic(),
             energy=mc.stats.Discrete([14060000.0], [1.0])
         )
-        settings = mc.Settings(
-            particles=50000,
-            batches=20,
-            source=source,
-            seed=1,
-            run_mode='fixed source'
-        )
     elif code == 'materials_for_mc':
         source = mc.IndependentSource(
             space=[0.0, 0.0, 0.0],
             angle=mc.stats.Isotropic(),
             energy=14.06e6
         )
-        settings = mc.Settings(
-            particles=50000,
-            batches=2,
-            source=source,
-            seed=1
-        )
+
+    settings = mc.Settings(
+        particles=50000,
+        batches=5,
+        source=source,
+        seed=1,
+    )
+    if code == 'openmc':
+        settings.run_mode='fixed source'
+
 
     # Create tallies with CellFilters
     cell_filter2 = mc.CellFilter(cell2)

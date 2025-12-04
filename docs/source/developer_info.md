@@ -43,9 +43,13 @@ Install maturin (once):
 pip install maturin
 ```
 
-Build & develop-install the Python module:
+Build & develop-install the Python module in debug mode:
 ```bash
 maturin develop --features pyo3
+```
+Build & develop-install the Python module in release mode for a significant speed improvement
+```bash
+maturin develop --release --features pyo3
 ```
 
 (Optional) Build a wheel:

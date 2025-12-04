@@ -57,8 +57,10 @@ impl PyModel {
             .collect()
     }
 
-    pub fn run(&mut self) {
-        self.inner.run();
+    pub fn run(&mut self, py: Python) {
+        py.allow_threads(|| { // Release the GIL while running the simulation
+            self.inner.run();
+        });
         // Tallies are updated in place - no return value
     }
 }
