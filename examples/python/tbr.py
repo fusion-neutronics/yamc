@@ -2,7 +2,7 @@ import time
 
 
 # for code in ['openmc', 'materials_for_mc']:
-for code in ['openmc','materials_for_mc']:
+for code in ['materials_for_mc']:
     if code == 'openmc':
         import openmc as mc
         # mc.config['cross_sections'] = "/home/jon/nuclear_data/tendl-2021-hdf5/tendl-2021-hdf5/cross_sections.xml"
