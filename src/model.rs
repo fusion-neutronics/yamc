@@ -196,10 +196,16 @@ impl Model {
                                                     }
                                                 }
                                                 50..=91 => {
-                                                    // Inelastic scatter (MT 50-91) - always produces exactly 1 neutron
-                                                    let outgoing_particles = crate::inelastic::analytical_inelastic_scatter(
-                                                        &particle, &constituent_reaction, &nuclide_name, &mut rng
-                                                    );
+                                                    // Inelastic scatter (MT 50-91): use tabulated product data if available
+                                                    let outgoing_particles = if !constituent_reaction.products.is_empty() {
+                                                        crate::inelastic::sample_from_products(
+                                                            &particle, &constituent_reaction, &mut rng
+                                                        )
+                                                    } else {
+                                                        crate::inelastic::analytical_inelastic_scatter(
+                                                            &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                                        )
+                                                    };
 
                                                     // MT 50-91 should always return exactly 1 particle
                                                     assert_eq!(
