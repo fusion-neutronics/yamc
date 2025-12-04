@@ -2,23 +2,23 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-import yaml
+import yamc
 # materuals_for_mc.
-isotopes = yaml.natural_abundance().keys()
+isotopes = yamc.natural_abundance().keys()
 # Plot the energy-binned flux spectrum
 
 # for isotope in isotopes:
 for isotope in ['Cr52']:
     fig, ax = plt.subplots(figsize=(10, 6))
-    for code in ['openmc', 'yaml']:
-    # for code in ['yaml']:
+    for code in ['openmc', 'yamc']:
+    # for code in ['yamc']:
 
         if code == 'openmc':
             import openmc as mc
             mc.config['cross_sections'] = "/home/jon/nuclear_data/tendl-2021-hdf5/tendl-2021-hdf5/cross_sections.xml"
             # mc.config['cross_sections'] = "/home/jon/nuclear_data/cross_sections.xml"
-        elif code == 'yaml':
-            import yaml as mc
+        elif code == 'yamc':
+            import yamc as mc
 
 
         # Create two-cell geometry: inner sphere (Li6) and outer annular region (Be9)
@@ -46,7 +46,7 @@ for isotope in ['Cr52']:
         material1.material_id = 1  # Set material_id for MaterialFilter testing
         material1.add_nuclide(isotope, 01.0)  # Li4SiO4
         material1.set_density("g/cm3", 2.0)
-        if code == 'yaml':
+        if code == 'yamc':
             dir = "../cross_section_data_tendl_2021/tendl_2021/"
             material1.read_nuclides_from_json({isotope: f"{dir}{isotope}.json"})
 
@@ -78,7 +78,7 @@ for isotope in ['Cr52']:
                 seed=1,
                 run_mode='fixed source'
             )
-        elif code == 'yaml':
+        elif code == 'yamc':
             source = mc.IndependentSource(
                 space=[0.0, 0.0, 0.0],
                 angle=mc.stats.Isotropic(),
@@ -115,7 +115,7 @@ for isotope in ['Cr52']:
         time.start = time.time()
         if code == 'openmc':
             model.run(apply_tally_results=True)
-        elif code == 'yaml':
+        elif code == 'yamc':
             model.run()
 
         print(f"Simulation completed in {time.time() - time.start} seconds.")
@@ -123,7 +123,7 @@ for isotope in ['Cr52']:
         print(f"Total Flux: {tally1.mean}")
         print(f"Energy-binned flux has {len(tally2.mean)} bins")
 
-        if code == 'yaml':
+        if code == 'yamc':
             ax.step(energy_bins[:-1], tally2.mean, where='post', label=code)
             bin_centers = np.sqrt(energy_bins[:-1] * energy_bins[1:])
             ax.errorbar(bin_centers, tally2.mean, yerr=tally2.std_dev, fmt='none', capsize=3, color=ax.lines[-1].get_color())

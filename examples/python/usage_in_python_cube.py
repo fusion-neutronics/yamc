@@ -1,4 +1,4 @@
-import yaml
+import yamc
 
 
 s1 = yamc.XPlane(x0=2.1, surface_id=5)

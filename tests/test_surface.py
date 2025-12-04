@@ -1,5 +1,5 @@
 import pytest
-from yaml import Plane, Geometry, Cell, Material, XPlane, YPlane, ZPlane, Sphere, Cylinder, ZCylinder
+from yamc import Plane, Geometry, Cell, Material, XPlane, YPlane, ZPlane, Sphere, Cylinder, ZCylinder
 
 def test_xplane_creation():
     s = XPlane(x0=1.0, surface_id=42)

@@ -1,5 +1,5 @@
 import openmc
-import yaml
+import yamc
 import math
 
 openmc.config['cross_sections'] = '/home/jon/nuclear_data/cross_sections.xml'

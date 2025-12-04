@@ -2,7 +2,7 @@
 """Tests for tally functionality."""
 
 import pytest
-import yaml as mc
+import yamc as mc
 
 
 class TestTally:

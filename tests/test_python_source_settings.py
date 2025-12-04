@@ -1,4 +1,4 @@
-import yaml as mc
+import yamc as mc
 
 
 def test_python_settings_construction():

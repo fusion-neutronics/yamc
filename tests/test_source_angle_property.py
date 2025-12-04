@@ -2,7 +2,7 @@
 """
 Test getter/setter functionality specifically for IndependentSource.angle property.
 """
-import yaml as mc
+import yamc as mc
 
 
 def test_angle_getter_setter_consistency():

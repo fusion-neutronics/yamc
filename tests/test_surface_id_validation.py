@@ -4,7 +4,7 @@ Tests optional surface IDs and duplicate surface ID detection in geometry valida
 """
 
 import pytest
-import yaml as mc
+import yamc as mc
 
 
 def test_surface_optional_id():

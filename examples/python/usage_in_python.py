@@ -1,4 +1,4 @@
-import yaml
+import yamc
 
 
 s1 = yamc.Plane(0, 0, 1, 5)

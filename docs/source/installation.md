@@ -1,10 +1,10 @@
 # Installation
 
-yaml can be installed and used on Linux, Windows, and macOS.
+yamc can be installed and used on Linux, Windows, and macOS.
 
 ## Python Installation
 
-yaml is available on [PyPI](https://pypi.org/project/materials-for-mc). To install, run:
+yamc is available on [PyPI](https://pypi.org/project/materials-for-mc). To install, run:
 
 ```bash
 pip install materials-for-mc
@@ -12,11 +12,11 @@ pip install materials-for-mc
 
 ## Rust Installation
 
-yaml is published as a [Rust crate](https://crates.io/crates/yaml). To add it to your project, include the following in your `Cargo.toml`:
+yamc is published as a [Rust crate](https://crates.io/crates/yamc). To add it to your project, include the following in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-yaml = "*"
+yamc = "*"
 ```
 
 Then run:

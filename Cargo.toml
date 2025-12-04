@@ -1,12 +1,12 @@
 [package]
-name = "yaml"
+name = "yamc"
 version = "0.2.0"
 edition = "2021"
 description = "Material builder for Monte Carlo simulations"
 license = "MIT"
 
 [lib]
-name = "yaml"
+name = "yamc"
 crate-type = ["cdylib", "rlib"]
 # Keep the path the same
 path = "src/lib.rs"

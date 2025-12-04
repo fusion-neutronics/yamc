@@ -1,4 +1,4 @@
-import yaml
+import yamc
 # yamc.Config.set_cross_sections({
 #     "Li6": "tendl-21",
 #     "Li7": "tendl-21"

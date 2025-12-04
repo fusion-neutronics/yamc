@@ -1,4 +1,4 @@
-import yaml
+import yamc
 yamc.Config.set_cross_sections({
     "Be9": "tests/Be9.json",
     "Fe54": "tests/Fe54.json",

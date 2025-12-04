@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from yaml import Material, Config
+from yamc import Material, Config
 
 def test_macroscopic_xs_neutron():
 

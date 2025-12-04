@@ -1,4 +1,4 @@
-import yaml
+import yamc
 import math
 
 def test_xplane_distance():

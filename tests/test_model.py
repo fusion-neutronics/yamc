@@ -1,4 +1,4 @@
-import yaml as mc
+import yamc as mc
 
 def test_model_construction():
     # Create sphere surface with vacuum boundary

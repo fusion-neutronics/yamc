@@ -3,7 +3,7 @@
 Simple example comparing Fe56 cross sections from different data sources.
 """
 
-import yaml
+import yamc
 import matplotlib.pyplot as plt
 
 

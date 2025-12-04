@@ -1,4 +1,4 @@
-use yaml::nuclide::read_nuclide_from_json;
+use yamc::nuclide::read_nuclide_from_json;
 
 #[test]
 fn test_pb208_products_are_loaded() {
@@ -37,16 +37,16 @@ fn test_pb208_products_are_loaded() {
             println!("Product {}: {:?}", i, product.particle);
             if !product.distribution.is_empty() {
                 match &product.distribution[0] {
-                    yaml::reaction_product::AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
+                    yamc::reaction_product::AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
                         println!("  Angle distribution has {} energy points", angle.energy.len());
                         match energy {
-                            Some(yaml::reaction_product::EnergyDistribution::LevelInelastic { .. }) => {
+                            Some(yamc::reaction_product::EnergyDistribution::LevelInelastic { .. }) => {
                                 println!("  Energy distribution: LevelInelastic");
                             }
-                            Some(yaml::reaction_product::EnergyDistribution::Tabulated { energy, .. }) => {
+                            Some(yamc::reaction_product::EnergyDistribution::Tabulated { energy, .. }) => {
                                 println!("  Energy distribution: Tabulated with {} energy points", energy.len());
                             }
-                            Some(yaml::reaction_product::EnergyDistribution::ContinuousTabular { energy, .. }) => {
+                            Some(yamc::reaction_product::EnergyDistribution::ContinuousTabular { energy, .. }) => {
                                 println!("  Energy distribution: ContinuousTabular with {} energy points", energy.len());
                             }
                             None => {
@@ -54,10 +54,10 @@ fn test_pb208_products_are_loaded() {
                             }
                         }
                     }
-                    yaml::reaction_product::AngleEnergyDistribution::KalbachMann { energy, .. } => {
+                    yamc::reaction_product::AngleEnergyDistribution::KalbachMann { energy, .. } => {
                         println!("  KalbachMann distribution has {} energy points", energy.len());
                     }
-                    yaml::reaction_product::AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, .. } => {
+                    yamc::reaction_product::AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, .. } => {
                         println!("  CorrelatedAngleEnergy distribution has {} incoming energy points", energy.len());
                         println!("  With {} energy_out grids", energy_out.len());
                     }

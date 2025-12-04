@@ -1,4 +1,4 @@
-import yaml as csg
+import yamc as csg
 import pytest
 
 def test_geometry_find_cell():

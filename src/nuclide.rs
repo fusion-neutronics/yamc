@@ -1597,11 +1597,12 @@ mod tests {
                 cache.remove(&key);
             }
         }
-        let raw = super::read_nuclide_from_json(li6_path, None).expect("Direct read failed");
+        let li6_path = std::fs::canonicalize("tests/Li6.json").expect("tests/Li6.json missing");
+        let raw = super::read_nuclide_from_json(&li6_path, None).expect("Direct read failed");
         assert_eq!(raw.name.as_deref(), Some("Li6"));
         // Don't assert cache state here (other tests may be using it)
         let mut json_map = HashMap::new();
-        json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        json_map.insert("Li6".to_string(), li6_path.to_string_lossy().to_string());
         let first =
             super::get_or_load_nuclide("Li6", &json_map, None).expect("Initial cached load failed");
         // Ensure Li6 now present in cache with the correct cache key

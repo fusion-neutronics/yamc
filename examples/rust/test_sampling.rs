@@ -1,4 +1,4 @@
-use yaml::reaction_product::*;
+use yamc::reaction_product::*;
 use rand::thread_rng;
 
 fn main() {

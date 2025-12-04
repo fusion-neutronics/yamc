@@ -2,18 +2,18 @@
 // This ensures the Monte Carlo simulation is properly randomizing and producing
 // statistically independent results per batch
 
-use yaml::cell::Cell;
-use yaml::filter::Filter;
-use yaml::filters::CellFilter;
-use yaml::geometry::Geometry;
-use yaml::model::Model;
-use yaml::region::{HalfspaceType, Region, RegionExpr};
-use yaml::settings::Settings;
-use yaml::source::IndependentSource;
-use yaml::stats::AngularDistribution;
-use yaml::surface::{BoundaryType, Surface, SurfaceKind};
-use yaml::tally::{Score, Tally};
-use yaml::Material;
+use yamc::cell::Cell;
+use yamc::filter::Filter;
+use yamc::filters::CellFilter;
+use yamc::geometry::Geometry;
+use yamc::model::Model;
+use yamc::region::{HalfspaceType, Region, RegionExpr};
+use yamc::settings::Settings;
+use yamc::source::IndependentSource;
+use yamc::stats::AngularDistribution;
+use yamc::surface::{BoundaryType, Surface, SurfaceKind};
+use yamc::tally::{Score, Tally};
+use yamc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
 

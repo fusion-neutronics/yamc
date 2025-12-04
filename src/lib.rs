@@ -122,7 +122,7 @@ pub use wasm::reaction_wasm::*;
 // If you have a main Python module entry point, update it to include PyMaterials:
 #[cfg(feature = "pyo3")]
 #[pymodule]
-fn yaml(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn yamc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     use crate::python::reaction_product_python;
     m.add_class::<reaction_product_python::PyReactionProduct>()?;
     m.add_class::<reaction_product_python::PyAngleDistribution>()?;

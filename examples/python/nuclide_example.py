@@ -1,4 +1,4 @@
-import yaml
+import yamc
 import json
 
 # Configure cross section data paths

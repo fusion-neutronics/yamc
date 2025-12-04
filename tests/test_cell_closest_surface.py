@@ -1,4 +1,4 @@
-import yaml
+import yamc
 import math
 
 def test_cell_closest_surface_simple():

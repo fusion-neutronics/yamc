@@ -1,4 +1,4 @@
-from yaml import Nuclide
+from yamc import Nuclide
 import pytest
 
 def test_read_li6_nuclide_new_format():

@@ -4,17 +4,17 @@ Test script to demonstrate the new q_value functionality.
 This script shows how to access reaction Q-values from the nuclear data.
 """
 
-import yaml
+import yamc
 
 def test_q_values():
     """Test q_value functionality with Li6 and Be9 nuclides."""
     
-    print("Testing Q-value functionality in yaml")
+    print("Testing Q-value functionality in yamc")
     print("=" * 50)
     
     # Test Li6 nuclide
     print("\n1. Loading Li6 nuclide...")
-    li6 = yaml.Nuclide()
+    li6 = yamc.Nuclide()
     li6.read_nuclide_from_json('tests/Li6.json')
     
     print(f"   Name: {li6.name}")
@@ -41,7 +41,7 @@ def test_q_values():
     
     # Test Be9 nuclide
     print("\n2. Loading Be9 nuclide...")
-    be9 = yaml.Nuclide()
+    be9 = yamc.Nuclide()
     be9.read_nuclide_from_json('tests/Be9.json')
     
     print(f"   Name: {be9.name}")

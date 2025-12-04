@@ -1,4 +1,4 @@
-import yaml as mc
+import yamc as mc
 
 
 def test_reproducibility_with_same_seed():

@@ -1,4 +1,4 @@
-import yaml
+import yamc
 
 def test_region_contains_debug():
     s = yamc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)

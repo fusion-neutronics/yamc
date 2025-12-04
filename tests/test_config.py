@@ -1,5 +1,5 @@
 import pytest
-import yaml
+import yamc
 
 @pytest.fixture(autouse=True)
 def clear_config():

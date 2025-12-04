@@ -1,4 +1,4 @@
-import yaml
+import yamc
 
 def test_sphere_bb_moved_on_z_axis():
     s2 = yamc.Sphere(x0=0, y0=0, z0=1, r=3, surface_id=1)

@@ -4,7 +4,7 @@ Simple example comparing Fe56 materials with cross sections from different data 
 Material-level loading now works correctly!
 """
 
-import yaml
+import yamc
 import matplotlib.pyplot as plt
 
 

@@ -1,14 +1,14 @@
 import time
 
 
-# for code in ['openmc', 'yaml']:
-for code in ['yaml']:
+# for code in ['openmc', 'yamc']:
+for code in ['yamc']:
     if code == 'openmc':
         import openmc as mc
         # mc.config['cross_sections'] = "/home/jon/nuclear_data/tendl-2021-hdf5/tendl-2021-hdf5/cross_sections.xml"
         mc.config['cross_sections'] = "/home/jon/nuclear_data/cross_sections.xml"
-    elif code == 'yaml':
-        import yaml as mc
+    elif code == 'yamc':
+        import yamc as mc
 
     
     # Create two-cell geometry: inner sphere (Li6) and outer annular region (Be9)
@@ -40,7 +40,7 @@ for code in ['yaml']:
     # material1.add_element("O", 4.0)
     # material1.add_element("Si", 1.0)
     material1.set_density("g/cm3", 2.0)
-    if code == 'yaml':
+    if code == 'yamc':
         material1.read_nuclides_from_json({"Be9": "tests/Be9.json", "Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
 
 
@@ -64,7 +64,7 @@ for code in ['yaml']:
             angle=mc.stats.Isotropic(),
             energy=mc.stats.Discrete([14060000.0], [1.0])
         )
-    elif code == 'yaml':
+    elif code == 'yamc':
         source = mc.IndependentSource(
             space=[0.0, 0.0, 0.0],
             angle=mc.stats.Isotropic(),
@@ -87,7 +87,7 @@ for code in ['yaml']:
     tally1.filters = [cell_filter2]
     if code == 'openmc':
         tally1.scores = ['105']  # n,t
-    elif code == 'yaml':
+    elif code == 'yamc':
         tally1.scores = [105]  # n,t
     tally1.name = "tbr"
     tallies = [tally1]
@@ -97,7 +97,7 @@ for code in ['yaml']:
     time.start = time.time()
     if code == 'openmc':
         model.run(apply_tally_results=True)
-    elif code == 'yaml':
+    elif code == 'yamc':
         model.run()
     print(f"Simulation completed in {time.time() - time.start} seconds.")
     # Tallies are updated in place!

@@ -1,6 +1,6 @@
 import numpy as np
 import openmc
-import yaml
+import yamc
 
 openmc.config['cross_sections'] = '/home/jon/nuclear_data/cross_sections.xml'
 mat = openmc.Material()

@@ -6,12 +6,12 @@ use std::fs;
 #[cfg(feature = "download")]
 use std::io::Write;
 
-/// Get the cache directory for yaml
+/// Get the cache directory for yamc
 #[cfg(feature = "download")]
 pub fn get_cache_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let home_dir = dirs::home_dir().ok_or("Could not find home directory")?;
 
-    let cache_dir = home_dir.join(".cache").join("yaml");
+    let cache_dir = home_dir.join(".cache").join("yamc");
 
     // Create the cache directory if it doesn't exist
     if !cache_dir.exists() {

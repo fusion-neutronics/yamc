@@ -1,5 +1,5 @@
 import pytest
-import yaml as mmc
+import yamc as mmc
 import numpy as np
 
 

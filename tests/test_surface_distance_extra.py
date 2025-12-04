@@ -1,4 +1,4 @@
-import yaml
+import yamc
 import math
 import pytest
 
