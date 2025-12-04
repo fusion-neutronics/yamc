@@ -58,7 +58,7 @@ pub fn inelastic_scatter<R: rand::Rng>(
     // Check if reaction has product data
     if !reaction.products.is_empty() {
         // Sample from product distributions when available
-        sample_from_products(particle, reaction, rng)
+        sample_from_products(particle, reaction, nuclide_name, rng)
     } else {
         // No product data available - use analytical approach based on Q-value and MT
         analytical_inelastic_scatter(particle, reaction, nuclide_name, rng)
@@ -70,8 +70,10 @@ pub fn inelastic_scatter<R: rand::Rng>(
 fn sample_from_products<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
+    nuclide_name: &str,
     rng: &mut R,
 ) -> Vec<Particle> {
+    use crate::data::ATOMIC_WEIGHT_RATIO;
     let incoming_energy = particle.energy;
     
     // Find neutron products (since we're tracking neutrons)
@@ -86,12 +88,18 @@ fn sample_from_products<R: rand::Rng>(
         return Vec::new();
     }
     
+    // Get AWR and Q-value for LevelInelastic energy calculation
+    let awr = *ATOMIC_WEIGHT_RATIO
+        .get(nuclide_name)
+        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+    let q_value = reaction.q_value;
+    
     // Create outgoing neutrons for each neutron product
     let mut outgoing_neutrons = Vec::new();
     
     for neutron_product in neutron_products {
         // Sample outgoing energy and scattering cosine from product distribution
-        let (e_out, mu) = neutron_product.sample(incoming_energy, rng);
+        let (e_out, mu) = neutron_product.sample_with_reaction_data(incoming_energy, awr, q_value, rng);
         
         // Create new neutron particle
         let mut new_particle = particle.clone();
@@ -129,17 +137,18 @@ pub fn analytical_inelastic_scatter<R: rand::Rng>(
         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
 
     let e_out = if mt >= 51 && mt <= 90 {
-        // Level inelastic scattering (MT 51-90) - OpenMC LevelInelastic approach
-        // E_out = mass_ratio * (E_in - threshold) where threshold = (A+1)/A * |Q|
+        // Level inelastic scattering (MT 51-90) - Correct lab frame formula
+        // For discrete level excitation: E_out = E_in * (A/(A+1))^2 + Q * A/(A+1)
+        // where Q is negative (endothermic) representing the excitation energy
         let threshold = (awr + 1.0) / awr * q_value.abs();
-        let mass_ratio = (awr / (awr + 1.0)).powi(2);
         
         if e_in < threshold {
             eprintln!("Warning: Energy {} eV below threshold {} eV for MT {}", e_in, threshold, mt);
             return Vec::new();
         }
         
-        mass_ratio * (e_in - threshold)
+        let mass_ratio = awr / (awr + 1.0);
+        e_in * mass_ratio.powi(2) + q_value * mass_ratio
     } else if reaction.products.is_empty() {
         // No product data available - use Q-value based analytical approach (OpenMC fallback)
         if q_value < 0.0 {

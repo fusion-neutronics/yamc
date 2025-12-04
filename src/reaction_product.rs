@@ -231,6 +231,20 @@ pub enum EnergyDistribution {
 }
 
 impl EnergyDistribution {
+    /// Sample outgoing energy for a given incoming energy with reaction data for LevelInelastic
+    pub fn sample_with_reaction_data<R: Rng>(&self, incoming_energy: f64, awr: f64, q_value: f64, _rng: &mut R) -> f64 {
+        match self {
+            EnergyDistribution::LevelInelastic { .. } => {
+                // For level inelastic: E_out = E_in * (A/(A+1))^2 + Q * A/(A+1)
+                // This is the correct lab-frame formula for discrete level excitation
+                let mass_ratio = awr / (awr + 1.0);
+                incoming_energy * mass_ratio.powi(2) + q_value * mass_ratio
+            },
+            // For other types, just use the regular sample method
+            _ => self.sample(incoming_energy, _rng),
+        }
+    }
+    
     /// Sample outgoing energy for a given incoming energy
     pub fn sample<R: Rng>(&self, incoming_energy: f64, _rng: &mut R) -> f64 {
         match self {
@@ -319,6 +333,28 @@ pub enum AngleEnergyDistribution {
 }
 
 impl AngleEnergyDistribution {
+    /// Sample outgoing energy and scattering cosine with reaction data for LevelInelastic
+    pub fn sample_with_reaction_data<R: Rng>(&self, incoming_energy: f64, awr: f64, q_value: f64, rng: &mut R) -> (f64, f64) {
+        match self {
+            AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
+                // Sample angle and energy independently
+                let mu = angle.sample(incoming_energy, rng);
+                let e_out = energy.as_ref()
+                    .map(|e| e.sample_with_reaction_data(incoming_energy, awr, q_value, rng))
+                    .unwrap_or(incoming_energy);
+                (e_out, mu)
+            },
+            AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
+                // Kalbach-Mann correlated angle-energy sampling
+                self.sample_kalbach_mann(incoming_energy, energy, energy_out, slope, rng)
+            },
+            AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, mu, .. } => {
+                // Correlated angle-energy sampling following OpenMC's implementation
+                self.sample_correlated_angle_energy_openmc(incoming_energy, energy, energy_out, mu, rng)
+            }
+        }
+    }
+    
     /// Sample outgoing energy and scattering cosine
     pub fn sample<R: Rng>(&self, incoming_energy: f64, rng: &mut R) -> (f64, f64) {
         match self {
@@ -538,6 +574,25 @@ pub struct ReactionProduct {
 }
 
 impl ReactionProduct {
+    /// Sample an outgoing particle from this product with reaction data for LevelInelastic
+    /// Returns (outgoing_energy, mu_cosine)
+    pub fn sample_with_reaction_data<R: Rng>(&self, incoming_energy: f64, awr: f64, q_value: f64, rng: &mut R) -> (f64, f64) {
+        if self.distribution.is_empty() {
+            // No distribution data, assume elastic scattering
+            return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
+        }
+        
+        // If multiple distributions, sample which one to use based on applicability
+        let distribution_index = if self.distribution.len() == 1 {
+            0
+        } else {
+            self.sample_distribution_index(incoming_energy, rng)
+        };
+        
+        let distribution = &self.distribution[distribution_index];
+        distribution.sample_with_reaction_data(incoming_energy, awr, q_value, rng)
+    }
+    
     /// Sample an outgoing particle from this product
     /// Returns (outgoing_energy, mu_cosine)
     pub fn sample<R: Rng>(&self, incoming_energy: f64, rng: &mut R) -> (f64, f64) {
