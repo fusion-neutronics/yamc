@@ -42,7 +42,8 @@ fn sample_target_velocity(awr: f64, temperature_k: f64, rng: &mut impl Rng) -> V
     )
 }
 
-/// Perform elastic scattering for a neutron particle with thermal motion
+/// Perform elastic scattering for a neutron particle with thermal motion (isotropic in CM)
+/// This is used when no angular distribution data is available
 pub fn elastic_scatter(particle: &mut Particle, awr: f64, temperature_k: f64, rng: &mut impl Rng) {
     // Neutron velocity in LAB (velocity = sqrt(energy) in our units where neutron mass = 1)
     let vel = particle.energy.sqrt();
@@ -95,6 +96,54 @@ pub fn elastic_scatter(particle: &mut Particle, awr: f64, temperature_k: f64, rn
             v_n_lab.z / vel_lab,
         ];
     }
+}
+
+/// DBRC (Doppler Broadening Rejection Correction) elastic scattering
+/// Uses target-at-rest approximation with tabulated angular distribution
+/// This is appropriate for the resonance region (typically ~1 eV to 210 keV)
+pub fn dbrc_elastic_scatter(
+    particle: &mut Particle, 
+    awr: f64, 
+    temperature_k: f64,
+    mu_cm: f64,  // Scattering cosine from tabulated distribution
+    rng: &mut impl Rng
+) {
+    // For DBRC, OpenMC uses target-at-rest kinematics with the tabulated angular distribution
+    // The thermal motion is already accounted for in the cross section sampling via relative energy
+    
+    // Target-at-rest: transform using simple kinematics
+    // E_out = E_in * ((A^2 + 1 + 2*A*mu) / (A+1)^2) for elastic scattering
+    
+    let e_in = particle.energy;
+    let a = awr;
+    
+    // Scattering cosine in lab frame (from CM using target-at-rest kinematics)
+    // mu_lab = (1 + A*mu_cm) / sqrt(A^2 + 2*A*mu_cm + 1)
+    let mu_lab = (1.0 + a * mu_cm) / (a * a + 2.0 * a * mu_cm + 1.0).sqrt();
+    
+    // Outgoing energy (target-at-rest kinematics)
+    let e_out = e_in * (a * a + 1.0 + 2.0 * a * mu_cm) / ((a + 1.0) * (a + 1.0));
+    
+    // Update particle energy
+    particle.energy = e_out;
+    
+    // Rotate direction
+    let phi = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+    let sin_theta = (1.0 - mu_lab * mu_lab).max(0.0).sqrt();
+    
+    // Create perpendicular vectors to current direction
+    let old_dir = Vector3::from_row_slice(&particle.direction);
+    let perp = if old_dir.x.abs() < 0.99 {
+        Vector3::new(1.0, 0.0, 0.0).cross(&old_dir).normalize()
+    } else {
+        Vector3::new(0.0, 1.0, 0.0).cross(&old_dir).normalize()
+    };
+    let ortho = old_dir.cross(&perp);
+    
+    // New direction
+    let new_dir = mu_lab * old_dir + sin_theta * phi.cos() * perp + sin_theta * phi.sin() * ortho;
+    
+    particle.direction = [new_dir.x, new_dir.y, new_dir.z];
 }
 
 // =====================
