@@ -67,7 +67,8 @@ pub fn inelastic_scatter<R: rand::Rng>(
 
 /// Sample outgoing particles from reaction product distributions
 /// This handles the case where explicit product data is available
-fn sample_from_products<R: rand::Rng>(
+/// This is public so it can be used for MT=2 elastic scattering with product data
+pub fn sample_from_products<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
     rng: &mut R,
