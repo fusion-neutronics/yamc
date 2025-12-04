@@ -250,21 +250,20 @@ impl EnergyDistribution {
                 if energy.is_empty() || energy_out.is_empty() {
                     return incoming_energy;
                 }
-                
                 // Find energy bracket
                 let i = self.find_energy_index(incoming_energy, energy);
-                
                 if i >= energy_out.len() {
                     return incoming_energy;
                 }
-                
-                // For now, return the first energy in the distribution
-                // A complete implementation would sample from the energy_out distribution
-                if !energy_out[i].is_empty() {
-                    energy_out[i][0]
-                } else {
-                    incoming_energy
+                // Sample outgoing energy from the tabulated distribution
+                let xs = &energy_out[i];
+                if xs.is_empty() {
+                    return incoming_energy;
                 }
+                // Uniform sampling (replace with PDF/CDF if available)
+                let mut rng = rand::thread_rng();
+                let idx = rng.gen_range(0..xs.len());
+                xs[idx]
             },
             EnergyDistribution::ContinuousTabular { energy, energy_out } => {
                 if energy.is_empty() || energy_out.is_empty() {
@@ -451,12 +450,20 @@ impl AngleEnergyDistribution {
         // Ensure idx is valid
         idx = idx.min(n_ang.saturating_sub(1));
         
-        // Sample from the angular distribution at this outgoing energy
-        // For now, use the closest angular distribution rather than interpolating
-        // A more sophisticated approach would interpolate between angular CDFs
-        let mu = angular_distributions[idx].sample(rng);
-        
-        // Ensure mu is in valid range [-1, 1]
+        // Interpolate between angular distributions at e_out
+        let mu_lo = angular_distributions[idx].sample(rng);
+        let mut mu = mu_lo;
+        if idx + 1 < n_ang {
+            let e_lo = e_out_grid[idx];
+            let e_hi = e_out_grid[idx + 1];
+            let mu_hi = angular_distributions[idx + 1].sample(rng);
+            let f = if e_hi > e_lo {
+                (e_out - e_lo) / (e_hi - e_lo)
+            } else {
+                0.0
+            };
+            mu = mu_lo * (1.0 - f) + mu_hi * f;
+        }
         (e_out, mu.max(-1.0).min(1.0))
     }
     
