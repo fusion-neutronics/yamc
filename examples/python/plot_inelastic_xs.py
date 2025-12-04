@@ -3,10 +3,10 @@
 Simple example plotting the Li6 inelastic cross sections.
 """
 
-import yaml as m4mc
+import yaml
 import matplotlib.pyplot as plt
 
-li6_nuc = m4mc.Nuclide("Li6")
+li6_nuc = yamc.Nuclide("Li6")
 li6_nuc.read_nuclide_from_json("tests/Li6.json")
 
 xs_4, energy_4 = li6_nuc.microscopic_cross_section(4, "294")

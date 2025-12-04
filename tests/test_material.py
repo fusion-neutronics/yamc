@@ -319,8 +319,8 @@ def test_macroscopic_xs_neutron_mt_filter():
     assert xs_all == xs_filtered, "Filtered and unfiltered MT=2 macro_xs do not match"
 
 def test_hierarchical_mt3_generated_for_li6():
-    import yaml as m4mc
-    mat = m4mc.Material()
+    import yaml
+    mat = yamc.Material()
     mat.add_nuclide('Li6', 1.0)
     mat.read_nuclides_from_json({'Li6': 'tests/Li6.json'})
     mat.set_density('g/cm3', 0.534)

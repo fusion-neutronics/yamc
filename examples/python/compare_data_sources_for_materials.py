@@ -4,13 +4,13 @@ Simple example comparing Fe56 materials with cross sections from different data 
 Material-level loading now works correctly!
 """
 
-import yaml as m4mc
+import yaml
 import matplotlib.pyplot as plt
 
 
 # Material 1: Li7 from TENDL-21
 print("Creating Li7 material from TENDL-21...")
-mat_tendl = m4mc.Material()
+mat_tendl = yamc.Material()
 mat_tendl.add_nuclide("Li7", 1.0)
 print("Reading Li7 from TENDL-21...")
 mat_tendl.read_nuclides_from_json("tendl-21")
@@ -18,7 +18,7 @@ mat_tendl.set_density("g/cm3", 0.534)  # Lithium density
 
 # Material 2: Li7 from FENDL-3.2c  
 print("Creating Li7 material from FENDL-3.2c...")
-mat_fendl = m4mc.Material()
+mat_fendl = yamc.Material()
 mat_fendl.add_nuclide("Li7", 1.0)
 print("Reading Li7 from FENDL-3.2c...")
 mat_fendl.read_nuclides_from_json("fendl-3.2c")

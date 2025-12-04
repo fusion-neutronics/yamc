@@ -1,6 +1,6 @@
 import numpy as np
 import openmc
-import yaml as m4mc
+import yaml
 
 openmc.config['cross_sections'] = '/home/jon/nuclear_data/cross_sections.xml'
 mat1 = openmc.Material()
@@ -10,7 +10,7 @@ openmc_energies, openmc_xs = openmc.calculate_cexs(mat1, [3], temperature=294)
 openmc_macro=openmc_xs[0]
 
 
-mat2 = m4mc.Material()
+mat2 = yamc.Material()
 mat2.add_nuclide('Li6',1)
 mat2.read_nuclides_from_json({'Li6':'tests/Li6.json'})
 mat2.set_density('g/cm3',2.)

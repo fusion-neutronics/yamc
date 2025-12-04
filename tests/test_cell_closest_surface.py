@@ -1,11 +1,11 @@
-import yaml as m4mc
+import yaml
 import math
 
 def test_cell_closest_surface_simple():
     # Cell: sphere of radius 2 at (0,0,0)
-    s = m4mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
+    s = yamc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
     region = -s  # inside sphere
-    cell = m4mc.Cell(cell_id=1, region=region)
+    cell = yamc.Cell(cell_id=1, region=region)
     # From (3,0,0) toward center
     result = cell.closest_surface((3.0, 0.0, 0.0), (-1.0, 0.0, 0.0))
     assert result is not None, 'Expected intersection, got None'
@@ -23,12 +23,12 @@ def test_cell_closest_surface_simple():
 
 def test_cell_closest_surface_union():
     # Two spheres, union
-    s1 = m4mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
-    s2 = m4mc.Sphere(x0=4.0, y0=0.0, z0=0.0, r=2.0, surface_id=2)
+    s1 = yamc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
+    s2 = yamc.Sphere(x0=4.0, y0=0.0, z0=0.0, r=2.0, surface_id=2)
     region1 = -s1
     region2 = -s2
     region = region1 | region2
-    cell = m4mc.Cell(cell_id=2, region=region)
+    cell = yamc.Cell(cell_id=2, region=region)
     # From (0,0,0) outward (should hit s1)
     result = cell.closest_surface((0.0, 0.0, 0.0), (1.0, 0.0, 0.0))
     assert result is not None, 'Expected intersection, got None'
@@ -47,10 +47,10 @@ def test_cell_closest_surface_union():
 
 def test_cell_closest_surface_intersection():
     # Intersection of two spheres
-    s1 = m4mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=3.0, surface_id=1)
-    s2 = m4mc.Sphere(x0=2.0, y0=0.0, z0=0.0, r=3.0, surface_id=2)
+    s1 = yamc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=3.0, surface_id=1)
+    s2 = yamc.Sphere(x0=2.0, y0=0.0, z0=0.0, r=3.0, surface_id=2)
     region = (-s1) & (-s2)
-    cell = m4mc.Cell(cell_id=3, region=region)
+    cell = yamc.Cell(cell_id=3, region=region)
     # From (1,0,0) outward (should hit s1 or s2, both at 2.0)
     result = cell.closest_surface((1.0, 0.0, 0.0), (1.0, 0.0, 0.0))
     assert result is not None, 'Expected intersection, got None'
@@ -70,9 +70,9 @@ def test_cell_closest_surface_intersection():
 
 def test_cell_closest_surface_complement():
     # Complement of a sphere (outside)
-    s = m4mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
+    s = yamc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
     region = ~(-s)
-    cell = m4mc.Cell(cell_id=4, region=region)
+    cell = yamc.Cell(cell_id=4, region=region)
     # From (3,0,0) outward (should hit nothing)
     result = cell.closest_surface((3.0, 0.0, 0.0), (1.0, 0.0, 0.0))
     assert result is None

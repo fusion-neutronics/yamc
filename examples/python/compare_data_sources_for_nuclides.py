@@ -3,18 +3,18 @@
 Simple example comparing Fe56 cross sections from different data sources.
 """
 
-import yaml as m4mc
+import yaml
 import matplotlib.pyplot as plt
 
 
 # Load Fe56 from TENDL-21
 print("Loading Fe56 from TENDL-21...")
-fe56_tendl = m4mc.Nuclide("Fe56")
+fe56_tendl = yamc.Nuclide("Fe56")
 fe56_tendl.read_nuclide_from_json("tendl-21")
 
 # Load Fe56 from FENDL-3.2c  
 print("Loading Fe56 from FENDL-3.2c...")
-fe56_fendl = m4mc.Nuclide("Fe56")
+fe56_fendl = yamc.Nuclide("Fe56")
 fe56_fendl.read_nuclide_from_json("fendl-3.2c")
 
 # Get (n,gamma) cross sections from both

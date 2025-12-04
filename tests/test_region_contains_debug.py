@@ -1,9 +1,9 @@
-import yaml as m4mc
+import yaml
 
 def test_region_contains_debug():
-    s = m4mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
+    s = yamc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)
     region = -s
-    cell = m4mc.Cell(cell_id=1, region=region)
+    cell = yamc.Cell(cell_id=1, region=region)
     # Should be inside
     assert cell.contains(0.0, 0.0, 0.0)
     # Should be outside

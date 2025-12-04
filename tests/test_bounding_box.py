@@ -1,16 +1,16 @@
-import yaml as m4mc
+import yaml
 
 def test_sphere_bb_moved_on_z_axis():
-    s2 = m4mc.Sphere(x0=0, y0=0, z0=1, r=3, surface_id=1)
+    s2 = yamc.Sphere(x0=0, y0=0, z0=1, r=3, surface_id=1)
     region2 = -s2
     bb = region2.bounding_box()
     assert bb.lower_left == [-3.0, -3.0, -2.0]
     assert bb.upper_right == [3.0, 3.0, 4.0]
 
 def test_sphere_with_xplanes():
-    s1 = m4mc.XPlane(x0=2.1, surface_id=5)
-    s2 = m4mc.XPlane(x0=-2.1, surface_id=6)
-    s3 = m4mc.Sphere(x0=0, y0=0, z0=0, r=4.2, surface_id=1)
+    s1 = yamc.XPlane(x0=2.1, surface_id=5)
+    s2 = yamc.XPlane(x0=-2.1, surface_id=6)
+    s3 = yamc.Sphere(x0=0, y0=0, z0=0, r=4.2, surface_id=1)
 
     region1 = -s1 & +s2 & -s3
     assert region1.contains((0, 0, 0))
@@ -20,10 +20,10 @@ def test_sphere_with_xplanes():
 
 def test_zcylinder_with_zplanes():
     # Create a Z-cylinder centered at (1, 2) with radius 3
-    cyl = m4mc.ZCylinder(x0=1.0, y0=2.0, r=3.0, surface_id=1)
+    cyl = yamc.ZCylinder(x0=1.0, y0=2.0, r=3.0, surface_id=1)
     # Create Z planes to bound the cylinder in Z direction
-    z_bottom = m4mc.ZPlane(z0=-5.0, surface_id=2)
-    z_top = m4mc.ZPlane(z0=5.0, surface_id=3)
+    z_bottom = yamc.ZPlane(z0=-5.0, surface_id=2)
+    z_top = yamc.ZPlane(z0=5.0, surface_id=3)
     
     # Region inside cylinder and between the Z planes
     region = -cyl & +z_bottom & -z_top

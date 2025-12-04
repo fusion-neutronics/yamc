@@ -1,9 +1,9 @@
-import yaml as m4mc
+import yaml
 
 
-s1 = m4mc.Plane(0, 0, 1, 5)
-s2 = m4mc.Sphere(x0=0,y0=0,z0=1, r=3, surface_id=1)
-s3 = m4mc.Cylinder(x0=0, y0=0, z0=0, axis_x=0, axis_y=0, axis_z=1, r=1, surface_id=2)
+s1 = yamc.Plane(0, 0, 1, 5)
+s2 = yamc.Sphere(x0=0,y0=0,z0=1, r=3, surface_id=1)
+s3 = yamc.Cylinder(x0=0, y0=0, z0=0, axis_x=0, axis_y=0, axis_z=1, r=1, surface_id=2)
 
 region1 = -s1 & +s2 | ~(-s3)
 
@@ -11,7 +11,7 @@ inside = region1.contains((0, 0, 0))
 
 print("Point inside region1?", inside)
 
-s4 = m4mc.XPlane(1.0, surface_id=10)
+s4 = yamc.XPlane(1.0, surface_id=10)
 region2 = -s2
 
 inside = region2.contains((0, 0, 0))
