@@ -1,6 +1,6 @@
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::geometry::Geometry;
-use crate::inelastic::inelastic_scatter;
+use crate::inelastic::sample_from_products;
 use crate::particle::Particle;
 use crate::physics::elastic_scatter;
 use crate::reaction::Reaction;
@@ -171,12 +171,29 @@ impl Model {
                                             // Handle the constituent reaction
                                             match constituent_reaction.mt_number {
                                                 2 => {
-                                                    // Elastic scatter - no products to handle
+                                                    // Elastic scattering
                                                     let awr = *ATOMIC_WEIGHT_RATIO
                                                         .get(nuclide_name.as_str())
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let temperature_k = material.temperature.parse::<f64>().unwrap_or(294.0);
-                                                    elastic_scatter(&mut particle, awr, temperature_k, &mut rng);
+                                                    
+                                                    // Check if we have product data with angular distributions
+                                                    if !constituent_reaction.products.is_empty() {
+                                                        // DBRC: Use target-at-rest with tabulated angular distribution
+                                                        // Sample from product data to get scattering angle
+                                                        let outgoing_particles = sample_from_products(
+                                                            &particle, 
+                                                            &constituent_reaction, 
+                                                            &mut rng
+                                                        );
+                                                        
+                                                        if !outgoing_particles.is_empty() {
+                                                            particle = outgoing_particles[0].clone();
+                                                        }
+                                                    } else {
+                                                        // No product data - use free-gas thermal scattering
+                                                        elastic_scatter(&mut particle, awr, temperature_k, &mut rng);
+                                                    }
                                                 }
                                                 50..=91 => {
                                                     // Inelastic scatter (MT 50-91) - always produces exactly 1 neutron
