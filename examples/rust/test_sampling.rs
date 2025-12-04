@@ -1,4 +1,4 @@
-use materials_for_mc::reaction_product::*;
+use yaml::reaction_product::*;
 use rand::thread_rng;
 
 fn main() {

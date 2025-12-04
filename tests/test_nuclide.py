@@ -1,5 +1,5 @@
 import pytest
-from materials_for_mc import Nuclide
+from yaml import Nuclide
 
 def test_be9_not_fissionable():
     nuc = Nuclide('Be9')
@@ -12,7 +12,7 @@ def test_fe58_not_fissionable():
     nuc.read_nuclide_from_json('tests/Fe58.json')
     assert hasattr(nuc, 'fissionable'), "Nuclide should have a 'fissionable' attribute"
     assert nuc.fissionable is False, "Fe58 should not be fissionable"
-from materials_for_mc import Nuclide
+from yaml import Nuclide
 
 def test_read_li6_nuclide():
     nuc1 = Nuclide('Li6')
@@ -98,12 +98,12 @@ def test_read_be9_selective_single_temperature():
 
 
 def test_read_nuclide_from_json_keyword():
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json("tendl-21")
 
 def test_read_nuclide_from_json_local_path():
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Li6')
     # Should not raise TypeError when passing local path
     nuc.read_nuclide_from_json("tests/Li6.json")
@@ -111,7 +111,7 @@ def test_read_nuclide_from_json_local_path():
 
 def test_microscopic_cross_section_with_temperature():
     """Test microscopic_cross_section with explicit temperature."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
     
@@ -134,7 +134,7 @@ def test_microscopic_cross_section_with_temperature():
 
 def test_microscopic_cross_section_without_temperature():
     """Test microscopic_cross_section with single loaded temperature."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     # Load only one temperature
     nuc.read_nuclide_from_json('tests/Be9.json', temperatures=['294'])
@@ -148,7 +148,7 @@ def test_microscopic_cross_section_without_temperature():
 
 def test_microscopic_cross_section_multiple_temperatures_error():
     """Test that microscopic_cross_section works with single temperature without specifying."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')  # Loads only 294K
     
@@ -160,7 +160,7 @@ def test_microscopic_cross_section_multiple_temperatures_error():
 
 def test_microscopic_cross_section_invalid_temperature():
     """Test error handling for invalid temperature."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
     
@@ -175,7 +175,7 @@ def test_microscopic_cross_section_invalid_temperature():
 
 def test_microscopic_cross_section_invalid_mt():
     """Test error handling for invalid MT number."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
     
@@ -189,7 +189,7 @@ def test_microscopic_cross_section_invalid_mt():
 
 def test_microscopic_cross_section_multiple_mt_numbers():
     """Test microscopic_cross_section with various MT numbers."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
     
@@ -211,7 +211,7 @@ def test_microscopic_cross_section_multiple_mt_numbers():
 
 def test_microscopic_cross_section_lithium():
     """Test microscopic_cross_section with Li6 data."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
     
@@ -228,7 +228,7 @@ def test_microscopic_cross_section_lithium():
 
 def test_auto_loading_from_config():
     """Test that microscopic_cross_section can auto-load data from config when nuclide is empty"""
-    from materials_for_mc import Config
+    from yaml import Config
     
     # Set up config for auto-loading
     config = Config()
@@ -250,7 +250,7 @@ def test_auto_loading_from_config():
 
 def test_auto_loading_additional_temperature():
     """Test that microscopic_cross_section can auto-load additional temperatures"""
-    from materials_for_mc import Config
+    from yaml import Config
     
     # Set up config for auto-loading
     config = Config()
@@ -274,7 +274,7 @@ def test_auto_loading_additional_temperature():
 
 def test_auto_loading_without_config_fails():
     """Test that auto-loading fails gracefully when no config is available"""
-    from materials_for_mc import Config
+    from yaml import Config
     
     # Clear any existing config by setting an empty dict
     config = Config()
@@ -308,7 +308,7 @@ def test_auto_loading_without_config_fails():
 
 def test_auto_loading_multiple_calls_consistent():
     """Test that multiple auto-loading calls give consistent results"""
-    from materials_for_mc import Config
+    from yaml import Config
     
     # Set up config for auto-loading
     config = Config()
@@ -333,7 +333,7 @@ def test_auto_loading_multiple_calls_consistent():
 
 def test_auto_loading_with_manual_loading_combined():
     """Test combining manual loading with auto-loading for additional data"""
-    from materials_for_mc import Config
+    from yaml import Config
     
     # Set up config for auto-loading
     config = Config()
@@ -373,13 +373,13 @@ def test_auto_loading_with_manual_loading_combined():
 
 def test_fendl_3_2c_keyword():
     """Test that the fendl-3.2c keyword is recognized and works correctly."""
-    import materials_for_mc
+    import yaml
     
     # Test that the keyword is recognized (this tests the Rust backend)
     try:
         # This should not raise an exception if the keyword is recognized
         # We'll create a dummy config entry to test keyword recognition
-        from materials_for_mc import Config
+        from yaml import Config
         config = Config()
         
         # Test setting cross sections with the keyword - this should not fail
@@ -401,7 +401,7 @@ def test_fendl_3_2c_keyword():
 
 def test_auto_loading_with_global_keyword():
     """Test that auto-loading works with global keyword configuration"""
-    from materials_for_mc import Config, Nuclide
+    from yaml import Config, Nuclide
     
     # Set global keyword configuration
     config = Config()
@@ -434,7 +434,7 @@ def test_auto_loading_with_global_keyword():
 
 def test_microscopic_cross_section_by_name():
     """Test microscopic_cross_section with reaction names."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
     
@@ -477,7 +477,7 @@ def test_microscopic_cross_section_by_name():
 
 def test_microscopic_cross_section_by_name_invalid_reaction():
     """Test error handling for invalid reaction names."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
     
@@ -490,7 +490,7 @@ def test_microscopic_cross_section_by_name_invalid_reaction():
 
 def test_microscopic_cross_section_by_name_fission():
     """Test that the special 'fission' alias works."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     # Use Li6 which might have fission data, or test the error handling
     nuc = Nuclide('Li6')
@@ -514,7 +514,7 @@ def test_microscopic_cross_section_by_name_fission():
 
 def test_sample_reaction_basic():
     """Test basic functionality of sample_reaction method."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -551,7 +551,7 @@ def test_sample_reaction_basic():
 
 def test_sample_reaction_reproducibility():
     """Test that sample_reaction gives reproducible results with same seed."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -577,7 +577,7 @@ def test_sample_reaction_reproducibility():
 
 def test_sample_reaction_different_energies():
     """Test sample_reaction at different neutron energies."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -606,7 +606,7 @@ def test_sample_reaction_different_energies():
 
 def test_sample_reaction_be9():
     """Test sample_reaction with Be9 nuclide (different reaction channels)."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')
@@ -630,7 +630,7 @@ def test_sample_reaction_be9():
 
 def test_sample_reaction_without_seed():
     """Test that sample_reaction works without specifying a seed."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -651,7 +651,7 @@ def test_sample_reaction_without_seed():
 
 def test_sample_reaction_multiple_temperatures():
     """Test sample_reaction with different temperatures."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Be9')
     nuc.read_nuclide_from_json('tests/Be9.json')  # Has 294K
@@ -672,7 +672,7 @@ def test_sample_reaction_multiple_temperatures():
 
 def test_sample_reaction_invalid_temperature():
     """Test error handling for invalid temperature in sample_reaction."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -691,7 +691,7 @@ def test_sample_reaction_invalid_temperature():
 
 def test_sample_reaction_edge_cases():
     """Test sample_reaction with edge case energies."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -714,7 +714,7 @@ def test_sample_reaction_edge_cases():
 
 def test_sample_reaction_zero_energy():
     """Test sample_reaction with zero energy."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -731,7 +731,7 @@ def test_sample_reaction_zero_energy():
 
 def test_sample_reaction_consistency_with_available_mts():
     """Test that sampled reactions are from available MT numbers."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')
@@ -757,7 +757,7 @@ def test_sample_reaction_consistency_with_available_mts():
 
 def test_sample_reaction_return_type():
     """Test that sample_reaction returns correct Python types."""
-    from materials_for_mc import Nuclide
+    from yaml import Nuclide
     
     nuc = Nuclide('Li6')
     nuc.read_nuclide_from_json('tests/Li6.json')

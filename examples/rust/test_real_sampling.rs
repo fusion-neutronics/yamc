@@ -1,4 +1,4 @@
-use materials_for_mc::nuclide::{read_nuclide_from_json};
+use yaml::nuclide::{read_nuclide_from_json};
 use rand::thread_rng;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

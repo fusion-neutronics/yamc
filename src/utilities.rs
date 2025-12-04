@@ -1,5 +1,5 @@
 // ...existing code...
-/// Utility functions for materials_for_mc
+/// Utility functions for yaml
 
 #[doc(hidden)]
 /// Linear interpolation on a linear scale (hidden from docs)

@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 
 
 s1 = m4mc.Plane(0, 0, 1, 5)

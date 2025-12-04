@@ -1,7 +1,7 @@
 def test_reaction_instantiation():
-    from materials_for_mc import Reaction
+    from yaml import Reaction
     # Provide all required arguments for Reaction
-    from materials_for_mc import ReactionProduct
+    from yaml import ReactionProduct
     products = [
         ReactionProduct("neutron", "emission", 0.0),
         ReactionProduct("neutron", "emission", 0.0)

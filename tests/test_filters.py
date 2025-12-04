@@ -1,5 +1,5 @@
 import pytest
-import materials_for_mc as mmc
+import yaml as mmc
 import numpy as np
 
 

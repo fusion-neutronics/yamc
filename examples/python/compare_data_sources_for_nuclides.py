@@ -3,7 +3,7 @@
 Simple example comparing Fe56 cross sections from different data sources.
 """
 
-import materials_for_mc as m4mc
+import yaml as m4mc
 import matplotlib.pyplot as plt
 
 

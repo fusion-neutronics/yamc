@@ -1,4 +1,4 @@
-import materials_for_mc as mc
+import yaml as mc
 
 def test_model_construction():
     # Create sphere surface with vacuum boundary

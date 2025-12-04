@@ -1,4 +1,4 @@
-import materials_for_mc as csg4mc
+import yaml as csg4mc
 import math
 
 def test_closest_surface_debug():

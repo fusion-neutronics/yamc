@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 m4mc.Config.set_cross_sections({
     "Be9": "tests/Be9.json",
     "Fe54": "tests/Fe54.json",

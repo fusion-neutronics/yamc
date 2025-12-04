@@ -16,7 +16,7 @@ In this quick start guide we
 ### Import
 
 ```python
-import materials_for_mc as m4mc
+import yaml as m4mc
 ```
 
 ### Config the nuclear data
@@ -76,7 +76,7 @@ The simplest method is to configure the package to use a single source of nuclea
 m4mc.Config.set_cross_sections("tendl-21")
 ```
 
-Whenever nuclear data is needed this will check the users ```.cache/materials_for_mc``` folder to see if the JSON file for the required nuclide exists.
+Whenever nuclear data is needed this will check the users ```.cache/yaml``` folder to see if the JSON file for the required nuclide exists.
 If the file is found then it will be used and if not the JSON file will be downloaded to the cache and then used.
 
 ### Config with JSON paths
@@ -164,7 +164,7 @@ However the Python API also provides access to all the Monte Carlo Transport pro
 The mean free path of a neutron with a specified energy in a material can be found using ```Material.mean_free_path_neutron()```.
 
 ```python
-import materials_for_mc as m4mc
+import yaml as m4mc
 mat1 = m4mc.Material()
 mat1.add_nuclide('Li6',1)
 mat1.add_nuclide('Li7',1)
@@ -183,7 +183,7 @@ This is used by Monte Carlo codes to determine if an interaction occurs within t
 
 The distance to a collision within a material can be sampled
 ```python
-import materials_for_mc as m4mc
+import yaml as m4mc
 mat = m4mc.Material()
 mat.add_nuclide("Li6", 1.0)
 mat.set_density("g/cm3", 1.)
@@ -201,7 +201,7 @@ Monte Carlo codes typically then sample the interacting nuclide.
 The interacting nuclide can be sampled for a given neutron energy using ```material. sample_interacting_nuclide()```
 
 ```python
-import materials_for_mc as m4mc
+import yaml as m4mc
 material = m4mc.Material()
 material.add_nuclide("Li6", 0.5)
 material.add_nuclide("Li7", 0.5)
@@ -222,7 +222,7 @@ print(f'interacting nuclide is {interacting_nuclide}')
 Once the interacting nuclide is known then the reaction can be sampled using ```Nuclide.sample_reaction()```.
 
 ```python
-import materials_for_mc as m4mc
+import yaml as m4mc
 nuc = m4mc.Nuclide('Li6')
 nuc.read_nuclide_from_json('tests/Li6.json')
 reaction = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)

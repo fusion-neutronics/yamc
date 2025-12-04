@@ -1,11 +1,11 @@
-use materials_for_mc::*;
-use materials_for_mc::model::Model;
-use materials_for_mc::source::IndependentSource;
-use materials_for_mc::stats::AngularDistribution;
-use materials_for_mc::settings::Settings;
-use materials_for_mc::tally::{Score, Tally};
-use materials_for_mc::filter::Filter;
-use materials_for_mc::filters::{CellFilter, EnergyFilter};
+use yaml::*;
+use yaml::model::Model;
+use yaml::source::IndependentSource;
+use yaml::stats::AngularDistribution;
+use yaml::settings::Settings;
+use yaml::tally::{Score, Tally};
+use yaml::filter::Filter;
+use yaml::filters::{CellFilter, EnergyFilter};
 use std::sync::Arc;
 use std::time::Instant;
 

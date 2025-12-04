@@ -1,14 +1,14 @@
 // Test flux tallying functionality
-use materials_for_mc::cell::Cell;
-use materials_for_mc::geometry::Geometry;
-use materials_for_mc::model::Model;
-use materials_for_mc::region::{HalfspaceType, Region, RegionExpr};
-use materials_for_mc::settings::Settings;
-use materials_for_mc::source::IndependentSource;
-use materials_for_mc::stats::AngularDistribution;
-use materials_for_mc::surface::{BoundaryType, Surface, SurfaceKind};
-use materials_for_mc::tally::{Tally, Score};
-use materials_for_mc::Material;
+use yaml::cell::Cell;
+use yaml::geometry::Geometry;
+use yaml::model::Model;
+use yaml::region::{HalfspaceType, Region, RegionExpr};
+use yaml::settings::Settings;
+use yaml::source::IndependentSource;
+use yaml::stats::AngularDistribution;
+use yaml::surface::{BoundaryType, Surface, SurfaceKind};
+use yaml::tally::{Tally, Score};
+use yaml::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
 

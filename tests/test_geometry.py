@@ -1,4 +1,4 @@
-import materials_for_mc as csg
+import yaml as csg
 import pytest
 
 def test_geometry_find_cell():

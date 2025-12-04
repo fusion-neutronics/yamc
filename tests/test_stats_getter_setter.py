@@ -2,7 +2,7 @@
 """
 Test getter/setter functionality for stats distributions.
 """
-import materials_for_mc as mc
+import yaml as mc
 
 
 def test_monodirectional_getter_setter():

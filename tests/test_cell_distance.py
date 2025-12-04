@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 import math
 
 def test_xplane_distance():

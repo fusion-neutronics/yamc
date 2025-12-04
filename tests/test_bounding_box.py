@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 
 def test_sphere_bb_moved_on_z_axis():
     s2 = m4mc.Sphere(x0=0, y0=0, z0=1, r=3, surface_id=1)
