@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 
 
 s1 = m4mc.XPlane(x0=2.1, surface_id=5)

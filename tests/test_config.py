@@ -1,5 +1,5 @@
 import pytest
-import materials_for_mc as m4mc
+import yaml as m4mc
 
 @pytest.fixture(autouse=True)
 def clear_config():

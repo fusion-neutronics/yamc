@@ -9,7 +9,7 @@ import sys
 # Add the package to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import materials_for_mc as m4mc
+import yaml as m4mc
 
 def test_element_class():
     """Test the Element class functionality."""

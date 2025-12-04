@@ -7,7 +7,7 @@ of reaction product distributions through the Python API.
 
 import pytest
 import numpy as np
-import materials_for_mc as mc
+import yaml as mc
 
 
 class TestDistributionStructureExposure:

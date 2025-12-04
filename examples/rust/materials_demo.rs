@@ -1,8 +1,8 @@
-use materials_for_mc::{Material, Config};
+use yaml::{Material, Config};
 use rand::SeedableRng;
 use rand::rngs::StdRng;
-use materials_for_mc::surface::Surface;
-use materials_for_mc::region::{Region, HalfspaceType};
+use yaml::surface::Surface;
+use yaml::region::{Region, HalfspaceType};
 use std::sync::Arc;
 use std::collections::HashMap;
 

@@ -16,7 +16,7 @@ OpenMC approach for nuclear data sampling.
 ## Usage in Monte Carlo Transport
 
 ```rust
-use materials_for_mc::reaction_product::*;
+use yaml::reaction_product::*;
 use rand::thread_rng;
 
 // In your transport loop

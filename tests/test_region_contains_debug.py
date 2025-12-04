@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 
 def test_region_contains_debug():
     s = m4mc.Sphere(x0=0.0, y0=0.0, z0=0.0, r=2.0, surface_id=1)

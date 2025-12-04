@@ -4,8 +4,8 @@ This guide shows how to clone, build, test, and generate documentation for the p
 
 ## 1. Clone the Repository
 ```bash
-git clone https://github.com/fusion-neutronics/materials_for_mc.git
-cd materials_for_mc
+git clone https://github.com/fusion-neutronics/yaml.git
+cd yaml
 ```
 
 ## 2. Build & Test the Rust Library
@@ -70,7 +70,7 @@ pytest
 ## 5. Build Rust API Docs
 ```bash
 cargo doc --no-deps
-# Open target/doc/materials_for_mc/index.html in a browser
+# Open target/doc/yaml/index.html in a browser
 ```
 
 ## 6. Build Python (Sphinx) Docs

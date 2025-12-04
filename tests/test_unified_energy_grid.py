@@ -1,5 +1,5 @@
 import pytest
-from materials_for_mc import Material, Config
+from yaml import Material, Config
 
 def test_unified_energy_grid_neutron():
     # Set up global Config

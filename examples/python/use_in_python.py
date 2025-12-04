@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 # m4mc.Config.set_cross_sections({
 #     "Li6": "tendl-21",
 #     "Li7": "tendl-21"

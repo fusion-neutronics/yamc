@@ -1,5 +1,5 @@
 import numpy as np
-import materials_for_mc as mc
+import yaml as mc
 
 
 s1 = mc.XPlane(x0=2.1, surface_id=5)

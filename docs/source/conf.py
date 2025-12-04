@@ -5,7 +5,7 @@ sys.path.insert(0, root_dir)
 # Attempt to import the compiled extension; if unavailable, build it quietly with maturin.
 def _ensure_extension():
     try:
-        import materials_for_mc  # noqa: F401
+        import yaml  # noqa: F401
         return
     except Exception:
         pass
@@ -16,7 +16,7 @@ def _ensure_extension():
     if maturin:
         try:
             subprocess.run([maturin, 'develop', '--features', 'pyo3', '-q'], check=True, cwd=root_dir)
-            import materials_for_mc  # noqa: F401
+            import yaml  # noqa: F401
         except Exception as e:  # pragma: no cover
             print(f"WARNING: Failed to build extension with maturin: {e}")
     else:
@@ -24,7 +24,7 @@ def _ensure_extension():
 
 _ensure_extension()
 
-project = 'materials_for_mc'
+project = 'yaml'
 copyright = '2025, fusion-neutronics'
 author = 'fusion-neutronics'
 
@@ -44,9 +44,9 @@ extensions = [
 # Setup autodoc mock imports if the compiled extension isn't available
 autodoc_mock_imports = []
 try:
-    import materials_for_mc
+    import yaml
 except ImportError:
-    autodoc_mock_imports.append('materials_for_mc')
+    autodoc_mock_imports.append('yaml')
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -75,7 +75,7 @@ myst_enable_extensions = [
 
 # -- Options for HTML output -------------------------------------------------
 
-"""Sphinx configuration for materials_for_mc docs.
+"""Sphinx configuration for yaml docs.
 
 Uses the pydata-sphinx-theme when available for a clean, modern layout.
 Falls back to the classic theme if the dependency is missing (helpful for
@@ -100,7 +100,7 @@ if importlib.util.find_spec('pydata_sphinx_theme') is not None:
         "icon_links": [
             {
                 "name": "GitHub",
-                "url": "https://github.com/fusion-neutronics/materials_for_mc",
+                "url": "https://github.com/fusion-neutronics/yaml",
                 "icon": "fa-brands fa-github",
                 "type": "fontawesome",
             },

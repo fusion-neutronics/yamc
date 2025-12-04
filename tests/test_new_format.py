@@ -1,4 +1,4 @@
-from materials_for_mc import Nuclide
+from yaml import Nuclide
 import pytest
 
 def test_read_li6_nuclide_new_format():

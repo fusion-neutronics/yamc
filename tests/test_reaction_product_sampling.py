@@ -7,7 +7,7 @@ the Python interface for nuclear reaction product sampling.
 
 import pytest
 import numpy as np
-import materials_for_mc as mc
+import yaml as mc
 
 
 class TestTabulatedSampling:

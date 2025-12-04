@@ -2,7 +2,7 @@
 """Tests for tally functionality."""
 
 import pytest
-import materials_for_mc as mc
+import yaml as mc
 
 
 class TestTally:

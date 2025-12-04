@@ -3,7 +3,7 @@
 Simple example plotting the Li6 inelastic cross sections.
 """
 
-import materials_for_mc as m4mc
+import yaml as m4mc
 import matplotlib.pyplot as plt
 
 li6_nuc = m4mc.Nuclide("Li6")

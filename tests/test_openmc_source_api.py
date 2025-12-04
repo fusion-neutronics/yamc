@@ -1,11 +1,11 @@
 """
-Comprehensive pytest tests for materials_for_mc Python API
+Comprehensive pytest tests for yaml Python API
 
 Tests the OpenMC-compatible IndependentSource and stats module functionality.
 """
 
 import pytest
-import materials_for_mc as mc
+import yaml as mc
 
 
 class TestIndependentSource:

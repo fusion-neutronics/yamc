@@ -1,4 +1,4 @@
-import materials_for_mc as m4mc
+import yaml as m4mc
 import json
 
 # Configure cross section data paths

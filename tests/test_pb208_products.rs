@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test_pb208_products {
-    use materials_for_mc::nuclide::read_nuclide_from_json;
+    use yaml::nuclide::read_nuclide_from_json;
     use std::path::Path;
 
     #[test]
