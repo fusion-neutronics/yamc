@@ -141,6 +141,13 @@ impl TabulatedProbability {
             }
         }
     }
+    
+    /// Get the x values (for energy_out, these represent outgoing energy bins)
+    pub fn get_x_values(&self) -> &[f64] {
+        match self {
+            TabulatedProbability::Tabulated { x, .. } => x,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -411,16 +418,46 @@ impl AngleEnergyDistribution {
             return (e_out, 2.0 * rng.gen::<f64>() - 1.0);
         }
         
-        // For simplicity, use the first angular distribution
-        // A more complete implementation would interpolate based on outgoing energy
-        let angular_dist_index = 0.min(angular_distributions.len() - 1);
+        // Get outgoing energy grid from energy_out distribution
+        let e_out_grid = energy_out_distributions[energy_index].get_x_values();
         
-        let mu = angular_distributions[angular_dist_index].sample(rng);
+        // Find which outgoing energy bin the sampled energy falls into
+        let n_ang = angular_distributions.len();
+        
+        if n_ang == 1 {
+            // Only one angular distribution available
+            let mu = angular_distributions[0].sample(rng);
+            return (e_out, mu.max(-1.0).min(1.0));
+        }
+        
+        // The angular distributions correspond to the outgoing energy bins in e_out_grid
+        // Find the bracket for interpolation
+        let mut idx = 0;
+        if e_out_grid.len() >= 2 && n_ang >= 2 {
+            // Find the energy bracket
+            for i in 0..e_out_grid.len().saturating_sub(1).min(n_ang - 1) {
+                if e_out >= e_out_grid[i] && e_out <= e_out_grid[i + 1] {
+                    idx = i;
+                    break;
+                }
+            }
+            
+            // If e_out is above all grid points, use the last bracket
+            if e_out > e_out_grid[e_out_grid.len().saturating_sub(1).min(n_ang - 1)] {
+                idx = n_ang.saturating_sub(2);
+            }
+        }
+        
+        // Ensure idx is valid
+        idx = idx.min(n_ang.saturating_sub(1));
+        
+        // Sample from the angular distribution at this outgoing energy
+        // For now, use the closest angular distribution rather than interpolating
+        // A more sophisticated approach would interpolate between angular CDFs
+        let mu = angular_distributions[idx].sample(rng);
         
         // Ensure mu is in valid range [-1, 1]
-        let mu = mu.max(-1.0).min(1.0);
-        
-        (e_out, mu)
+        (e_out, mu.max(-1.0).min(1.0))
     }
     
     fn find_energy_index(&self, target_energy: f64, energy_grid: &[f64]) -> usize {
