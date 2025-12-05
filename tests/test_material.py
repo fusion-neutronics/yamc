@@ -1,5 +1,5 @@
 import pytest
-from yaml import Material, Config
+from yamc import Material, Config
 
 def test_volume_set_and_get():
     material = Material()
@@ -132,7 +132,7 @@ def test_get_nuclide_names():
 
 # def test_material_data_xs_reading():
 def test_global_default_cross_section_keyword():
-    from yaml import Config, Material
+    from yamc import Config, Material
     import os
     # Set cross section for Li6 specifically
     Config.set_cross_section("Li6", "tests/Li6.json")
@@ -141,7 +141,7 @@ def test_global_default_cross_section_keyword():
     grid = mat.unified_energy_grid_neutron()
     assert len(grid) > 0, "Energy grid should not be empty when using global default cross section keyword"
     # Import Config locally to avoid module-level import issues
-    from yaml import Config
+    from yamc import Config
     import os
     
     material = Material()
@@ -193,7 +193,7 @@ def test_add_element_not_found():
     assert 'not a recognized element symbol' in str(excinfo.value)
 
 def test_mean_free_path_lithium_14mev():
-    from yaml import Config
+    from yamc import Config
     import math
     mat = Material()
     mat.add_element('Li', 1.0)
@@ -224,7 +224,7 @@ def test_material_reaction_mts_lithium():
     assert mts == expected, f"Material lithium MT list does not match expected. Got {mts}"
 
 def test_calculate_microscopic_xs_neutron_lithium():
-    from yaml import Material, Config
+    from yamc import Material, Config
     mat = Material()
     mat.add_element('Li', 1.0)
     Config.set_cross_sections({
@@ -244,7 +244,7 @@ def test_calculate_microscopic_xs_neutron_lithium():
     assert len(micro_xs["Li7"][2]) == len(grid)
 
 def test_material_vs_nuclide_microscopic_xs_li6():
-    from yaml import Material, Config, Nuclide
+    from yamc import Material, Config, Nuclide
     import numpy as np
     mat = Material()
     mat.add_nuclide('Li6', 1.0)
@@ -303,7 +303,7 @@ def test_calculate_microscopic_xs_neutron_mt_filter():
         assert xs_all_mt2 == xs_filtered, f"Filtered and unfiltered MT=2 xs do not match for {nuclide}"
 
 def test_macroscopic_xs_neutron_mt_filter():
-    from yaml import Material
+    from yamc import Material
     mat = Material()
     mat.add_element("Li", 1.0)
     mat.read_nuclides_from_json({"Li6": "tests/Li6.json", "Li7": "tests/Li7.json"})
@@ -319,8 +319,8 @@ def test_macroscopic_xs_neutron_mt_filter():
     assert xs_all == xs_filtered, "Filtered and unfiltered MT=2 macro_xs do not match"
 
 def test_hierarchical_mt3_generated_for_li6():
-    import yaml as m4mc
-    mat = m4mc.Material()
+    import yamc
+    mat = yamc.Material()
     mat.add_nuclide('Li6', 1.0)
     mat.read_nuclides_from_json({'Li6': 'tests/Li6.json'})
     mat.set_density('g/cm3', 0.534)
@@ -410,7 +410,7 @@ def test_sample_interacting_nuclide_li6_li7():
 
 
 def test_material_be9_selective_temperature_load():
-    from yaml import Config, Material, clear_nuclide_cache
+    from yamc import Config, Material, clear_nuclide_cache
     clear_nuclide_cache()
     mat = Material()
     # Set material temperature to 300 K (Be9 JSON also has 294)
@@ -420,7 +420,7 @@ def test_material_be9_selective_temperature_load():
     mat.read_nuclides_from_json({"Be9": "tests/Be9.json"})
 
 def test_material_be9_selective_temperature_load_294():
-    from yaml import Config, Material, clear_nuclide_cache
+    from yamc import Config, Material, clear_nuclide_cache
     clear_nuclide_cache()
     mat = Material()
     # Set material temperature to 294 K (Be9 JSON also has 300)

@@ -1,5 +1,5 @@
 import pytest
-from yaml import Material
+from yamc import Material
 
 
 def test_get_atoms_per_barn_cm():

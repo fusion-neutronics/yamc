@@ -1,5 +1,5 @@
 # Rust API
 
-You can find the latest Rust API documentation for `yaml` on docs.rs:
+You can find the latest Rust API documentation for `yamc` on docs.rs:
 
-[yaml Rust Docs](https://docs.rs/yaml/latest/yaml/)
+[yamc Rust Docs](https://docs.rs/yamc/latest/yamc/)

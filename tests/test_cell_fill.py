@@ -1,4 +1,4 @@
-import yaml as csg
+import yamc as csg
 
 def test_cell_fill():
     surf1 = csg.Sphere(x0=0, y0=0, z0=0, r=1, surface_id=1)

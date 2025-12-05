@@ -3,7 +3,7 @@
 ## Nuclide
 
 ```{eval-rst}
-.. autoclass:: yaml.Nuclide
+.. autoclass:: yamc.Nuclide
    :members:
    :undoc-members:
    :special-members: __init__
@@ -12,7 +12,7 @@
 ## Element
 
 ```{eval-rst}
-.. autoclass:: yaml.Element
+.. autoclass:: yamc.Element
    :members:
    :undoc-members:
    :special-members: __init__
@@ -21,7 +21,7 @@
 ## Reaction
 
 ```{eval-rst}
-.. autoclass:: yaml.Reaction
+.. autoclass:: yamc.Reaction
    :members:
    :undoc-members:
    :special-members: __init__
@@ -30,7 +30,7 @@
 ## Material
 
 ```{eval-rst}
-.. autoclass:: yaml.Material
+.. autoclass:: yamc.Material
    :members:
    :undoc-members:
    :special-members: __init__
@@ -39,7 +39,7 @@
 ## Config
 
 ```{eval-rst}
-.. autoclass:: yaml.Config
+.. autoclass:: yamc.Config
    :members:
    :undoc-members:
    :special-members: __init__

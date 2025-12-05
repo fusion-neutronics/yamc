@@ -9,9 +9,9 @@ mat.set_density('g/cm3', 1.)
 
 openmc_mean_free_path_at_14mev = mat.mean_free_path(14e6)
 
-import yaml as m4mc
+import yamc
 
-mat1 = m4mc.Material()
+mat1 = yamc.Material()
 mat1.add_nuclide('Li6',1)
 mat1.add_nuclide('Li7',1)
 mat1.set_density('g/cm3',1.)

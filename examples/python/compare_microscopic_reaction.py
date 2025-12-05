@@ -1,5 +1,5 @@
 import openmc
-import yaml as m4mc
+import yamc
 import math
 
 openmc.config['cross_sections'] = '/home/jon/nuclear_data/cross_sections.xml'
@@ -8,7 +8,7 @@ openmc_energies, openmc_xs = openmc.calculate_cexs('Li6', [2], temperature=294)
 openmc_xs=openmc_xs[0]
 
 
-nuc = m4mc.Nuclide()
+nuc = yamc.Nuclide()
 nuc.read_nuclide_from_json('tests/Li6.json')
 xs = nuc.reactions['294'][2].cross_section
 energies = nuc.reactions['294'][2].energy_grid

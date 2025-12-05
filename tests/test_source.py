@@ -1,4 +1,4 @@
-import yaml as mc
+import yamc as mc
 
 def test_python_source_construction():
     # Test new OpenMC-compatible API

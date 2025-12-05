@@ -1,5 +1,5 @@
 import pytest
-import yaml as csg
+import yamc as csg
 
 def test_cell_contains_simple():
     # Sphere of radius 2 at (0,0,0)

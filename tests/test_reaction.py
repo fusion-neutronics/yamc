@@ -1,7 +1,7 @@
 def test_reaction_instantiation():
-    from yaml import Reaction
+    from yamc import Reaction
     # Provide all required arguments for Reaction
-    from yaml import ReactionProduct
+    from yamc import ReactionProduct
     products = [
         ReactionProduct("neutron", "emission", 0.0),
         ReactionProduct("neutron", "emission", 0.0)

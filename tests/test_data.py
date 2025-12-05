@@ -1,5 +1,5 @@
 import pytest
-from yaml import natural_abundance, element_nuclides
+from yamc import natural_abundance, element_nuclides
 
 def test_lithium_natural_abundance():
     abund = natural_abundance()

@@ -1,5 +1,5 @@
 import pytest
-import yaml as mc
+import yamc as mc
 
 
 def test_duplicate_filter_validation():

@@ -5,7 +5,7 @@ sys.path.insert(0, root_dir)
 # Attempt to import the compiled extension; if unavailable, build it quietly with maturin.
 def _ensure_extension():
     try:
-        import yaml  # noqa: F401
+        import yamc  # noqa: F401
         return
     except Exception:
         pass
@@ -16,7 +16,7 @@ def _ensure_extension():
     if maturin:
         try:
             subprocess.run([maturin, 'develop', '--features', 'pyo3', '-q'], check=True, cwd=root_dir)
-            import yaml  # noqa: F401
+            import yamc  # noqa: F401
         except Exception as e:  # pragma: no cover
             print(f"WARNING: Failed to build extension with maturin: {e}")
     else:
@@ -24,7 +24,7 @@ def _ensure_extension():
 
 _ensure_extension()
 
-project = 'yaml'
+project = 'yamc'
 copyright = '2025, fusion-neutronics'
 author = 'fusion-neutronics'
 
@@ -44,9 +44,9 @@ extensions = [
 # Setup autodoc mock imports if the compiled extension isn't available
 autodoc_mock_imports = []
 try:
-    import yaml
+    import yamc
 except ImportError:
-    autodoc_mock_imports.append('yaml')
+    autodoc_mock_imports.append('yamc')
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -75,7 +75,7 @@ myst_enable_extensions = [
 
 # -- Options for HTML output -------------------------------------------------
 
-"""Sphinx configuration for yaml docs.
+"""Sphinx configuration for yamc docs.
 
 Uses the pydata-sphinx-theme when available for a clean, modern layout.
 Falls back to the classic theme if the dependency is missing (helpful for
@@ -100,7 +100,7 @@ if importlib.util.find_spec('pydata_sphinx_theme') is not None:
         "icon_links": [
             {
                 "name": "GitHub",
-                "url": "https://github.com/fusion-neutronics/yaml",
+                "url": "https://github.com/fusion-neutronics/yamc",
                 "icon": "fa-brands fa-github",
                 "type": "fontawesome",
             },

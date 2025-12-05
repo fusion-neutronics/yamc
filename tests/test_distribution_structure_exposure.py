@@ -7,7 +7,7 @@ of reaction product distributions through the Python API.
 
 import pytest
 import numpy as np
-import yaml as mc
+import yamc as mc
 
 
 class TestDistributionStructureExposure:

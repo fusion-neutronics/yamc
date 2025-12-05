@@ -1,6 +1,6 @@
 # WebAssembly
 
-The yaml library provides WebAssembly (WASM) bindings, allowing the library to run in web browsers and other JavaScript environments. This enables client-side nuclear data processing and visualization without requiring server-side computation.
+The yamc library provides WebAssembly (WASM) bindings, allowing the library to run in web browsers and other JavaScript environments. This enables client-side nuclear data processing and visualization without requiring server-side computation.
 
 ## Features
 
@@ -73,7 +73,7 @@ This ensures that WASM-specific tests and dependencies are only included when ne
 The WebAssembly build exposes a JavaScript API that mirrors the Rust API. Example usage:
 
 ```javascript
-import init, { Material, Nuclide } from './pkg/yaml.js';
+import init, { Material, Nuclide } from './pkg/yamc.js';
 
 async function main() {
     await init();

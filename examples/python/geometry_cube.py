@@ -1,5 +1,5 @@
 import numpy as np
-import yaml as mc
+import yamc as mc
 
 
 s1 = mc.XPlane(x0=2.1, surface_id=5)

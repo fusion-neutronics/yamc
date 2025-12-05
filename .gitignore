@@ -21,7 +21,7 @@ Cargo.lock
 #.idea/
 
 # python env
-.yaml_env/
+.yamc_env/
 .venv/
 
 tests/__pycache__/

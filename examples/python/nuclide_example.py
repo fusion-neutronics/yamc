@@ -1,8 +1,8 @@
-import yaml as m4mc
+import yamc
 import json
 
 # Configure cross section data paths
-m4mc.Config.set_cross_sections({
+yamc.Config.set_cross_sections({
     "Be9": "tests/Be9.json",
     "Fe54": "tests/Fe54.json",
     "Fe56": "tests/Fe56.json",
@@ -14,7 +14,7 @@ m4mc.Config.set_cross_sections({
 })
 
 print("=== Basic Nuclide Properties ===")
-nuc1 = m4mc.Nuclide('Li6')
+nuc1 = yamc.Nuclide('Li6')
 print(f"Nuclide: {nuc1.name}")
 print(f"Element: {nuc1.element}")
 print(f"Atomic number: {nuc1.atomic_number}")
@@ -37,7 +37,7 @@ print(f"Energy grid points: {len(energy)}")
 
 print("\n=== Reaction Products and Angular Distributions ===")
 # Load a heavier nuclide that has product data
-nuc_pb = m4mc.Nuclide('Pb208')
+nuc_pb = yamc.Nuclide('Pb208')
 nuc_pb.read_nuclide_from_json('tests/Pb208.json')
 reactions = nuc_pb.reactions['294']
 
@@ -107,7 +107,7 @@ print("\n=== Product Sampling Demonstration ===")
 print("Creating and sampling from reaction products:")
 
 # Create test reaction products using our Python API
-test_product = m4mc.create_test_reaction_product()
+test_product = yamc.create_test_reaction_product()
 print(f"Test product particle type: {test_product.particle}")
 
 # Sample from it at different energies
@@ -120,11 +120,11 @@ for energy in [1e5, 1e6, 5e6]:
 
 # Demonstrate sampling functions
 print("\nSampling functions:")
-mu_isotropic = m4mc.sample_isotropic()
+mu_isotropic = yamc.sample_isotropic()
 print(f"Isotropic mu sample: {mu_isotropic:.3f}")
 
 # Test tabulated sampling
 x_vals = [-1.0, 0.0, 1.0]
 p_vals = [0.0, 0.5, 1.0]  # CDF
-mu_tabulated = m4mc.sample_tabulated(x_vals, p_vals)
+mu_tabulated = yamc.sample_tabulated(x_vals, p_vals)
 print(f"Tabulated mu sample: {mu_tabulated:.3f}")

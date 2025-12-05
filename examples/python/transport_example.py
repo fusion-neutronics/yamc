@@ -1,4 +1,4 @@
-import yaml as mc
+import yamc as mc
 
 # mc.Config.set_cross_sections("tendl-21")
 # Create sphere surface with transmission boundary 

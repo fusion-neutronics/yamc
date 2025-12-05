@@ -9,14 +9,14 @@ import sys
 # Add the package to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import yaml as m4mc
+import yamc
 
 def test_element_class():
     """Test the Element class functionality."""
     # Create elements with different symbols
-    h = m4mc.Element("H")
-    fe = m4mc.Element("Fe")
-    u = m4mc.Element("U")
+    h = yamc.Element("H")
+    fe = yamc.Element("Fe")
+    u = yamc.Element("U")
     
     # Check that the element names are correctly stored
     assert h.name == "H"
@@ -47,7 +47,7 @@ def test_element_class():
 
 def test_get_nuclides():
     """Test per-element get_nuclides method returns list for that element."""
-    al_isotopes = m4mc.Element('Al').get_nuclides()
+    al_isotopes = yamc.Element('Al').get_nuclides()
     assert isinstance(al_isotopes, list)
     assert all(iso.startswith('Al') for iso in al_isotopes)
     assert len(al_isotopes) > 0
@@ -55,7 +55,7 @@ def test_get_nuclides():
 def test_nonexistent_element():
     """Test behavior with a non-existent element."""
     # Create an element with a symbol that doesn't exist
-    fake_element = m4mc.Element("Zz")
+    fake_element = yamc.Element("Zz")
     
     # Should return an empty list of nuclides
     assert fake_element.get_nuclides() == []

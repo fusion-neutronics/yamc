@@ -1,6 +1,6 @@
-use yaml::inelastic::*;
-use yaml::particle::Particle;
-use yaml::Reaction;
+use yamc::inelastic::*;
+use yamc::particle::Particle;
+use yamc::Reaction;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
@@ -39,7 +39,7 @@ fn test_inelastic_scatter_returns_particles() {
 #[test]
 #[should_panic(expected = "Unsupported inelastic reaction MT number: 102")]
 fn test_unsupported_mt_number_panics() {
-    use yaml::inelastic::get_inelastic_neutron_multiplicity;
+    use yamc::inelastic::get_inelastic_neutron_multiplicity;
     
     // MT 102 (n,gamma) is not an inelastic reaction, should panic
     get_inelastic_neutron_multiplicity(102);
@@ -78,7 +78,7 @@ fn test_single_neutron_reaction() {
 
 #[test]
 fn test_inelastic_neutron_multiplicity() {
-    use yaml::inelastic::get_inelastic_neutron_multiplicity;
+    use yamc::inelastic::get_inelastic_neutron_multiplicity;
     
     // Test inelastic reaction MT numbers only
     assert_eq!(get_inelastic_neutron_multiplicity(4), 1, "(n,n') should have 1 neutron");

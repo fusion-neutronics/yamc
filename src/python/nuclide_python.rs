@@ -213,18 +213,18 @@ impl PyNuclide {
     ///     Compare the same nuclide from different data sources:
     ///     
     ///     >>> # Set global default
-    ///     >>> m4mc.Config.set_cross_sections("tendl-21")
+    ///     >>> yamc.Config.set_cross_sections("tendl-21")
     ///     >>>
     ///     >>> # Load from global config (will use TENDL)
-    ///     >>> li6_tendl = m4mc.Nuclide("Li6")
+    ///     >>> li6_tendl = yamc.Nuclide("Li6")
     ///     >>> li6_tendl.read_nuclide_from_json()
     ///     >>>
     ///     >>> # Override to use FENDL for comparison
-    ///     >>> li6_fendl = m4mc.Nuclide("Li6")
+    ///     >>> li6_fendl = yamc.Nuclide("Li6")
     ///     >>> li6_fendl.read_nuclide_from_json("fendl-3.2c")
     ///     >>>
     ///     >>> # Use custom local file
-    ///     >>> li6_custom = m4mc.Nuclide("Li6")
+    ///     >>> li6_custom = yamc.Nuclide("Li6")
     ///     >>> li6_custom.read_nuclide_from_json("path/to/custom_Li6.json")
     #[pyo3(signature = (path=None, temperatures=None), text_signature = "(self, path=None, temperatures=None)")]
     pub fn read_nuclide_from_json(

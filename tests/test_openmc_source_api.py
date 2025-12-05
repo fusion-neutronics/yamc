@@ -1,11 +1,11 @@
 """
-Comprehensive pytest tests for yaml Python API
+Comprehensive pytest tests for yamc Python API
 
 Tests the OpenMC-compatible IndependentSource and stats module functionality.
 """
 
 import pytest
-import yaml as mc
+import yamc as mc
 
 
 class TestIndependentSource:

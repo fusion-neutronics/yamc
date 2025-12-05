@@ -1,4 +1,4 @@
-import yaml as mc
+import yamc as mc
 
 
 def test_absorption_leakage_filters():

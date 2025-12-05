@@ -1,5 +1,5 @@
 // ...existing code...
-/// Utility functions for yaml
+/// Utility functions for yamc
 
 #[doc(hidden)]
 /// Linear interpolation on a linear scale (hidden from docs)

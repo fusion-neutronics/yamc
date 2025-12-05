@@ -1,4 +1,4 @@
-import yaml as csg4mc
+import yamc as csg4mc
 import math
 
 def test_closest_surface_debug():
