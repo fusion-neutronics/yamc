@@ -31,26 +31,22 @@ pub struct Reaction {
 
 impl Reaction {
     /// Returns the cross section value for a given neutron energy.
-    /// If the energy is below the grid, returns the first value.
-    /// If above, returns the last value.
-    /// Otherwise, returns the value at the closest lower index.
+    /// Uses the interpolation type specified in the reaction data.
     pub fn cross_section_at(&self, energy: f64) -> Option<f64> {
         if self.energy.is_empty() || self.cross_section.is_empty() {
             return None;
         }
-        match self
-            .energy
-            .binary_search_by(|e| e.partial_cmp(&energy).unwrap())
-        {
-            Ok(idx) => self.cross_section.get(idx).copied(),
-            Err(idx) => {
-                if idx == 0 {
-                    self.cross_section.get(0).copied()
-                } else if idx >= self.cross_section.len() {
-                    self.cross_section.last().copied()
-                } else {
-                    self.cross_section.get(idx - 1).copied()
-                }
+
+        // Only allow known interpolation types
+        let interp_type = self.interpolation.get(0).copied().unwrap_or(2);
+        match interp_type {
+            2 => { // lin-lin interpolation
+                Some(crate::utilities::interpolate_linear(&self.energy, &self.cross_section, energy))
+            }
+            // Extend here for other interpolation types (e.g., log-log)
+            // 5 => Some(crate::utilities::interpolate_log_log(&self.energy, &self.cross_section, energy)),
+            _ => {
+                panic!("Unknown interpolation type {} in Reaction::cross_section_at. Please implement support for this type.", interp_type);
             }
         }
     }
