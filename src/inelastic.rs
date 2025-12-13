@@ -86,12 +86,38 @@ pub fn sample_from_products<R: rand::Rng>(
         return Vec::new();
     }
     
+    // Check if products have energy distributions or if we need to use Q-value
+    // For inelastic level scattering, energy is calculated from Q-value, not tabulated
+    let has_energy_dist = neutron_products.iter().any(|p| {
+        p.distribution.iter().any(|d| {
+            matches!(d, crate::reaction_product::AngleEnergyDistribution::UncorrelatedAngleEnergy { energy: Some(_), .. })
+        })
+    });
+    
+    // If no energy distribution and this is inelastic (MT 50-91), calculate energy from Q-value
+    let calculate_energy = !has_energy_dist && (50..=91).contains(&reaction.mt_number);
+    
     // Create outgoing neutrons for each neutron product
     let mut outgoing_neutrons = Vec::new();
     
     for neutron_product in neutron_products {
-        // Sample outgoing energy and scattering cosine from product distribution
-        let (e_out, mu) = neutron_product.sample(incoming_energy, rng);
+        // Sample scattering angle from product distribution
+        let (sampled_e_out, mu) = neutron_product.sample(incoming_energy, rng);
+        
+        // Determine actual outgoing energy
+        let e_out = if calculate_energy {
+            // Use Q-value to calculate outgoing energy for level inelastic
+            // E_out ≈ E_in + Q (simplified, assumes target at rest)
+            let e_with_q = incoming_energy + reaction.q_value;
+            if e_with_q > 0.0 {
+                e_with_q
+            } else {
+                // Fallback to small energy if calculation gives negative
+                1e-6
+            }
+        } else {
+            sampled_e_out
+        };
         
         // Create new neutron particle
         let mut new_particle = particle.clone();

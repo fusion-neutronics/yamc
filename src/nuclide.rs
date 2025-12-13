@@ -1329,6 +1329,18 @@ pub fn read_nuclide_from_json_with_name<P: AsRef<Path>>(
         crate::url_cache::resolve_path_or_url(path_or_url, candidate_str.as_ref())?
     };
 
+    // Check if the file is HDF5 based on extension
+    let extension = resolved_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    
+    if extension == "h5" || extension == "hdf5" {
+        // Read as HDF5
+        return read_nuclide_from_hdf5(&resolved_path, temps);
+    }
+
+    // Otherwise read as JSON
     let file = File::open(&resolved_path)?;
     let reader = BufReader::new(file);
     let json_value: serde_json::Value = serde_json::from_reader(reader)?;
@@ -1351,6 +1363,484 @@ pub fn read_nuclide_from_json_str(
     let mut nuclide = parse_nuclide_from_json_value(json_value, None)?;
     // No file path available
     nuclide.data_path = None;
+    Ok(nuclide)
+}
+
+/// Read reaction products from HDF5 group (following OpenMC format)
+fn read_reaction_products(rx_group: &hdf5::Group) -> Result<Vec<crate::reaction_product::ReactionProduct>, Box<dyn std::error::Error>> {
+    use crate::reaction_product::{ReactionProduct, ParticleType, AngleEnergyDistribution, AngleDistribution, Tabulated, Tabulated1D, Yield};
+    
+    let mut products = Vec::new();
+    
+    // Get all group names and filter for product_* groups
+    let member_names = rx_group.member_names()?;
+    for name in member_names {
+        if !name.starts_with("product_") {
+            continue;
+        }
+        
+        let product_group = rx_group.group(&name)?;
+        
+        // Read particle type - HDF5 string attributes need special handling
+        let particle = if let Ok(attr) = product_group.attr("particle") {
+            // Try reading as fixed string first
+            if let Ok(s) = attr.read_raw::<hdf5::types::VarLenAscii>() {
+                let s_str = s.get(0).map(|x| x.as_str()).unwrap_or("neutron");
+                match s_str {
+                    "neutron" => ParticleType::Neutron,
+                    "photon" => ParticleType::Photon,
+                    _ => ParticleType::Neutron,
+                }
+            } else {
+                ParticleType::Neutron
+            }
+        } else {
+            ParticleType::Neutron
+        };
+        
+        // Read emission mode
+        let emission_mode = if let Ok(attr) = product_group.attr("emission_mode") {
+            if let Ok(s) = attr.read_raw::<hdf5::types::VarLenAscii>() {
+                s.get(0).map(|x| x.to_string()).unwrap_or_else(|| "prompt".to_string())
+            } else {
+                "prompt".to_string()
+            }
+        } else {
+            "prompt".to_string()
+        };
+        
+        // Read decay rate (if present, for delayed emission)
+        let decay_rate = if let Ok(attr) = product_group.attr("decay_rate") {
+            attr.read_scalar().unwrap_or(0.0)
+        } else {
+            0.0
+        };
+        
+        // Read yield
+        let product_yield = if let Ok(yield_dset) = product_group.dataset("yield") {
+            // Energy-dependent yield
+            let yield_vec: Vec<f64> = if let Ok(v) = yield_dset.read_1d() {
+                v.to_vec()
+            } else if let Ok(arr2d) = yield_dset.read_2d::<f64>() {
+                // If 2D, take first row
+                arr2d.row(0).to_vec()
+            } else {
+                vec![]
+            };
+            if yield_vec.is_empty() {
+                None
+            } else if yield_vec.len() == 1 {
+                // Single value, but store as polynomial for simplicity
+                Some(Yield::Polynomial { coefficients: vec![yield_vec[0]] })
+            } else {
+                // For now, take the first value as constant
+                // TODO: Store energy-dependent yields properly
+                Some(Yield::Polynomial { coefficients: vec![yield_vec[0]] })
+            }
+        } else {
+            None
+        };
+        
+        // Read distribution information
+        let product_member_names = product_group.member_names()?;
+        let n_distribution = product_member_names.iter().filter(|n| n.starts_with("distribution_")).count();
+        
+        let mut distribution = Vec::new();
+        let mut applicability = Vec::new();
+        
+        for i in 0..n_distribution {
+            let dist_name = format!("distribution_{}", i);
+            if let Ok(dist_group) = product_group.group(&dist_name) {
+                // Read distribution type
+                let dist_type = if let Ok(attr) = dist_group.attr("type") {
+                    if let Ok(s) = attr.read_raw::<hdf5::types::VarLenAscii>() {
+                        s.get(0).map(|x| x.to_string()).unwrap_or_else(|| "uncorrelated".to_string())
+                    } else {
+                        "uncorrelated".to_string()
+                    }
+                } else {
+                    "uncorrelated".to_string()
+                };
+                
+                match dist_type.as_str() {
+                    "uncorrelated" => {
+                        // Read angle distribution (if present)
+                        let angle = if let Ok(angle_group) = dist_group.group("angle") {
+                            // Read energy grid for angle distribution
+                            let angle_energies: Vec<f64> = if let Ok(v) = angle_group.dataset("energy")?.read_1d() {
+                                v.to_vec()
+                            } else if let Ok(arr2d) = angle_group.dataset("energy")?.read_2d::<f64>() {
+                                arr2d.row(0).to_vec()
+                            } else {
+                                vec![]
+                            };
+                            
+                            // Read mu (cosine) data - shape is (3, n) where rows are x, p, c (cdf)
+                            let mu_dset = angle_group.dataset("mu")?;
+                            let mu_data: ndarray::Array2<f64> = mu_dset.read_2d()?;
+                            
+                            // Read offsets to know where each energy's distribution starts
+                            // Offsets might be 1D or 2D, handle both cases
+                            let offsets: Vec<i32> = if let Ok(off) = mu_dset.attr("offsets") {
+                                // Try 1D first
+                                if let Ok(v) = off.read_1d() {
+                                    v.to_vec()
+                                } else if let Ok(arr2d) = off.read_2d::<i32>() {
+                                    // If 2D, flatten it
+                                    arr2d.iter().copied().collect()
+                                } else {
+                                    vec![]
+                                }
+                            } else {
+                                vec![]
+                            };
+                            
+                            // Parse mu distributions for each energy
+                            let mut mu_distributions = Vec::new();
+                            for (idx, &offset) in offsets.iter().enumerate() {
+                                let start = offset as usize;
+                                let end = if idx + 1 < offsets.len() {
+                                    offsets[idx + 1] as usize
+                                } else {
+                                    mu_data.shape()[1]
+                                };
+                                
+                                // Extract x and p values
+                                let x: Vec<f64> = mu_data.slice(ndarray::s![0, start..end]).to_vec();
+                                let p: Vec<f64> = mu_data.slice(ndarray::s![1, start..end]).to_vec();
+                                
+                                mu_distributions.push(Tabulated { x, p });
+                            }
+                            
+                            AngleDistribution {
+                                energy: angle_energies,
+                                mu: mu_distributions,
+                            }
+                        } else {
+                            // No angle distribution => isotropic (empty energy/mu vectors)
+                            AngleDistribution {
+                                energy: vec![],
+                                mu: vec![],
+                            }
+                        };
+                        
+                        // Read energy distribution (if present)
+                        let energy_dist = if let Ok(energy_group) = dist_group.group("energy") {
+                            // Energy distribution exists - read it
+                            // Check what's in the energy group
+                            let _energy_contents = energy_group.member_names();
+                            
+                            // For now, just set to None and let it use incoming energy
+                            // TODO: Implement full energy distribution reading
+                            // OpenMC has various energy distribution types (tabulated, etc.)
+                            None
+                        } else {
+                            // No energy distribution - will use incoming energy (elastic case)
+                            None
+                        };
+                        
+                        distribution.push(AngleEnergyDistribution::UncorrelatedAngleEnergy {
+                            angle,
+                            energy: energy_dist,
+                        });
+                    }
+                    _ => {
+                        // Other distribution types - fall back to uncorrelated with isotropic angle
+                        distribution.push(AngleEnergyDistribution::UncorrelatedAngleEnergy {
+                            angle: AngleDistribution {
+                                energy: vec![],
+                                mu: vec![],
+                            },
+                            energy: None,
+                        });
+                    }
+                }
+            }
+        }
+        
+        products.push(ReactionProduct {
+            particle,
+            emission_mode,
+            decay_rate,
+            applicability,
+            distribution,
+            product_yield,
+        });
+    }
+    
+    Ok(products)
+}
+
+/// Synthesize missing MT reactions using sum rules
+/// Returns true if any reactions were added
+fn synthesize_missing_reactions(
+    reactions: &mut HashMap<String, HashMap<i32, Reaction>>,
+    energy: &HashMap<String, Vec<f64>>,
+) -> bool {
+    // Sum rules: MT number -> list of constituent MT numbers to sum
+    let sum_rules: HashMap<i32, Vec<i32>> = [
+        (1, vec![2, 3]),  // total = elastic + non-elastic
+        (3, vec![4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35,
+                36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+                161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+                173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+                186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200]),  // non-elastic
+        (4, (50..92).collect()),  // inelastic
+        (16, (875..892).collect()),
+        (18, vec![19, 20, 21, 38]),  // fission
+        (27, vec![18, 101]),
+        (101, vec![102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114,
+                  115, 116, 117, 155, 182, 191, 192, 193, 197]),  // absorption
+        (103, (600..650).collect()),
+        (104, (650..700).collect()),
+        (105, (700..750).collect()),
+        (106, (750..800).collect()),
+        (107, (800..850).collect()),
+        (1001, vec![2, 4]),  // Synthetic scattering = elastic + inelastic
+    ].iter().cloned().collect();
+
+    let mut any_added = false;
+
+    // Process each temperature
+    for (temp_str, temp_reactions) in reactions.iter_mut() {
+        // Get energy grid for this temperature
+        let energy_grid = match energy.get(temp_str) {
+            Some(grid) => grid,
+            None => continue,
+        };
+
+        // Check each sum rule
+        for (&target_mt, constituent_mts) in &sum_rules {
+            // Skip if target already exists
+            if temp_reactions.contains_key(&target_mt) {
+                continue;
+            }
+
+            // Find all available constituent reactions
+            let mut available_constituents: Vec<i32> = Vec::new();
+            for &mt in constituent_mts {
+                if temp_reactions.contains_key(&mt) {
+                    available_constituents.push(mt);
+                }
+            }
+
+            // Skip if no constituents available
+            if available_constituents.is_empty() {
+                continue;
+            }
+
+            // Sum the cross sections
+            let mut summed_xs = vec![0.0; energy_grid.len()];
+            
+            // For MT=1 (total), use minimum threshold (earliest energy)
+            // For others, use minimum as well for consistency
+            let mut min_threshold_idx = energy_grid.len();
+            for &mt in &available_constituents {
+                if let Some(reaction) = temp_reactions.get(&mt) {
+                    min_threshold_idx = min_threshold_idx.min(reaction.threshold_idx);
+                }
+            }
+
+            for &mt in &available_constituents {
+                if let Some(reaction) = temp_reactions.get(&mt) {
+                    let threshold_idx = reaction.threshold_idx;
+                    
+                    // Add cross sections starting from this reaction's threshold
+                    for i in threshold_idx..energy_grid.len() {
+                        let xs_idx = i - threshold_idx;
+                        if xs_idx < reaction.cross_section.len() {
+                            summed_xs[i] += reaction.cross_section[xs_idx];
+                        }
+                    }
+                }
+            }
+
+            // Create the summed reaction
+            let energy_slice = &energy_grid[min_threshold_idx..];
+            let xs_slice = &summed_xs[min_threshold_idx..];
+
+            let synthesized_reaction = Reaction {
+                mt_number: target_mt,
+                cross_section: xs_slice.to_vec(),
+                threshold_idx: min_threshold_idx,
+                q_value: 0.0,  // Sum reactions don't have a single Q-value
+                energy: energy_slice.to_vec(),
+                interpolation: vec![2],  // Linear-linear interpolation
+                products: Vec::new(),
+            };
+
+            temp_reactions.insert(target_mt, synthesized_reaction);
+            any_added = true;
+        }
+    }
+
+    any_added
+}
+
+/// Read a nuclide from an HDF5 file (OpenMC format)
+pub fn read_nuclide_from_hdf5<P: AsRef<Path>>(
+    path: P,
+    temps: Option<&std::collections::HashSet<String>>,
+) -> Result<Nuclide, Box<dyn std::error::Error>> {
+    use hdf5::File as H5File;
+    
+    let file = H5File::open(path.as_ref())?;
+    
+    // Get the first group (nuclide name)
+    let groups: Vec<String> = file.member_names()?;
+    if groups.is_empty() {
+        return Err("No groups found in HDF5 file".into());
+    }
+    
+    let nuclide_group = file.group(&groups[0])?;
+    let name = groups[0].clone();
+    
+    // Read basic attributes
+    let atomic_number: i32 = nuclide_group.attr("Z")?.read_scalar()?;
+    let mass_number: i32 = nuclide_group.attr("A")?.read_scalar()?;
+    let _metastable: i32 = nuclide_group.attr("metastable")?.read_scalar()?;
+    let _atomic_weight_ratio: f64 = nuclide_group.attr("atomic_weight_ratio")?.read_scalar()?;
+    
+    // Determine element name from atomic number
+    let element = crate::data::get_element_name_from_z(atomic_number)
+        .unwrap_or_else(|| format!("Unknown{}", atomic_number));
+    
+    // Read available temperatures
+    let kt_group = nuclide_group.group("kTs")?;
+    let temp_names: Vec<String> = kt_group.member_names()?;
+    let mut temperatures: Vec<String> = Vec::new();
+    let mut available_temps = std::collections::HashSet::new();
+    
+    for temp_name in &temp_names {
+        let kt: f64 = kt_group.dataset(temp_name)?.read_scalar()?;
+        // Convert from eV to K (K_BOLTZMANN = 8.617333e-5 eV/K)
+        let temp_k = (kt / 8.617333e-5).round() as i32;
+        let temp_str = format!("{}", temp_k);
+        available_temps.insert(temp_str.clone());
+        temperatures.push(temp_str);
+    }
+    
+    // Filter temperatures if requested
+    let temps_to_load = if let Some(requested_temps) = temps {
+        if requested_temps.is_empty() {
+            temperatures.clone()
+        } else {
+            temperatures.into_iter()
+                .filter(|t| requested_temps.contains(t))
+                .collect()
+        }
+    } else {
+        temperatures.clone()
+    };
+    
+    if temps_to_load.is_empty() {
+        return Err("No matching temperatures found in HDF5 file".into());
+    }
+    
+    // Read energy grids
+    let mut energy: HashMap<String, Vec<f64>> = HashMap::new();
+    let energy_group = nuclide_group.group("energy")?;
+    for temp_str in &temps_to_load {
+        // Find matching temperature name (e.g., "294K")
+        let temp_key = format!("{}K", temp_str);
+        if let Ok(dset) = energy_group.dataset(&temp_key) {
+            let energy_grid: Vec<f64> = if let Ok(v) = dset.read_1d() {
+                v.to_vec()
+            } else if let Ok(arr2d) = dset.read_2d::<f64>() {
+                // If 2D, take first row
+                arr2d.row(0).to_vec()
+            } else {
+                eprintln!("Warning: Could not read energy dataset for {}", temp_key);
+                continue;
+            };
+            energy.insert(temp_str.clone(), energy_grid);
+        }
+    }
+    
+    // Read reactions
+    let mut reactions: HashMap<String, HashMap<i32, Reaction>> = HashMap::new();
+    if let Ok(rxs_group) = nuclide_group.group("reactions") {
+        let reaction_names: Vec<String> = rxs_group.member_names()?;
+        
+        for rx_name in reaction_names {
+            if !rx_name.starts_with("reaction_") {
+                continue;
+            }
+            
+            let rx_group = rxs_group.group(&rx_name)?;
+            let mt: i32 = rx_group.attr("mt")?.read_scalar()?;
+            let q_value: f64 = rx_group.attr("Q_value")?.read_scalar()?;
+            
+            // Read reaction products
+            let products = read_reaction_products(&rx_group)?;
+            
+            // Read cross sections for each temperature
+            for temp_str in &temps_to_load {
+                let temp_key = format!("{}K", temp_str);
+                if let Ok(temp_group) = rx_group.group(&temp_key) {
+                    if let Ok(xs_dset) = temp_group.dataset("xs") {
+                        // Cross section data might be 1D or 2D, try both
+                        let xs_values: Vec<f64> = if let Ok(v) = xs_dset.read_1d() {
+                            v.to_vec()
+                        } else if let Ok(arr2d) = xs_dset.read_2d::<f64>() {
+                            // If 2D, take the first row (or flatten)
+                            arr2d.row(0).to_vec()
+                        } else {
+                            eprintln!("Warning: Could not read xs dataset for MT {} at {}", mt, temp_key);
+                            continue;
+                        };
+                        let threshold_idx: i32 = xs_dset.attr("threshold_idx")?.read_scalar()?;
+                        
+                        // Get energy grid for this temperature
+                        if let Some(energy_grid) = energy.get(temp_str) {
+                            let start_idx = threshold_idx as usize;
+                            let energy_slice = &energy_grid[start_idx..];
+                            
+                            // Create reaction
+                            let reaction = Reaction {
+                                mt_number: mt,
+                                cross_section: xs_values.clone(),
+                                threshold_idx: threshold_idx as usize,
+                                q_value,
+                                energy: energy_slice.to_vec(),
+                                interpolation: vec![2], // Linear-linear interpolation (default)
+                                products: products.clone(),
+                            };
+                            
+                            // Initialize temperature map if needed
+                            let temp_map = reactions.entry(temp_str.clone()).or_insert_with(HashMap::new);
+                            temp_map.insert(mt, reaction);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Determine if nuclide is fissionable
+    let fissionable = reactions.values()
+        .any(|temp_map| temp_map.keys().any(|&mt| (18..=21).contains(&mt) || mt == 38));
+    
+    // Synthesize missing reactions using sum rules
+    synthesize_missing_reactions(&mut reactions, &energy);
+    
+    // Build the nuclide
+    let nuclide = Nuclide {
+        name: Some(name.clone()),
+        atomic_number: Some(atomic_number as u32),
+        atomic_symbol: crate::data::get_element_symbol_from_z(atomic_number).map(|s| s.to_string()),
+        mass_number: Some(mass_number as u32),
+        element: Some(element),
+        neutron_number: Some((mass_number - atomic_number) as u32),
+        library: Some("hdf5".to_string()),
+        energy: Some(energy),
+        reactions,
+        fissionable,
+        available_temperatures: available_temps.into_iter().collect(),
+        loaded_temperatures: temps_to_load.clone(),
+        data_path: Some(path.as_ref().to_string_lossy().to_string()),
+    };
+    
     Ok(nuclide)
 }
 
@@ -1436,27 +1926,43 @@ pub fn get_or_load_nuclide(
     // Load directly with temperature filtering
     // (resolved_path already determined above for cache key)
 
-    // Load the JSON file once
-    let file = File::open(&resolved_path)?;
-    let reader = BufReader::new(file);
-    let json_value: serde_json::Value = serde_json::from_reader(reader)?;
+    // Check file extension to determine format (HDF5 vs JSON)
+    let path_str = resolved_path.to_string_lossy();
+    let is_hdf5 = path_str.ends_with(".h5") || path_str.ends_with(".hdf5");
 
-    // Parse with temperature filter if needed
-    let filter_option = if union_set.is_empty() {
-        None
+    let mut nuclide = if is_hdf5 {
+        // Load from HDF5 file
+        let filter_option = if union_set.is_empty() {
+            None
+        } else {
+            Some(&union_set)
+        };
+        read_nuclide_from_hdf5(&resolved_path, filter_option)?
     } else {
-        Some(&union_set)
+        // Load the JSON file once
+        let file = File::open(&resolved_path)?;
+        let reader = BufReader::new(file);
+        let json_value: serde_json::Value = serde_json::from_reader(reader)?;
+
+        // Parse with temperature filter if needed
+        let filter_option = if union_set.is_empty() {
+            None
+        } else {
+            Some(&union_set)
+        };
+
+        // First, do a parse with no filtering to get all available temperatures
+        let all_temps_nuclide = parse_nuclide_from_json_value(json_value.clone(), None)?;
+
+        // Now parse with the filter to get the loaded data
+        let mut nuclide = parse_nuclide_from_json_value(json_value, filter_option)?;
+        nuclide.data_path = Some(resolved_path.to_string_lossy().to_string());
+
+        // Copy the available_temperatures from the unfiltered parse
+        nuclide.available_temperatures = all_temps_nuclide.available_temperatures;
+        
+        nuclide
     };
-
-    // First, do a parse with no filtering to get all available temperatures
-    let all_temps_nuclide = parse_nuclide_from_json_value(json_value.clone(), None)?;
-
-    // Now parse with the filter to get the loaded data
-    let mut nuclide = parse_nuclide_from_json_value(json_value, filter_option)?;
-    nuclide.data_path = Some(resolved_path.to_string_lossy().to_string());
-
-    // Copy the available_temperatures from the unfiltered parse
-    nuclide.available_temperatures = all_temps_nuclide.available_temperatures;
 
     // Print loading info
     let name_disp = nuclide.name.as_deref().unwrap_or(nuclide_name);

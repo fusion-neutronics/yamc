@@ -47,8 +47,10 @@ for isotope in ['Cr52']:
         material1.add_nuclide(isotope, 01.0)  # Li4SiO4
         material1.set_density("g/cm3", 2.0)
         if code == 'yamc':
-            dir = "../cross_section_data_tendl_2021/tendl_2021/"
-            material1.read_nuclides_from_json({isotope: f"{dir}{isotope}.json"})
+            # dir = "../cross_section_data_tendl_2021/tendl_2021/"
+            # material1.read_nuclides_from_json({isotope: f"{dir}{isotope}.json"})
+            dir = "/home/jon/nuclear_data/tendl-2021-hdf5/tendl-2021-hdf5/"
+            material1.read_nuclides_from_json({isotope: f"{dir}{isotope}.h5"})
 
 
         # Create cells

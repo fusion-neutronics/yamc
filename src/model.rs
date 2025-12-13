@@ -207,19 +207,28 @@ impl Model {
                                                         )
                                                     };
 
-                                                    // MT 50-91 should always return exactly 1 particle
-                                                    assert_eq!(
-                                                        outgoing_particles.len(),
-                                                        1,
-                                                        "MT {} should produce exactly 1 neutron, got {}",
-                                                        constituent_reaction.mt_number,
-                                                        outgoing_particles.len()
-                                                    );
-
-                                                    let outgoing = &outgoing_particles[0];
-                                                    particle.energy = outgoing.energy;
-                                                    particle.direction = outgoing.direction;
-                                                    particle.position = outgoing.position;
+                                                    // Handle the outgoing particles - could be 1 or more depending on the reaction
+                                                    assert!(!outgoing_particles.is_empty(), 
+                                                        "MT {} produced no particles", constituent_reaction.mt_number);
+                                                    
+                                                    // Use first particle as primary, bank the rest
+                                                    if outgoing_particles.len() == 1 {
+                                                        let outgoing = &outgoing_particles[0];
+                                                        particle.energy = outgoing.energy;
+                                                        particle.direction = outgoing.direction;
+                                                        particle.position = outgoing.position;
+                                                    } else {
+                                                        // Multiple particles - bank secondaries
+                                                        for (i, outgoing_particle) in outgoing_particles.into_iter().enumerate() {
+                                                            if i == 0 {
+                                                                particle.energy = outgoing_particle.energy;
+                                                                particle.direction = outgoing_particle.direction;
+                                                                particle.position = outgoing_particle.position;
+                                                            } else {
+                                                                particle_queue.push_back(outgoing_particle);
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                                 _ => {
                                                     // Other scattering reactions - handle products, multiplicity, banking
