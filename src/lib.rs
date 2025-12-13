@@ -101,6 +101,10 @@ mod python {
     pub mod stats_python;
     pub mod surface_python;
     pub mod tally_python;
+    // Secondary distribution Python bindings (matching secondary_*.rs)
+    pub mod secondary_uncorrelated_python;
+    pub mod secondary_kalbach_python;
+    pub mod secondary_correlated_python;
 }
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -136,6 +140,19 @@ fn yamc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(reaction_product_python::sample_isotropic, m)?)?;
     m.add_function(wrap_pyfunction!(reaction_product_python::sample_tabulated, m)?)?;
     m.add_function(wrap_pyfunction!(reaction_product_python::create_test_reaction_product, m)?)?;
+
+    // Secondary distribution helper functions (matching secondary_*.rs structure)
+    use crate::python::secondary_uncorrelated_python;
+    m.add_function(wrap_pyfunction!(secondary_uncorrelated_python::sample_uncorrelated_angle_energy, m)?)?;
+    m.add_function(wrap_pyfunction!(secondary_uncorrelated_python::create_uncorrelated_distribution, m)?)?;
+    
+    use crate::python::secondary_kalbach_python;
+    m.add_function(wrap_pyfunction!(secondary_kalbach_python::sample_kalbach_mann, m)?)?;
+    m.add_function(wrap_pyfunction!(secondary_kalbach_python::create_kalbach_mann_distribution, m)?)?;
+    
+    use crate::python::secondary_correlated_python;
+    m.add_function(wrap_pyfunction!(secondary_correlated_python::sample_correlated_angle_energy, m)?)?;
+    m.add_function(wrap_pyfunction!(secondary_correlated_python::create_correlated_distribution, m)?)?;
 
     use crate::python::geometry_python;
     m.add_class::<geometry_python::PyGeometry>()?;
