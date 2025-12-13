@@ -100,16 +100,34 @@ pub fn sample_from_products<R: rand::Rng>(
     // Create outgoing neutrons for each neutron product
     let mut outgoing_neutrons = Vec::new();
     
+    // Determine if we should use yield for multiplicity
+    // JSON format: 1 product with yield field indicating how many particles
+    // HDF5 format: Multiple products, each representing separate particles (yield may still exist for weighting)
+    let use_yield_for_multiplicity = neutron_products.len() == 1;
+    
     for neutron_product in neutron_products {
-        // Determine how many particles to emit from this product (default 1)
-        let multiplicity = if let Some(ref product_yield) = neutron_product.product_yield {
-            // Evaluate yield at incoming energy
-            let yield_value = product_yield.evaluate(incoming_energy);
-            // Round to nearest integer for discrete particle count
-            yield_value.round().max(0.0) as usize
+        // Determine how many particles to emit from this product
+        let multiplicity = if use_yield_for_multiplicity {
+            // JSON case: use yield to determine particle count
+            if let Some(ref product_yield) = neutron_product.product_yield {
+                // Evaluate yield at incoming energy
+                let yield_value = product_yield.evaluate(incoming_energy);
+                // Round to nearest integer for discrete particle count
+                // Cap at reasonable maximum to prevent issues
+                yield_value.round().max(0.0).min(20.0) as usize
+            } else {
+                1
+            }
         } else {
+            // HDF5 case: each product is a separate particle, emit exactly 1
+            // (yield in HDF5 is for something else, like branching ratio or energy-dependent production)
             1
         };
+        
+        // Skip if multiplicity is 0
+        if multiplicity == 0 {
+            continue;
+        }
         
         // Emit the appropriate number of particles
         for _ in 0..multiplicity {

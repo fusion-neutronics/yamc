@@ -51,8 +51,8 @@ Build & develop-install the Python module in release mode for a significant spee
 ```bash
 maturin develop --release --features pyo3
 HDF5_DIR=/usr/local maturin develop --release --features pyo3
-env HDF5_DIR=/usr/local maturin develop --release --features pyo3
 ```
+Note: If building with HDF5 support, you must set `HDF5_DIR` to point to your HDF5 installation.
 
 (Optional) Build a wheel:
 ```bash
