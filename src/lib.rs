@@ -12,7 +12,13 @@ pub mod settings;
 pub mod source;
 pub mod stats;
 pub mod surface;
+
+// Secondary distribution modules (matching OpenMC structure)
+pub mod secondary_uncorrelated;
+pub mod secondary_kalbach;
+pub mod secondary_correlated;
 pub mod reaction_product;
+
 pub mod tally;
 pub use bounding_box::*;
 pub use cell::*;
