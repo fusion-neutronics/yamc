@@ -101,30 +101,43 @@ pub fn sample_from_products<R: rand::Rng>(
     let mut outgoing_neutrons = Vec::new();
     
     for neutron_product in neutron_products {
-        // Sample scattering angle from product distribution
-        let (sampled_e_out, mu) = neutron_product.sample(incoming_energy, rng);
-        
-        // Determine actual outgoing energy
-        let e_out = if calculate_energy {
-            // Use Q-value to calculate outgoing energy for level inelastic
-            // E_out ≈ E_in + Q (simplified, assumes target at rest)
-            let e_with_q = incoming_energy + reaction.q_value;
-            if e_with_q > 0.0 {
-                e_with_q
-            } else {
-                // Fallback to small energy if calculation gives negative
-                1e-6
-            }
+        // Determine how many particles to emit from this product (default 1)
+        let multiplicity = if let Some(ref product_yield) = neutron_product.product_yield {
+            // Evaluate yield at incoming energy
+            let yield_value = product_yield.evaluate(incoming_energy);
+            // Round to nearest integer for discrete particle count
+            yield_value.round().max(0.0) as usize
         } else {
-            sampled_e_out
+            1
         };
         
-        // Create new neutron particle
-        let mut new_particle = particle.clone();
-        new_particle.energy = e_out;
-        rotate_direction(&mut new_particle.direction, mu, rng);
-        
-        outgoing_neutrons.push(new_particle);
+        // Emit the appropriate number of particles
+        for _ in 0..multiplicity {
+            // Sample scattering angle from product distribution
+            let (sampled_e_out, mu) = neutron_product.sample(incoming_energy, rng);
+            
+            // Determine actual outgoing energy
+            let e_out = if calculate_energy {
+                // Use Q-value to calculate outgoing energy for level inelastic
+                // E_out ≈ E_in + Q (simplified, assumes target at rest)
+                let e_with_q = incoming_energy + reaction.q_value;
+                if e_with_q > 0.0 {
+                    e_with_q
+                } else {
+                    // Fallback to small energy if calculation gives negative
+                    1e-6
+                }
+            } else {
+                sampled_e_out
+            };
+            
+            // Create new neutron particle
+            let mut new_particle = particle.clone();
+            new_particle.energy = e_out;
+            rotate_direction(&mut new_particle.direction, mu, rng);
+            
+            outgoing_neutrons.push(new_particle);
+        }
     }
     
     outgoing_neutrons

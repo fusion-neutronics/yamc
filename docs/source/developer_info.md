@@ -50,6 +50,8 @@ maturin develop --features pyo3
 Build & develop-install the Python module in release mode for a significant speed improvement
 ```bash
 maturin develop --release --features pyo3
+HDF5_DIR=/usr/local maturin develop --release --features pyo3
+env HDF5_DIR=/usr/local maturin develop --release --features pyo3
 ```
 
 (Optional) Build a wheel:
