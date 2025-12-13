@@ -1,7 +1,7 @@
 #[derive(Debug, Clone)]
 pub struct IndependentSource {
     pub space: [f64; 3],
-    pub angle: crate::stats::AngularDistribution,
+    pub angle: crate::distribution_multi::AngularDistribution,
     pub energy: f64,
 }
 
@@ -14,7 +14,7 @@ impl IndependentSource {
     pub fn new() -> Self {
         Self {
             space: [0.0, 0.0, 0.0],
-            angle: crate::stats::AngularDistribution::Isotropic,
+            angle: crate::distribution_multi::AngularDistribution::Isotropic,
             energy: 14.06e6,
         }
     }
@@ -32,7 +32,7 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(1);
         let mut s = IndependentSource::new();
         s.space = [1.0, 2.0, 3.0];
-        s.angle = crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
+        s.angle = crate::distribution_multi::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
         s.energy = 2e6;
 
         let p = s.sample(&mut rng);
@@ -109,17 +109,17 @@ mod tests {
         let mut s = IndependentSource::new();
 
         // Start with monodirectional
-        s.angle = crate::stats::AngularDistribution::new_monodirectional(1.0, 0.0, 0.0);
+        s.angle = crate::distribution_multi::AngularDistribution::new_monodirectional(1.0, 0.0, 0.0);
         let p1 = s.sample(&mut rng);
         assert_eq!(p1.direction, [1.0, 0.0, 0.0]);
 
         // Switch to different monodirectional
-        s.angle = crate::stats::AngularDistribution::new_monodirectional(0.0, 1.0, 0.0);
+        s.angle = crate::distribution_multi::AngularDistribution::new_monodirectional(0.0, 1.0, 0.0);
         let p2 = s.sample(&mut rng);
         assert_eq!(p2.direction, [0.0, 1.0, 0.0]);
 
         // Switch to isotropic
-        s.angle = crate::stats::AngularDistribution::Isotropic;
+        s.angle = crate::distribution_multi::AngularDistribution::Isotropic;
         let p3 = s.sample(&mut rng);
         let p4 = s.sample(&mut rng);
 
@@ -148,7 +148,7 @@ mod tests {
         let mut s = IndependentSource::new();
         s.space = [1.0, 2.0, 3.0];
         s.energy = 5e6;
-        s.angle = crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
+        s.angle = crate::distribution_multi::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0);
 
         // Multiple samples should be consistent for monodirectional
         for _ in 0..10 {

@@ -6,7 +6,7 @@
 use materials_for_mc::*;
 use materials_for_mc::model::Model;
 use materials_for_mc::source::IndependentSource;
-use materials_for_mc::stats::AngularDistribution;
+use materials_for_mc::distribution_multi::AngularDistribution;
 use materials_for_mc::settings::Settings;
 use materials_for_mc::tally::{Score, Tally};
 use materials_for_mc::filter::Filter;

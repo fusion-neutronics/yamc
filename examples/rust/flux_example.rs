@@ -1,7 +1,7 @@
 use yamc::*;
 use yamc::model::Model;
 use yamc::source::IndependentSource;
-use yamc::stats::AngularDistribution;
+use yamc::distribution_multi::AngularDistribution;
 use yamc::settings::Settings;
 use yamc::tally::{Score, Tally};
 use yamc::filter::Filter;

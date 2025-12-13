@@ -11,7 +11,7 @@ pub mod region;
 pub mod scatter;
 pub mod settings;
 pub mod source;
-pub mod stats;
+pub mod distribution_multi;
 pub mod surface;
 
 // Secondary distribution modules (matching OpenMC structure)
@@ -99,7 +99,7 @@ mod python {
     pub mod region_python;
     pub mod settings_python;
     pub mod source_python;
-    pub mod stats_python;
+    pub mod distribution_multi_python;
     pub mod surface_python;
     pub mod tally_python;
     // Secondary distribution Python bindings (matching secondary_*.rs)
@@ -193,8 +193,8 @@ fn yamc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<filters_python::PyEnergyFilter>()?;
     use crate::python::source_python;
     m.add_class::<source_python::PyIndependentSource>()?;
-    use crate::python::stats_python;
-    stats_python::register_stats_module(_py, m)?;
+    use crate::python::distribution_multi_python;
+    distribution_multi_python::register_stats_module(_py, m)?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
 
     crate::python::tally_python::register_tally_classes(_py, m)?;

@@ -5,7 +5,7 @@ use yamc::model::Model;
 use yamc::region::{HalfspaceType, Region, RegionExpr};
 use yamc::settings::Settings;
 use yamc::source::IndependentSource;
-use yamc::stats::AngularDistribution;
+use yamc::distribution_multi::AngularDistribution;
 use yamc::surface::{BoundaryType, Surface, SurfaceKind};
 use yamc::tally::{Tally, Score};
 use yamc::Material;
