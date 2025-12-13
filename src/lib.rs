@@ -1,4 +1,5 @@
 pub mod bounding_box;
+pub mod bank;
 pub mod cell;
 pub mod filters;
 pub mod geometry;

@@ -1,3 +1,4 @@
+use crate::bank::ParticleBank;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::geometry::Geometry;
 use crate::inelastic::sample_from_products;
@@ -13,7 +14,6 @@ use rand::Rng;
 use rand::SeedableRng;
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
-use std::collections::VecDeque;
 use std::sync::{Arc, atomic::Ordering};
 
 #[derive(Debug, Clone)]
@@ -67,19 +67,19 @@ impl Model {
                 // Use PCG64 (fast, high-quality RNG)
                 let mut rng = Pcg64::seed_from_u64(particle_seed);
 
-                // Local particle queue for this thread (for secondary particles)
-                let mut particle_queue: VecDeque<Particle> = VecDeque::new();
+                // Local particle bank for this thread (for secondary particles)
+                let mut particle_bank = ParticleBank::with_capacity(10);
                 
                 // Start with the source particle
                 let mut particle = self.settings.source.sample(&mut rng);
                 particle.alive = true;
-                particle_queue.push_back(particle);
+                particle_bank.add_source_particle(particle);
                 
-                // Process all particles in the queue (primary + secondaries)
+                // Process all particles in the bank (primary + secondaries)
                 let mut particles_processed = 0;
                 const MAX_PARTICLES_PER_HISTORY: usize = 1000; // Safety limit
                 
-                while let Some(mut particle) = particle_queue.pop_front() {
+                while let Some(mut particle) = particle_bank.pop_particle() {
                     particles_processed += 1;
                     if particles_processed > MAX_PARTICLES_PER_HISTORY {
                         break; // Prevent infinite particle multiplication
@@ -249,7 +249,7 @@ impl Model {
                                                                 particle.direction = outgoing_particle.direction;
                                                                 particle.position = outgoing_particle.position;
                                                             } else {
-                                                                particle_queue.push_back(outgoing_particle);
+                                                                particle_bank.bank_secondary(outgoing_particle);
                                                             }
                                                         }
                                                     }
