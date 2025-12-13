@@ -1578,17 +1578,13 @@ fn synthesize_missing_reactions(
     energy: &HashMap<String, Vec<f64>>,
 ) -> bool {
     // Sum rules: MT number -> list of constituent MT numbers to sum
-    let sum_rules: HashMap<i32, Vec<i32>> = [
-        (1, vec![2, 3]),  // total = elastic + non-elastic
-        (3, vec![4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35,
-                36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
-                161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
-                173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
-                186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200]),  // non-elastic
-        (4, (50..92).collect()),  // inelastic
+    // IMPORTANT: Process in dependency order! Some synthetic reactions depend on other synthetic reactions.
+    // For example, MT 1001 depends on MT 4, and MT 3 depends on MT 4 and MT 27.
+    let sum_rules_ordered: Vec<(i32, Vec<i32>)> = vec![
+        // First level: synthetics that only depend on fundamental reactions
+        (4, (50..92).collect()),  // inelastic (from level inelastic)
         (16, (875..892).collect()),
         (18, vec![19, 20, 21, 38]),  // fission
-        (27, vec![18, 101]),
         (101, vec![102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114,
                   115, 116, 117, 155, 182, 191, 192, 193, 197]),  // absorption
         (103, (600..650).collect()),
@@ -1596,8 +1592,21 @@ fn synthesize_missing_reactions(
         (105, (700..750).collect()),
         (106, (750..800).collect()),
         (107, (800..850).collect()),
-        (1001, vec![2, 4]),  // Synthetic scattering = elastic + inelastic
-    ].iter().cloned().collect();
+        
+        // Second level: MT 27 depends on MT 18 and MT 101
+        (27, vec![18, 101]),
+        
+        // Third level: MT 3 depends on MT 4 and MT 27, MT 1001 depends on MT 4
+        (3, vec![4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35,
+                36, 37, 41, 42, 44, 45, 152, 153, 154, 156, 157, 158, 159, 160,
+                161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+                173, 174, 175, 176, 177, 178, 179, 180, 181, 183, 184, 185,
+                186, 187, 188, 189, 190, 194, 195, 196, 198, 199, 200]),  // non-elastic
+        (1001, vec![2, 4]),  // Synthetic scattering = elastic + inelastic (DEPENDS ON MT 4!)
+        
+        // Fourth level: MT 1 depends on MT 3
+        (1, vec![2, 3]),  // total = elastic + non-elastic
+    ];
 
     let mut any_added = false;
 
@@ -1609,18 +1618,39 @@ fn synthesize_missing_reactions(
             None => continue,
         };
 
-        // Check each sum rule
-        for (&target_mt, constituent_mts) in &sum_rules {
+        // Check each sum rule IN ORDER
+        for (target_mt, constituent_mts) in &sum_rules_ordered {
             // Skip if target already exists
-            if temp_reactions.contains_key(&target_mt) {
+            if temp_reactions.contains_key(target_mt) {
                 continue;
             }
 
-            // Find all available constituent reactions
+            // Special handling for MT 1001: include ALL scattering reactions, not just MT 2 + MT 4
             let mut available_constituents: Vec<i32> = Vec::new();
-            for &mt in constituent_mts {
-                if temp_reactions.contains_key(&mt) {
-                    available_constituents.push(mt);
+            if *target_mt == 1001 {
+                // MT 1001 is total scattering = all neutron-producing reactions
+                // Include elastic (MT 2), all inelastic levels (50-91), and other scattering MTs
+                if temp_reactions.contains_key(&2) {
+                    available_constituents.push(2);
+                }
+                // Add inelastic constituent MTs (50-91)
+                for mt in INELASTIC_CONSTITUENT_MTS {
+                    if temp_reactions.contains_key(&mt) {
+                        available_constituents.push(mt);
+                    }
+                }
+                // Add other scattering MTs (n,2n, n,3n, n,n'p, etc.)
+                for &mt in SCATTERING_MTS_NON_INELASTIC {
+                    if mt != 2 && temp_reactions.contains_key(&mt) {
+                        available_constituents.push(mt);
+                    }
+                }
+            } else {
+                // Normal sum rule processing
+                for &mt in constituent_mts {
+                    if temp_reactions.contains_key(&mt) {
+                        available_constituents.push(mt);
+                    }
                 }
             }
 
@@ -1660,7 +1690,7 @@ fn synthesize_missing_reactions(
             let xs_slice = &summed_xs[min_threshold_idx..];
 
             let synthesized_reaction = Reaction {
-                mt_number: target_mt,
+                mt_number: *target_mt,
                 cross_section: xs_slice.to_vec(),
                 threshold_idx: min_threshold_idx,
                 q_value: 0.0,  // Sum reactions don't have a single Q-value
@@ -1669,7 +1699,7 @@ fn synthesize_missing_reactions(
                 products: Vec::new(),
             };
 
-            temp_reactions.insert(target_mt, synthesized_reaction);
+            temp_reactions.insert(*target_mt, synthesized_reaction);
             any_added = true;
         }
     }
