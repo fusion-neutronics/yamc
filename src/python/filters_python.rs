@@ -1,4 +1,4 @@
-use crate::filters::{CellFilter, EnergyFilter, MaterialFilter};
+use crate::tallies::{CellFilter, EnergyFilter, MaterialFilter};
 use crate::python::cell_python::PyCell;
 use crate::python::material_python::PyMaterial;
 use pyo3::prelude::*;

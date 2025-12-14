@@ -8,7 +8,7 @@ use crate::reaction::Reaction;
 use crate::settings::Settings;
 use crate::source::IndependentSource;
 use crate::surface::BoundaryType;
-use crate::tally::{create_tallies_from_specs, Tally};
+use crate::tallies::tally::{create_tallies_from_specs, Tally};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -20,12 +20,12 @@ use std::sync::{Arc, atomic::Ordering};
 pub struct Model {
     pub geometry: Geometry,
     pub settings: Settings,
-    pub tallies: Vec<Arc<crate::tally::Tally>>, // Arc allows sharing tallies for parallel updates
+    pub tallies: Vec<Arc<Tally>>, // Arc allows sharing tallies for parallel updates
 }
 
 impl Model {
     /// Create a new Model with particle banking system
-    pub fn new(geometry: Geometry, settings: Settings, tallies: Vec<Arc<crate::tally::Tally>>) -> Self {
+    pub fn new(geometry: Geometry, settings: Settings, tallies: Vec<Arc<Tally>>) -> Self {
         Model {
             geometry,
             settings,
@@ -388,8 +388,8 @@ mod tests {
         };
 
         // Create a tally for absorption reactions with a custom name
-        let mut absorption_tally = crate::tally::Tally::new();
-        absorption_tally.scores = vec![crate::tally::Score::MT(101)]; // MT 101 = absorption
+        let mut absorption_tally = crate::tallies::tally::Tally::new();
+        absorption_tally.scores = vec![crate::tallies::tally::Score::MT(101)]; // MT 101 = absorption
         absorption_tally.name = Some("Absorption Tally".to_string());
         absorption_tally.units = "events".to_string();
         absorption_tally.initialize_batches(settings.batches as usize);

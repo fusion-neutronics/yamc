@@ -1,7 +1,6 @@
 pub mod bounding_box;
 pub mod bank;
 pub mod cell;
-pub mod filters;
 pub mod geometry;
 pub mod inelastic;
 pub mod model;
@@ -20,7 +19,8 @@ pub mod secondary_kalbach;
 pub mod secondary_correlated;
 pub mod reaction_product;
 
-pub mod tally;
+// Tallies module (matching OpenMC's src/tallies/ directory)
+pub mod tallies;
 pub use bounding_box::*;
 pub use cell::*;
 pub use geometry::*;
@@ -53,7 +53,6 @@ mod data;
 // First, import any modules and re-export the types for Rust usage
 mod config;
 mod element;
-pub mod filter;
 mod material;
 pub mod nuclide;
 mod reaction;

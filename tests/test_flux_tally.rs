@@ -7,7 +7,7 @@ use yamc::settings::Settings;
 use yamc::source::IndependentSource;
 use yamc::distribution_multi::AngularDistribution;
 use yamc::surface::{BoundaryType, Surface, SurfaceKind};
-use yamc::tally::{Tally, Score};
+use yamc::tallies::tally::{Tally, Score};
 use yamc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;
