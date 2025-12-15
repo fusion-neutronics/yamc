@@ -1,7 +1,7 @@
 // Uncorrelated angle-energy distributions
 // Corresponds to OpenMC's secondary_uncorrelated.cpp
 
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize};
 use rand::Rng;
 use crate::reaction_product::{EnergyDistribution, AngleDistribution};
 
