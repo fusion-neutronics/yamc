@@ -3,16 +3,16 @@
 // statistically independent results per batch
 
 use yamc::cell::Cell;
-use yamc::filter::Filter;
-use yamc::filters::CellFilter;
+use yamc::tallies::filter::Filter;
+use yamc::tallies::CellFilter;
 use yamc::geometry::Geometry;
 use yamc::model::Model;
 use yamc::region::{HalfspaceType, Region, RegionExpr};
 use yamc::settings::Settings;
 use yamc::source::IndependentSource;
-use yamc::stats::AngularDistribution;
+use yamc::distribution_multi::AngularDistribution;
 use yamc::surface::{BoundaryType, Surface, SurfaceKind};
-use yamc::tally::{Score, Tally};
+use yamc::tallies::tally::{Score, Tally};
 use yamc::Material;
 use std::collections::HashMap;
 use std::sync::Arc;

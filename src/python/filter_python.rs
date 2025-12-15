@@ -1,5 +1,5 @@
 #[cfg(feature = "pyo3")]
-use crate::filter::Filter;
+use crate::tallies::filter::Filter;
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 #[cfg(feature = "pyo3")]

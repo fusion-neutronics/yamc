@@ -1,4 +1,4 @@
-use crate::stats::AngularDistribution;
+use crate::distribution_multi::AngularDistribution;
 use pyo3::prelude::*;
 
 #[pyclass(name = "Isotropic")]

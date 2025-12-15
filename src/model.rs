@@ -1,3 +1,4 @@
+use crate::bank::ParticleBank;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::geometry::Geometry;
 use crate::inelastic::sample_from_products;
@@ -7,25 +8,24 @@ use crate::reaction::Reaction;
 use crate::settings::Settings;
 use crate::source::IndependentSource;
 use crate::surface::BoundaryType;
-use crate::tally::{create_tallies_from_specs, Tally};
+use crate::tallies::tally::{create_tallies_from_specs, Tally};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
-use std::collections::VecDeque;
 use std::sync::{Arc, atomic::Ordering};
 
 #[derive(Debug, Clone)]
 pub struct Model {
     pub geometry: Geometry,
     pub settings: Settings,
-    pub tallies: Vec<Arc<crate::tally::Tally>>, // Arc allows sharing tallies for parallel updates
+    pub tallies: Vec<Arc<Tally>>, // Arc allows sharing tallies for parallel updates
 }
 
 impl Model {
     /// Create a new Model with particle banking system
-    pub fn new(geometry: Geometry, settings: Settings, tallies: Vec<Arc<crate::tally::Tally>>) -> Self {
+    pub fn new(geometry: Geometry, settings: Settings, tallies: Vec<Arc<Tally>>) -> Self {
         Model {
             geometry,
             settings,
@@ -67,19 +67,19 @@ impl Model {
                 // Use PCG64 (fast, high-quality RNG)
                 let mut rng = Pcg64::seed_from_u64(particle_seed);
 
-                // Local particle queue for this thread (for secondary particles)
-                let mut particle_queue: VecDeque<Particle> = VecDeque::new();
+                // Local particle bank for this thread (for secondary particles)
+                let mut particle_bank = ParticleBank::with_capacity(10);
                 
                 // Start with the source particle
                 let mut particle = self.settings.source.sample(&mut rng);
                 particle.alive = true;
-                particle_queue.push_back(particle);
+                particle_bank.add_source_particle(particle);
                 
-                // Process all particles in the queue (primary + secondaries)
+                // Process all particles in the bank (primary + secondaries)
                 let mut particles_processed = 0;
                 const MAX_PARTICLES_PER_HISTORY: usize = 1000; // Safety limit
                 
-                while let Some(mut particle) = particle_queue.pop_front() {
+                while let Some(mut particle) = particle_bank.pop_particle() {
                     particles_processed += 1;
                     if particles_processed > MAX_PARTICLES_PER_HISTORY {
                         break; // Prevent infinite particle multiplication
@@ -249,7 +249,7 @@ impl Model {
                                                                 particle.direction = outgoing_particle.direction;
                                                                 particle.position = outgoing_particle.position;
                                                             } else {
-                                                                particle_queue.push_back(outgoing_particle);
+                                                                particle_bank.bank_secondary(outgoing_particle);
                                                             }
                                                         }
                                                     }
@@ -377,7 +377,7 @@ mod tests {
         let geometry = Geometry { cells: vec![cell] };
         let source = IndependentSource {
             space: [0.0, 0.0, 0.0],
-            angle: crate::stats::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0),
+            angle: crate::distribution_multi::AngularDistribution::new_monodirectional(0.0, 0.0, 1.0),
             energy: 1e6,
         };
         let settings = Settings {
@@ -388,8 +388,8 @@ mod tests {
         };
 
         // Create a tally for absorption reactions with a custom name
-        let mut absorption_tally = crate::tally::Tally::new();
-        absorption_tally.scores = vec![crate::tally::Score::MT(101)]; // MT 101 = absorption
+        let mut absorption_tally = crate::tallies::tally::Tally::new();
+        absorption_tally.scores = vec![crate::tallies::tally::Score::MT(101)]; // MT 101 = absorption
         absorption_tally.name = Some("Absorption Tally".to_string());
         absorption_tally.units = "events".to_string();
         absorption_tally.initialize_batches(settings.batches as usize);

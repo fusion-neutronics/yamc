@@ -1,5 +1,5 @@
 #[cfg(feature = "pyo3")]
-use crate::tally::{Tally, Score};
+use crate::tallies::tally::{Tally, Score};
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 #[cfg(feature = "pyo3")]

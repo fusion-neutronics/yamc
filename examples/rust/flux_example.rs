@@ -1,11 +1,11 @@
 use yamc::*;
 use yamc::model::Model;
 use yamc::source::IndependentSource;
-use yamc::stats::AngularDistribution;
+use yamc::distribution_multi::AngularDistribution;
 use yamc::settings::Settings;
-use yamc::tally::{Score, Tally};
-use yamc::filter::Filter;
-use yamc::filters::{CellFilter, EnergyFilter};
+use yamc::tallies::tally::{Score, Tally};
+use yamc::tallies::filter::Filter;
+use yamc::tallies::{CellFilter, EnergyFilter};
 use std::sync::Arc;
 use std::time::Instant;
 

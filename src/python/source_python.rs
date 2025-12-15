@@ -1,6 +1,6 @@
-use crate::python::stats_python::{PyIsotropic, PyMonodirectional};
+use crate::python::distribution_multi_python::{PyIsotropic, PyMonodirectional};
 use crate::source::IndependentSource;
-use crate::stats::AngularDistribution;
+use crate::distribution_multi::AngularDistribution;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
 

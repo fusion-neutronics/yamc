@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 // ...existing code...
-use crate::filter::Filter;
+use crate::tallies::filter::Filter;
 
 /// Special score value for flux (track-length estimator)
 
@@ -81,7 +81,7 @@ impl Tally {
     }
 
     /// Get the energy filter if present
-    pub fn get_energy_filter(&self) -> Option<&crate::filters::EnergyFilter> {
+    pub fn get_energy_filter(&self) -> Option<&crate::tallies::EnergyFilter> {
         self.filters.iter().find_map(|f| {
             if let Filter::Energy(ef) = f {
                 Some(ef)
@@ -772,7 +772,7 @@ mod tests {
         // Add a cell filter that matches cell_id 1
         tally
             .filters
-            .push(Filter::Cell(crate::filters::CellFilter { cell_id: 1 }));
+            .push(Filter::Cell(crate::tallies::CellFilter { cell_id: 1 }));
         let cell = dummy_cell(1);
         assert!(tally.score_event(101, &cell, Some(42), 1e6, 0));
         {

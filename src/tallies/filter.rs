@@ -1,4 +1,4 @@
-use crate::filters::{CellFilter, EnergyFilter, MaterialFilter};
+use crate::tallies::{CellFilter, EnergyFilter, MaterialFilter};
 
 /// Unified filter enum for tallies
 #[derive(Debug, Clone, PartialEq)]
@@ -22,7 +22,7 @@ impl Filter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filters::{CellFilter, MaterialFilter};
+    use crate::tallies::{CellFilter, MaterialFilter};
 
     #[test]
     fn test_type_name_cell() {

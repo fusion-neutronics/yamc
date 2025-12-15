@@ -1,6 +1,6 @@
 pub mod bounding_box;
+pub mod bank;
 pub mod cell;
-pub mod filters;
 pub mod geometry;
 pub mod inelastic;
 pub mod model;
@@ -10,10 +10,17 @@ pub mod region;
 pub mod scatter;
 pub mod settings;
 pub mod source;
-pub mod stats;
+pub mod distribution_multi;
 pub mod surface;
+
+// Secondary distribution modules (matching OpenMC structure)
+pub mod secondary_uncorrelated;
+pub mod secondary_kalbach;
+pub mod secondary_correlated;
 pub mod reaction_product;
-pub mod tally;
+
+// Tallies module (matching OpenMC's src/tallies/ directory)
+pub mod tallies;
 pub use bounding_box::*;
 pub use cell::*;
 pub use geometry::*;
@@ -46,7 +53,6 @@ mod data;
 // First, import any modules and re-export the types for Rust usage
 mod config;
 mod element;
-pub mod filter;
 mod material;
 pub mod nuclide;
 mod reaction;
@@ -92,9 +98,13 @@ mod python {
     pub mod region_python;
     pub mod settings_python;
     pub mod source_python;
-    pub mod stats_python;
+    pub mod distribution_multi_python;
     pub mod surface_python;
     pub mod tally_python;
+    // Secondary distribution Python bindings (matching secondary_*.rs)
+    pub mod secondary_uncorrelated_python;
+    pub mod secondary_kalbach_python;
+    pub mod secondary_correlated_python;
 }
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -130,6 +140,19 @@ fn yamc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(reaction_product_python::sample_isotropic, m)?)?;
     m.add_function(wrap_pyfunction!(reaction_product_python::sample_tabulated, m)?)?;
     m.add_function(wrap_pyfunction!(reaction_product_python::create_test_reaction_product, m)?)?;
+
+    // Secondary distribution helper functions (matching secondary_*.rs structure)
+    use crate::python::secondary_uncorrelated_python;
+    m.add_function(wrap_pyfunction!(secondary_uncorrelated_python::sample_uncorrelated_angle_energy, m)?)?;
+    m.add_function(wrap_pyfunction!(secondary_uncorrelated_python::create_uncorrelated_distribution, m)?)?;
+    
+    use crate::python::secondary_kalbach_python;
+    m.add_function(wrap_pyfunction!(secondary_kalbach_python::sample_kalbach_mann, m)?)?;
+    m.add_function(wrap_pyfunction!(secondary_kalbach_python::create_kalbach_mann_distribution, m)?)?;
+    
+    use crate::python::secondary_correlated_python;
+    m.add_function(wrap_pyfunction!(secondary_correlated_python::sample_correlated_angle_energy, m)?)?;
+    m.add_function(wrap_pyfunction!(secondary_correlated_python::create_correlated_distribution, m)?)?;
 
     use crate::python::geometry_python;
     m.add_class::<geometry_python::PyGeometry>()?;
@@ -169,8 +192,8 @@ fn yamc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<filters_python::PyEnergyFilter>()?;
     use crate::python::source_python;
     m.add_class::<source_python::PyIndependentSource>()?;
-    use crate::python::stats_python;
-    stats_python::register_stats_module(_py, m)?;
+    use crate::python::distribution_multi_python;
+    distribution_multi_python::register_stats_module(_py, m)?;
     m.add_function(wrap_pyfunction!(nuclide_python::clear_nuclide_cache, m)?)?;
 
     crate::python::tally_python::register_tally_classes(_py, m)?;
