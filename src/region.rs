@@ -253,8 +253,9 @@ fn test_sphere_with_xplanes() {
     assert_eq!(bbox.upper_right, [2.1, 4.2, 4.2]);
 }
 mod tests {
-    use super::*;
+    use super::{Region, HalfspaceType};
     use crate::surface::{Surface, SurfaceKind};
+    use std::sync::Arc;
     use std::collections::HashMap;
 
     #[test]

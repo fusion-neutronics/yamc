@@ -10,7 +10,7 @@ use crate::tallies::tally::Tally;
 use rand::SeedableRng;
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -338,6 +338,7 @@ mod tests {
     use crate::settings::Settings;
     use crate::source::IndependentSource;
     use crate::surface::{BoundaryType, Surface, SurfaceKind};
+    use std::sync::atomic::Ordering;
     // No duplicate import
 
     #[test]
