@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use rand::Rng;
-use crate::reaction_product::{Tabulated, EnergyDistribution, AngleDistribution};
+use crate::reaction_product::{EnergyDistribution, AngleDistribution};
 
 /// Sample from uncorrelated angle-energy distribution
 /// This function corresponds to OpenMC's UncorrelatedAngleEnergy::sample()
@@ -35,6 +35,7 @@ mod tests {
     use super::*;
     use rand::SeedableRng;
     use rand::rngs::StdRng;
+    use crate::reaction_product::Tabulated;
     
     #[test]
     fn test_isotropic_angle_fallback() {

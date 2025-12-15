@@ -1,7 +1,7 @@
 // Correlated angle-energy distribution sampling
 // Corresponds to OpenMC's secondary_correlated.cpp
 
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize};
 use rand::Rng;
 use crate::reaction_product::TabulatedProbability;
 

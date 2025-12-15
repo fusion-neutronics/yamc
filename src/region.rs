@@ -160,7 +160,7 @@ impl Region {
                     collect_constraints(a, axis_lowers, axis_uppers, finite_bounds);
                     collect_constraints(b, axis_lowers, axis_uppers, finite_bounds);
                 }
-                RegionExpr::Complement(inner) => {
+                RegionExpr::Complement(_inner) => {
                     // For complement, ignore constraints (could be improved)
                 }
             }

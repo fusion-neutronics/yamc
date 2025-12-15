@@ -1,7 +1,6 @@
 use crate::particle::Particle;
 use crate::reaction::Reaction;
 use crate::reaction_product::ParticleType;
-use rand::Rng;
 
 /// Determine neutron multiplicity for inelastic scattering based on MT number
 /// Returns the number of neutrons produced for inelastic reactions only
