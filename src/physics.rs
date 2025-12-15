@@ -104,7 +104,7 @@ pub fn elastic_scatter(particle: &mut Particle, awr: f64, temperature_k: f64, rn
 pub fn dbrc_elastic_scatter(
     particle: &mut Particle, 
     awr: f64, 
-    temperature_k: f64,
+    // temperature_k: f64,
     mu_cm: f64,  // Scattering cosine from tabulated distribution
     rng: &mut impl Rng
 ) {

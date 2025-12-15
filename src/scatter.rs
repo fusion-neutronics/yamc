@@ -1,7 +1,6 @@
 use crate::particle::Particle;
 use crate::reaction::Reaction;
 use crate::reaction_product::ParticleType;
-use rand::Rng;
 
 /// Determine neutron multiplicity for scattering reactions based on MT number
 /// These are scattering reactions that produce neutrons (excluding MT 2 elastic and MT 50-91 inelastic)

@@ -408,7 +408,7 @@ impl Nuclide {
         let xi = rng.gen_range(0.0..total_scattering_xs);
         let mut accum = 0.0;
 
-        for (mt, reaction, xs) in available_reactions {
+        for (_, reaction, xs) in available_reactions {
             accum += xs;
             if xi < accum {
                 return reaction;
@@ -555,7 +555,7 @@ impl Nuclide {
         let xi = rng.gen_range(0.0..total_xs);
         let mut accum = 0.0;
 
-        for (mt, reaction, xs) in available_reactions {
+        for (_, reaction, xs) in available_reactions {
             accum += xs;
             if xi < accum {
                 return reaction;

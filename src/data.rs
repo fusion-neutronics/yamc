@@ -4234,6 +4234,7 @@ mod tests {
 
 /// A static HashMap that maps ENDF MT reaction numbers to their descriptive names
 /// following the ENDF style naming convention.
+#[allow(dead_code)]
 pub static REACTION_NAME: Lazy<HashMap<i32, &'static str>> = Lazy::new(|| {
     [
         (1, "(n,total)"),

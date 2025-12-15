@@ -1,7 +1,6 @@
 // Kalbach-Mann correlated angle-energy distribution
 // Corresponds to OpenMC's secondary_kalbach.cpp
 
-use serde::{Deserialize, Serialize};
 use rand::Rng;
 use crate::reaction_product::{Tabulated1D, TabulatedProbability};
 

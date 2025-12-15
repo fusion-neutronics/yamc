@@ -20,7 +20,7 @@ impl BoundaryType {
         match s {
             "transmission" => Some(BoundaryType::Transmission),
             "vacuum" => Some(BoundaryType::Vacuum),
-            _ => None,
+            &_ => None,
         }
     }
 }
@@ -144,7 +144,6 @@ impl Surface {
                     None
                 }
             }
-            _ => None,
         }
     }
     pub fn new_plane(

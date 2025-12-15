@@ -2,19 +2,15 @@ use crate::bank::ParticleBank;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::geometry::Geometry;
 use crate::inelastic::sample_from_products;
-use crate::particle::Particle;
 use crate::physics::elastic_scatter;
-use crate::reaction::Reaction;
 use crate::settings::Settings;
-use crate::source::IndependentSource;
 use crate::surface::BoundaryType;
-use crate::tallies::tally::{create_tallies_from_specs, Tally};
-use rand::rngs::StdRng;
-use rand::Rng;
+use crate::tallies::tally::Tally;
+// use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -342,6 +338,7 @@ mod tests {
     use crate::settings::Settings;
     use crate::source::IndependentSource;
     use crate::surface::{BoundaryType, Surface, SurfaceKind};
+    use std::sync::atomic::Ordering;
     // No duplicate import
 
     #[test]

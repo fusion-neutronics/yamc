@@ -888,7 +888,6 @@ impl Material {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     #[test]
     fn test_set_and_get_name() {
         let mut mat = Material::new();

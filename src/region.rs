@@ -160,7 +160,7 @@ impl Region {
                     collect_constraints(a, axis_lowers, axis_uppers, finite_bounds);
                     collect_constraints(b, axis_lowers, axis_uppers, finite_bounds);
                 }
-                RegionExpr::Complement(inner) => {
+                RegionExpr::Complement(_inner) => {
                     // For complement, ignore constraints (could be improved)
                 }
             }
@@ -253,12 +253,14 @@ fn test_sphere_with_xplanes() {
     assert_eq!(bbox.upper_right, [2.1, 4.2, 4.2]);
 }
 mod tests {
-    use super::*;
-    use crate::surface::{Surface, SurfaceKind};
-    use std::collections::HashMap;
+    // Imports moved into individual test functions to avoid unused import warnings
 
     #[test]
     fn test_region_contains() {
+        use super::Region;
+        use crate::surface::{Surface, SurfaceKind};
+        use std::sync::Arc;
+        use std::collections::HashMap;
         // Create two surfaces
         let s1 = Surface {
             surface_id: Some(1),
@@ -304,6 +306,10 @@ mod tests {
 
     #[test]
     fn test_sphere_bounding_box() {
+        use super::{Region, HalfspaceType};
+        use crate::surface::{Surface, SurfaceKind};
+        use std::sync::Arc;
+        use std::collections::HashMap;
         // Sphere of radius 2 at (0,0,0)
         let s = Surface {
             surface_id: Some(1),
@@ -325,6 +331,10 @@ mod tests {
 
     #[test]
     fn test_box_and_sphere_bounding_box() {
+        use super::{Region, HalfspaceType};
+        use crate::surface::{Surface, SurfaceKind};
+        use std::sync::Arc;
+        use std::collections::HashMap;
         // XPlanes at x=2.1 and x=-2.1, sphere at origin with radius 4.2
         let s1 = Surface {
             surface_id: Some(1),
@@ -375,6 +385,10 @@ mod tests {
 
     #[test]
     fn test_zplane_bounding_box() {
+        use super::{Region, HalfspaceType};
+        use crate::surface::{Surface, SurfaceKind};
+        use std::sync::Arc;
+        use std::collections::HashMap;
         // ZPlane at z=3.5
         let s = Surface {
             surface_id: Some(1),
@@ -401,6 +415,10 @@ mod tests {
 
     #[test]
     fn test_xplane_bounding_box() {
+        use super::{Region, HalfspaceType};
+        use crate::surface::{Surface, SurfaceKind};
+        use std::sync::Arc;
+        use std::collections::HashMap;
         // XPlane at x=1.5
         let s = Surface {
             surface_id: Some(1),
@@ -427,6 +445,10 @@ mod tests {
 
     #[test]
     fn test_yplane_bounding_box() {
+        use super::{Region, HalfspaceType};
+        use crate::surface::{Surface, SurfaceKind};
+        use std::sync::Arc;
+        use std::collections::HashMap;
         // YPlane at y=-2.0
         let s = Surface {
             surface_id: Some(1),
@@ -453,6 +475,9 @@ mod tests {
 
     #[test]
     fn test_zcylinder_bounding_box() {
+        use super::{Region, HalfspaceType};
+        use crate::surface::{Surface, SurfaceKind};
+        use std::sync::Arc;
         // Z-cylinder at (1, 2) with radius 3
         let s = Surface {
             surface_id: Some(1),
