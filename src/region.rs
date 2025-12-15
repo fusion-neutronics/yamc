@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_region_contains() {
-        use super::{Region, HalfspaceType};
+        use super::Region;
         use crate::surface::{Surface, SurfaceKind};
         use std::sync::Arc;
         use std::collections::HashMap;

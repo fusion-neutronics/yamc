@@ -13,17 +13,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[test]
-
-#[test]
 fn test_score_enum() {
     // Test Score enum conversions
-    let flux_score = Score::Flux;
+    let _flux_score = Score::Flux;
     
     let mt_score = Score::MT(101);
     assert_eq!(mt_score.to_i32(), 101);
     
     // Test from_str
-    let parsed_flux = Score::from_str("flux").unwrap();
+    let _parsed_flux = Score::from_str("flux").unwrap();
     
     let invalid_result = Score::from_str("invalid");
     assert!(invalid_result.is_err());

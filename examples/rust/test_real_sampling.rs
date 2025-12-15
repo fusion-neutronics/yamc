@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(reactions) = li6.reactions.get(temp) {
                 
                 println!("\nReactions at {}:", temp);
-                for (mt, reaction) in reactions.iter() {
+                for (_mt, _reaction) in reactions.iter() {
                     
                     if reactions.len() > 5 {
                         break; // Just show a few reactions
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Show how the sampling would work in a Monte Carlo transport loop
     let incoming_energy = 14e6; // 14 MeV neutron
-    let mut rng = thread_rng();
+    let _rng = thread_rng();
     
     println!("Incoming neutron: E = {:.1} MeV", incoming_energy / 1e6);
     println!("Reaction occurs...");

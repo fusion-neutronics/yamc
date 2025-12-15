@@ -116,7 +116,7 @@ mod tests {
     // --- Surface distance tests ---
     #[cfg(test)]
     mod distance_tests {
-        use crate::surface::{Surface, SurfaceKind};
+        use crate::surface::Surface;
 
         #[test]
         fn test_sphere_distance() {
