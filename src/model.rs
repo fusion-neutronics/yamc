@@ -10,7 +10,7 @@ use crate::tallies::tally::Tally;
 use rand::SeedableRng;
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
-use std::sync::{Arc};
+use std::sync::{Arc, atomic::Ordering};
 
 #[derive(Debug, Clone)]
 pub struct Model {
