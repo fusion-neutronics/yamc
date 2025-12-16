@@ -7,8 +7,8 @@ import yamc
 isotopes = yamc.natural_abundance().keys()
 # Plot the energy-binned flux spectrum
 
-# for isotope in isotopes:
-for isotope in ['Cr52']:
+for isotope in isotopes:
+# for isotope in ['Cr52']:
     fig, ax = plt.subplots(figsize=(10, 6))
     for code in ['openmc', 'yamc']:
     # for code in ['yamc']:
@@ -47,6 +47,7 @@ for isotope in ['Cr52']:
         material1.add_nuclide(isotope, 01.0)  # Li4SiO4
         material1.set_density("g/cm3", 2.0)
         if code == 'yamc':
+            print(f"Reading nuclide data for {isotope}...")
             dir = "../cross_section_data_tendl_2021/tendl_2021/"
             material1.read_nuclides_from_json({isotope: f"{dir}{isotope}.json"})
 

@@ -292,6 +292,12 @@ pub enum AngleEnergyDistribution {
         #[serde(default)]
         interpolation: Option<Vec<i32>>,
     },
+    /// Evaporation energy distribution (OpenMC-compatible)
+    #[serde(rename = "Evaporation")]
+    Evaporation {
+        theta: Option<Tabulated1D>, // nuclear temperature parameter as function of E
+        u: f64, // restriction energy (threshold)
+    },
 }
 
 impl AngleEnergyDistribution {
@@ -307,6 +313,32 @@ impl AngleEnergyDistribution {
             },
             AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, mu, .. } => {
                 crate::secondary_correlated::sample_correlated_angle_energy(incoming_energy, energy, energy_out, mu, rng)
+            }
+            AngleEnergyDistribution::Evaporation { theta, u } => {
+                // OpenMC: sample outgoing energy from evaporation spectrum
+                // p(E) ~ exp(-(E-u)/theta(E)), 0 < E_out < E-u
+                // Sample: rejection method with two random numbers
+                let e_in = incoming_energy;
+                let theta_val = if let Some(tab) = theta {
+                    tab.evaluate(e_in)
+                } else {
+                    1.0 // fallback, should not happen
+                };
+                let y = (e_in - *u) / theta_val;
+                let v = 1.0 - (-y).exp();
+                let mut e_out = 0.0;
+                loop {
+                    let xi1 = rng.gen::<f64>();
+                    let xi2 = rng.gen::<f64>();
+                    let x = -((1.0 - v * xi1) * (1.0 - v * xi2)).ln();
+                    if x <= y {
+                        e_out = x * theta_val;
+                        break;
+                    }
+                }
+                // Isotropic emission
+                let mu = 2.0 * rng.gen::<f64>() - 1.0;
+                (e_out, mu)
             }
         }
     }

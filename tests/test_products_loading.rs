@@ -61,6 +61,9 @@ fn test_pb208_products_are_loaded() {
                         println!("  CorrelatedAngleEnergy distribution has {} incoming energy points", energy.len());
                         println!("  With {} energy_out grids", energy_out.len());
                     }
+                    yamc::reaction_product::AngleEnergyDistribution::Evaporation { .. } => {
+                        println!("  Evaporation distribution");
+                    }
                 }
             }
         }
