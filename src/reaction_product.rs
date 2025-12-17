@@ -1,3 +1,23 @@
+/// Helper: compute cumulative distribution from PDF (lin-lin, normalized)
+fn cumulative_from_pdf(x: &[f64], p: &[f64]) -> Vec<f64> {
+    let mut c = Vec::with_capacity(x.len());
+    let mut sum = 0.0;
+    c.push(0.0);
+    for i in 1..x.len() {
+        // Trapezoidal rule for lin-lin
+        let dx = x[i] - x[i - 1];
+        let avg = 0.5 * (p[i] + p[i - 1]);
+        sum += avg * dx;
+        c.push(sum);
+    }
+    // Normalize
+    if sum > 0.0 {
+        for v in &mut c {
+            *v /= sum;
+        }
+    }
+    c
+}
 // Reaction product types and distributions
 // Refactored to match OpenMC's file structure:
 // - This file contains all type definitions (like reaction_product.h)
@@ -284,13 +304,7 @@ pub enum AngleEnergyDistribution {
         slope: Vec<Tabulated1D>,
     },
     CorrelatedAngleEnergy {
-        energy: Vec<f64>,
-        energy_out: Vec<TabulatedProbability>,
-        mu: Vec<Vec<TabulatedProbability>>,
-        #[serde(default)]
-        breakpoints: Option<Vec<i32>>,
-        #[serde(default)]
-        interpolation: Option<Vec<i32>>,
+        correlated: crate::secondary_correlated::CorrelatedAngleEnergy,
     },
     /// Evaporation energy distribution (OpenMC-compatible)
     #[serde(rename = "Evaporation")]
@@ -311,8 +325,8 @@ impl AngleEnergyDistribution {
             AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
                 crate::secondary_kalbach::sample_kalbach_mann(incoming_energy, energy, energy_out, slope, rng)
             },
-            AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, mu, .. } => {
-                crate::secondary_correlated::sample_correlated_angle_energy(incoming_energy, energy, energy_out, mu, rng)
+            AngleEnergyDistribution::CorrelatedAngleEnergy { correlated } => {
+                correlated.sample(incoming_energy, rng)
             }
             AngleEnergyDistribution::Evaporation { theta, u } => {
                 // OpenMC: sample outgoing energy from evaporation spectrum

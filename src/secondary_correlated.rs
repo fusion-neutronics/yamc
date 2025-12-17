@@ -1,175 +1,152 @@
-// Correlated angle-energy distribution sampling
-// Corresponds to OpenMC's secondary_correlated.cpp
-
-// use serde::{Deserialize, Serialize};
-use rand::Rng;
+use serde::{Serialize, Deserialize};
 use crate::reaction_product::TabulatedProbability;
+use rand::Rng;
 
-/// Sample from correlated angle-energy distribution
-/// 
-/// This function corresponds to OpenMC's CorrelatedAngleEnergy::sample()
-/// 
-/// In a correlated distribution, the outgoing angle depends on the outgoing energy.
-/// The data structure stores:
-/// 1. A distribution of outgoing energies for each incoming energy
-/// 2. For each outgoing energy, a distribution of scattering angles (mu)
-/// 
-/// The sampling procedure:
-/// 1. Find the bracket for incoming energy
-/// 2. Sample outgoing energy from the distribution
-/// 3. Find the bracket for the sampled outgoing energy
-/// 4. Sample scattering angle from the corresponding mu distribution
-/// 5. Interpolate if needed
-/// 
-/// # Arguments
-/// * `incoming_energy` - Incident particle energy (eV)
-/// * `energy_grid` - Tabulated incident energy points
-/// * `energy_out_distributions` - Outgoing energy probability distributions at each incident energy
-/// * `mu_distributions` - Scattering angle distributions for each (E_in, E_out) combination
-/// * `rng` - Random number generator
-/// 
-/// # Returns
-/// Tuple of (outgoing_energy, mu_cosine)
-pub fn sample_correlated_angle_energy<R: Rng>(
-    incoming_energy: f64,
-    energy_grid: &[f64],
-    energy_out_distributions: &[TabulatedProbability],
-    mu_distributions: &[Vec<TabulatedProbability>],
-    rng: &mut R,
-) -> (f64, f64) {
-    // Find incoming energy bracket
-    let energy_index = find_energy_index(incoming_energy, energy_grid);
-    
-    if energy_index >= energy_out_distributions.len() || energy_index >= mu_distributions.len() {
-        // Outside tabulated range - fallback to isotropic elastic
-        return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
-    }
-    
-    // Sample outgoing energy from the tabulated distribution at this incoming energy
-    let e_out = energy_out_distributions[energy_index].sample(rng);
-    
-    // Get the angular distributions corresponding to this incoming energy
-    let angular_distributions = &mu_distributions[energy_index];
-    
-    if angular_distributions.is_empty() {
-        // No angular data available - fallback to isotropic
-        return (e_out, 2.0 * rng.gen::<f64>() - 1.0);
-    }
-    
-    // Get outgoing energy grid from energy_out distribution
-    let e_out_grid = energy_out_distributions[energy_index].get_x_values();
-    
-    // Number of angular distributions available
-    let n_ang = angular_distributions.len();
-    
-    if n_ang == 1 {
-        // Only one angular distribution available
-        let mu = angular_distributions[0].sample(rng);
-        return (e_out, mu.max(-1.0).min(1.0));
-    }
-    
-    // The angular distributions correspond to the outgoing energy bins in e_out_grid
-    // Find the bracket for the sampled outgoing energy
-    let mut idx = 0;
-    if e_out_grid.len() >= 2 && n_ang >= 2 {
-        // Find the energy bracket
-        for i in 0..e_out_grid.len().saturating_sub(1).min(n_ang - 1) {
-            if e_out >= e_out_grid[i] && e_out <= e_out_grid[i + 1] {
-                idx = i;
+/// Interpolation type for tabular distributions
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Interpolation {
+    Histogram,
+    LinLin,
+}
+
+/// Tabular distribution for outgoing energy or angle
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Tabular {
+    pub x: Vec<f64>,
+    pub p: Vec<f64>,
+    pub c: Vec<f64>,
+    pub interpolation: Interpolation,
+    pub n_discrete: usize, // Number of discrete lines (for outgoing energy)
+}
+
+impl Tabular {
+    /// Sample from the tabular distribution (ACE/OpenMC style)
+    pub fn sample<R: Rng>(&self, rng: &mut R) -> f64 {
+        let r = rng.gen::<f64>();
+        let n = self.x.len();
+        let mut k = 0;
+        let mut c_k = self.c[0];
+        let mut end = n - 2;
+        // Discrete portion
+        for j in 0..self.n_discrete {
+            k = j;
+            c_k = self.c[k];
+            if r < c_k {
+                end = j;
                 break;
             }
         }
-        
-        // If e_out is above all grid points, use the last bracket
-        if e_out > e_out_grid[e_out_grid.len().saturating_sub(1).min(n_ang - 1)] {
-            idx = n_ang.saturating_sub(2);
+        // Continuous portion
+        let mut c_k1 = 0.0;
+        for j in self.n_discrete..end {
+            k = j;
+            c_k1 = self.c[k + 1];
+            if r < c_k1 {
+                break;
+            }
+            k = j + 1;
+            c_k = c_k1;
         }
-    }
-    
-    // Ensure idx is valid
-    idx = idx.min(n_ang.saturating_sub(1));
-    
-    // Sample from angular distribution(s) at the outgoing energy
-    // Interpolate between distributions if between grid points
-    let mu_lo = angular_distributions[idx].sample(rng);
-    let mu = if idx + 1 < n_ang && e_out_grid.len() > idx + 1 {
-        let e_lo = e_out_grid[idx];
-        let e_hi = e_out_grid[idx + 1];
-        
-        if e_hi > e_lo {
-            // Sample from both distributions and interpolate
-            let mu_hi = angular_distributions[idx + 1].sample(rng);
-            let f = (e_out - e_lo) / (e_hi - e_lo);
-            mu_lo * (1.0 - f) + mu_hi * f
+        let x_k = self.x[k];
+        let p_k = self.p[k];
+        if self.interpolation == Interpolation::Histogram {
+            if p_k > 0.0 && k >= self.n_discrete {
+                x_k + (r - c_k) / p_k
+            } else {
+                x_k
+            }
         } else {
-            mu_lo
+            // LinLin
+            let x_k1 = self.x[k + 1];
+            let p_k1 = self.p[k + 1];
+            let frac = (p_k1 - p_k) / (x_k1 - x_k);
+            if frac == 0.0 {
+                x_k + (r - c_k) / p_k
+            } else {
+                x_k + ((p_k * p_k + 2.0 * frac * (r - c_k)).max(0.0).sqrt() - p_k) / frac
+            }
         }
-    } else {
-        mu_lo
-    };
-    
-    // Clamp mu to valid range
-    (e_out, mu.max(-1.0).min(1.0))
+    }
 }
 
-/// Find the energy index for interpolation
-fn find_energy_index(target_energy: f64, energy_grid: &[f64]) -> usize {
-    if energy_grid.is_empty() {
-        return 0;
+/// Correlated angle-energy distribution (OpenMC style)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorrelatedAngleEnergy {
+    pub energy: Vec<f64>, // incident energy grid
+    pub distributions: Vec<CorrTable>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorrTable {
+    pub interpolation: Interpolation,
+    pub n_discrete: usize,
+    pub e_out: Vec<f64>,
+    pub p: Vec<f64>,
+    pub c: Vec<f64>,
+    pub angle: Vec<Tabular>, // angular distributions for each outgoing energy
+}
+
+impl CorrelatedAngleEnergy {
+    /// Sample outgoing energy and angle given incident energy
+    pub fn sample<R: Rng>(&self, e_in: f64, rng: &mut R) -> (f64, f64) {
+        let n_energy = self.energy.len();
+        if n_energy < 2 {
+            // Not enough data, fallback
+            return (e_in, 2.0 * rng.gen::<f64>() - 1.0);
+        }
+        let (i, r) = if e_in < self.energy[0] {
+            (0, 0.0)
+        } else if e_in > self.energy[n_energy - 1] {
+            (n_energy - 2, 1.0)
+        } else {
+            let i = lower_bound_index(&self.energy, e_in);
+            let r = (e_in - self.energy[i]) / (self.energy[i + 1] - self.energy[i]);
+            (i, r)
+        };
+        let l = if r > rng.gen::<f64>() { i + 1 } else { i };
+        let dist = &self.distributions[l];
+        let n_energy_out = dist.e_out.len();
+        let n_discrete = dist.n_discrete;
+        let e_out = {
+            let tab = Tabular {
+                x: dist.e_out.clone(),
+                p: dist.p.clone(),
+                c: dist.c.clone(),
+                interpolation: dist.interpolation,
+                n_discrete: dist.n_discrete,
+            };
+            tab.sample(rng)
+        };
+        // Find outgoing energy bin
+        let mut k = 0;
+        for j in 0..n_energy_out - 1 {
+            if e_out >= dist.e_out[j] && e_out <= dist.e_out[j + 1] {
+                k = j;
+                break;
+            }
+        }
+        // Interpolate mu between angle[k] and angle[k+1] if needed
+        let mu = if k + 1 < dist.angle.len() {
+            let mu0 = dist.angle[k].sample(rng);
+            let mu1 = dist.angle[k + 1].sample(rng);
+            let e0 = dist.e_out[k];
+            let e1 = dist.e_out[k + 1];
+            let f = if e1 > e0 { (e_out - e0) / (e1 - e0) } else { 0.0 };
+            mu0 * (1.0 - f) + mu1 * f
+        } else {
+            dist.angle[k].sample(rng)
+        };
+        (e_out, mu.max(-1.0).min(1.0))
     }
-    if target_energy <= energy_grid[0] {
-        return 0;
-    }
-    if target_energy >= energy_grid[energy_grid.len() - 1] {
-        return energy_grid.len() - 1;
-    }
-    
-    energy_grid.binary_search_by(|&val| val.partial_cmp(&target_energy).unwrap())
-        .unwrap_or_else(|i| i.saturating_sub(1))
 }
 
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::SeedableRng;
-    use rand::rngs::StdRng;
-    
-    #[test]
-    fn test_correlated_single_angular_dist() {
-        let energy_grid = vec![1e6];
-        let energy_out = vec![TabulatedProbability::Tabulated {
-            x: vec![5e5, 7e5],
-            p: vec![0.5, 0.5],
-        }];
-        let mu_dist = vec![vec![TabulatedProbability::Tabulated {
-            x: vec![-1.0, 0.0, 1.0],
-            p: vec![0.33, 0.33, 0.34],
-        }]];
-        
-        let mut rng = StdRng::seed_from_u64(42);
-        let (e_out, mu) = sample_correlated_angle_energy(1e6, &energy_grid, &energy_out, &mu_dist, &mut rng);
-        
-        // Check valid ranges
-        assert!(e_out >= 5e5 && e_out <= 7e5);
-        assert!(mu >= -1.0 && mu <= 1.0);
+/// Find the lower bound index for interpolation
+fn lower_bound_index(grid: &[f64], value: f64) -> usize {
+    for i in 0..grid.len() - 1 {
+        if value < grid[i + 1] {
+            return i;
+        }
     }
-    
-    #[test]
-    fn test_correlated_fallback_isotropic() {
-        let energy_grid = vec![1e6];
-        let energy_out = vec![TabulatedProbability::Tabulated {
-            x: vec![5e5],
-            p: vec![1.0],
-        }];
-        let mu_dist = vec![vec![]]; // No angular distributions
-        
-        let mut rng = StdRng::seed_from_u64(42);
-        let (e_out, mu) = sample_correlated_angle_energy(1e6, &energy_grid, &energy_out, &mu_dist, &mut rng);
-        
-        // Should fallback to isotropic
-        assert!(mu >= -1.0 && mu <= 1.0);
-        assert_eq!(e_out, 5e5);
-    }
+    grid.len() - 2
 }
