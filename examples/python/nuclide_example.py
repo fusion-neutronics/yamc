@@ -3,14 +3,14 @@ import json
 
 # Configure cross section data paths
 yamc.Config.set_cross_sections({
-    "Be9": "tests/Be9.json",
-    "Fe54": "tests/Fe54.json",
-    "Fe56": "tests/Fe56.json",
-    "Fe57": "tests/Fe57.json",
-    "Fe58": "tests/Fe58.json",
-    "Li6": "tests/Li6.json",
-    "Li7": "tests/Li7.json",
-    "Pb208": "tests/Pb208.json",  # Added for product examples
+    "Be9": "tests/Be9.h5",
+    "Fe54": "tests/Fe54.h5",
+    "Fe56": "tests/Fe56.h5",
+    "Fe57": "tests/Fe57.h5",
+    "Fe58": "tests/Fe58.h5",
+    "Li6": "tests/Li6.h5",
+    "Li7": "tests/Li7.h5",
+    "Pb208": "tests/Pb208.h5",  # Added for product examples
 })
 
 print("=== Basic Nuclide Properties ===")
@@ -38,7 +38,7 @@ print(f"Energy grid points: {len(energy)}")
 print("\n=== Reaction Products and Angular Distributions ===")
 # Load a heavier nuclide that has product data
 nuc_pb = yamc.Nuclide('Pb208')
-nuc_pb.read_nuclide_from_json('tests/Pb208.json')
+nuc_pb.read_nuclide_from_json('tests/Pb208.h5')
 reactions = nuc_pb.reactions['294']
 
 # Find reactions with product data

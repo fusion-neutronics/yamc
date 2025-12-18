@@ -11,9 +11,9 @@ fn main() {
 
     // Set the path to the cross section data using local test files
     let cross_sections = HashMap::from([
-        ("Li6".to_string(), "tests/Li6.json".to_string()),
-        ("Li7".to_string(), "tests/Li7.json".to_string()),
-        ("Fe56".to_string(), "tests/Fe56.json".to_string()),
+        ("Li6".to_string(), "tests/Li6.h5".to_string()),
+        ("Li7".to_string(), "tests/Li7.h5".to_string()),
+        ("Fe56".to_string(), "tests/Fe56.h5".to_string()),
     ]);
     Config::global().set_cross_sections(cross_sections);
 

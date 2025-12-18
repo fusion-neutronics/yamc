@@ -91,10 +91,25 @@ pub fn scatter<R: rand::Rng>(
     nuclide_name: &str, // nuclide name for AWR lookup when needed
     rng: &mut R,
 ) -> Vec<Particle> {
+    use crate::data::ATOMIC_WEIGHT_RATIO;
+    let awr = *ATOMIC_WEIGHT_RATIO
+        .get(nuclide_name)
+        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+    scatter_with_awr(particle, reaction, nuclide_name, awr, rng)
+}
+
+/// Handle general scattering reactions with explicit AWR for CM to LAB conversion
+pub fn scatter_with_awr<R: rand::Rng>(
+    particle: &Particle,
+    reaction: &Reaction,
+    nuclide_name: &str,
+    awr: f64,
+    rng: &mut R,
+) -> Vec<Particle> {
     // Check if reaction has product data
     if !reaction.products.is_empty() {
-        // Sample from product distributions when available
-        sample_from_products(particle, reaction, rng)
+        // Sample from product distributions when available (with AWR for CM to LAB)
+        sample_from_products_with_awr(particle, reaction, awr, rng)
     } else {
         // No product data available - use analytical approach based on Q-value and MT
         analytical_scatter(particle, reaction, nuclide_name, rng)
@@ -170,7 +185,17 @@ fn sample_from_products<R: rand::Rng>(
     reaction: &Reaction,
     rng: &mut R,
 ) -> Vec<Particle> {
-    let incoming_energy = particle.energy;
+    sample_from_products_with_awr(particle, reaction, 1.0, rng)
+}
+
+/// Sample outgoing particles with explicit AWR for CM to LAB conversion
+pub fn sample_from_products_with_awr<R: rand::Rng>(
+    particle: &Particle,
+    reaction: &Reaction,
+    awr: f64,
+    rng: &mut R,
+) -> Vec<Particle> {
+    let e_in = particle.energy;
 
     // Find neutron products (since we're tracking neutrons)
     let neutron_products: Vec<&crate::reaction_product::ReactionProduct> = reaction
@@ -189,7 +214,26 @@ fn sample_from_products<R: rand::Rng>(
 
     for neutron_product in neutron_products {
         // Sample outgoing energy and scattering cosine from product distribution
-        let (e_out, mu) = neutron_product.sample(incoming_energy, rng);
+        let (mut e_out, mut mu) = neutron_product.sample(e_in, rng);
+
+        // If scattering is in center-of-mass frame, convert to LAB frame
+        // OpenMC: physics.cpp inelastic_scatter() lines 1131-1141
+        if reaction.scatter_in_cm {
+            let e_cm = e_out;
+            let a = awr;
+
+            // Determine outgoing energy in lab frame
+            // E = E_cm + (E_in + 2*mu*(A+1)*sqrt(E_in*E_cm)) / ((A+1)^2)
+            e_out = e_cm + (e_in + 2.0 * mu * (a + 1.0) * (e_in * e_cm).sqrt())
+                    / ((a + 1.0) * (a + 1.0));
+
+            // Determine outgoing angle in lab frame
+            // mu = mu * sqrt(E_cm/E) + 1/(A+1) * sqrt(E_in/E)
+            mu = mu * (e_cm / e_out).sqrt() + 1.0 / (a + 1.0) * (e_in / e_out).sqrt();
+
+            // Clamp mu to [-1, 1] due to floating point roundoff
+            mu = mu.max(-1.0).min(1.0);
+        }
 
         // Create new neutron particle
         let mut new_particle = particle.clone();

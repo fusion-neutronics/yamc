@@ -66,40 +66,84 @@ pub fn inelastic_scatter<R: rand::Rng>(
 
 /// Sample outgoing particles from reaction product distributions
 /// This handles the case where explicit product data is available
+/// If scatter_in_cm is true, converts from CM frame to LAB frame (OpenMC's inelastic_scatter)
 pub fn sample_from_products<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
     rng: &mut R,
 ) -> Vec<Particle> {
-    let incoming_energy = particle.energy;
-    
+    sample_from_products_with_awr(particle, reaction, 1.0, rng)
+}
+
+/// Sample outgoing particles with explicit AWR for CM to LAB conversion
+pub fn sample_from_products_with_awr<R: rand::Rng>(
+    particle: &Particle,
+    reaction: &Reaction,
+    awr: f64,
+    rng: &mut R,
+) -> Vec<Particle> {
+    let e_in = particle.energy;
+
     // Find neutron products (since we're tracking neutrons)
     let neutron_products: Vec<&crate::reaction_product::ReactionProduct> = reaction
         .products
         .iter()
         .filter(|product| product.is_particle_type(&ParticleType::Neutron))
         .collect();
-    
+
     if neutron_products.is_empty() {
         // No neutron products - particle is absorbed (e.g., (n,gamma), (n,p), etc.)
         return Vec::new();
     }
-    
+
     // Create outgoing neutrons for each neutron product
     let mut outgoing_neutrons = Vec::new();
-    
+
     for neutron_product in neutron_products {
         // Sample outgoing energy and scattering cosine from product distribution
-        let (e_out, mu) = neutron_product.sample(incoming_energy, rng);
-        
+        let (mut e_out, mut mu) = neutron_product.sample(e_in, rng);
+
+        // Debug: track original sampled values
+        let e_out_orig = e_out;
+        let mu_orig = mu;
+
+        // If scattering is in center-of-mass frame, convert to LAB frame
+        // OpenMC: physics.cpp inelastic_scatter() lines 1131-1141
+        if reaction.scatter_in_cm {
+            let e_cm = e_out;
+            let a = awr;
+
+            // Determine outgoing energy in lab frame
+            // E = E_cm + (E_in + 2*mu*(A+1)*sqrt(E_in*E_cm)) / ((A+1)^2)
+            e_out = e_cm + (e_in + 2.0 * mu * (a + 1.0) * (e_in * e_cm).sqrt())
+                    / ((a + 1.0) * (a + 1.0));
+
+            // Determine outgoing angle in lab frame
+            // mu = mu * sqrt(E_cm/E) + 1/(A+1) * sqrt(E_in/E)
+            mu = mu * (e_cm / e_out).sqrt() + 1.0 / (a + 1.0) * (e_in / e_out).sqrt();
+
+            // Clamp mu to [-1, 1] due to floating point roundoff
+            mu = mu.max(-1.0).min(1.0);
+        }
+
+        // Debug output for first few scatters (controlled by env var)
+        static DEBUG_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+            let count = DEBUG_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if count < 20 {
+                eprintln!("MT{}: E_in={:.3e} -> E_out_cm={:.3e}, mu_cm={:.3} -> E_out_lab={:.3e}, mu_lab={:.3}, scatter_in_cm={}, AWR={:.1}",
+                    reaction.mt_number, e_in, e_out_orig, mu_orig, e_out, mu, reaction.scatter_in_cm, awr);
+            }
+        }
+
         // Create new neutron particle
         let mut new_particle = particle.clone();
         new_particle.energy = e_out;
         rotate_direction(&mut new_particle.direction, mu, rng);
-        
+
         outgoing_neutrons.push(new_particle);
     }
-    
+
     outgoing_neutrons
 }
 

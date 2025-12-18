@@ -150,10 +150,10 @@ mod tests {
     #[test]
     fn test_set_and_get_cross_section_for_nuclide() {
         let mut config = Config::new();
-        config.set_cross_section("Li6", Some("/path/to/Li6.json"));
+        config.set_cross_section("Li6", Some("/path/to/Li6.h5"));
         assert_eq!(
             config.get_cross_section("Li6"),
-            Some("/path/to/Li6.json".to_string())
+            Some("/path/to/Li6.h5".to_string())
         );
     }
 
@@ -170,10 +170,10 @@ mod tests {
     #[test]
     fn test_set_cross_section_path_to_file() {
         let mut config = Config::new();
-        config.set_cross_section("Fe56", Some("../../tests/Fe56.json"));
+        config.set_cross_section("Fe56", Some("../../tests/Fe56.h5"));
         assert_eq!(
             config.get_cross_section("Fe56"),
-            Some("../../tests/Fe56.json".to_string())
+            Some("../../tests/Fe56.h5".to_string())
         );
     }
 
@@ -191,13 +191,13 @@ mod tests {
     fn test_set_cross_sections_multiple() {
         let mut config = Config::new();
         let cross_sections = std::collections::HashMap::from([
-            ("Li7".to_string(), "../../tests/Li7.json".to_string()),
+            ("Li7".to_string(), "../../tests/Li7.h5".to_string()),
             ("Li6".to_string(), "tendl-21".to_string()),
         ]);
         config.set_cross_sections(cross_sections);
         assert_eq!(
             config.get_cross_section("Li7"),
-            Some("../../tests/Li7.json".to_string())
+            Some("../../tests/Li7.h5".to_string())
         );
         assert_eq!(
             config.get_cross_section("Li6"),
@@ -238,13 +238,13 @@ mod tests {
     fn test_set_cross_sections_with_hashmap() {
         let mut config = Config::new();
         let cross_sections = std::collections::HashMap::from([
-            ("Li6".to_string(), "../../tests/Li6.json".to_string()),
+            ("Li6".to_string(), "../../tests/Li6.h5".to_string()),
             ("Fe56".to_string(), "tendl-21".to_string()),
         ]);
         config.set_cross_sections(cross_sections);
         assert_eq!(
             config.get_cross_section("Li6"),
-            Some("../../tests/Li6.json".to_string())
+            Some("../../tests/Li6.h5".to_string())
         );
         assert_eq!(
             config.get_cross_section("Fe56"),

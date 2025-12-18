@@ -225,7 +225,7 @@ impl PyNuclide {
     ///     >>>
     ///     >>> # Use custom local file
     ///     >>> li6_custom = yamc.Nuclide("Li6")
-    ///     >>> li6_custom.read_nuclide_from_json("path/to/custom_Li6.json")
+    ///     >>> li6_custom.read_nuclide_from_json("path/to/custom_Li6.h5")
     #[pyo3(signature = (path=None, temperatures=None), text_signature = "(self, path=None, temperatures=None)")]
     pub fn read_nuclide_from_json(
         &mut self,

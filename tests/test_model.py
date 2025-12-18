@@ -14,7 +14,7 @@ def test_model_construction():
     material = mc.Material()
     material.add_nuclide("Li6", 1.0)
     material.set_density("g/cm3", 0.5)
-    material.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+    material.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
     cell = mc.Cell(
         cell_id=1,
         name="sphere_cell",

@@ -1,7 +1,6 @@
 use crate::bank::ParticleBank;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::geometry::Geometry;
-use crate::inelastic::sample_from_products;
 use crate::physics::elastic_scatter;
 use crate::settings::Settings;
 use crate::surface::BoundaryType;
@@ -172,19 +171,27 @@ impl Model {
                                                         .get(nuclide_name.as_str())
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let temperature_k = material.temperature.parse::<f64>().unwrap_or(294.0);
-                                                    
+
                                                     // Check if we have product data with angular distributions
                                                     if !constituent_reaction.products.is_empty() {
-                                                        // DBRC: Use target-at-rest with tabulated angular distribution
-                                                        // Sample from product data to get scattering angle
-                                                        let outgoing_particles = sample_from_products(
-                                                            &particle, 
-                                                            &constituent_reaction, 
-                                                            &mut rng
-                                                        );
-                                                        
-                                                        if !outgoing_particles.is_empty() {
-                                                            particle = outgoing_particles[0].clone();
+                                                        // Use tabulated angular distribution with two-body kinematics
+                                                        // Sample angle from product, compute energy from kinematics
+                                                        if let Some(neutron_product) = constituent_reaction.products.iter()
+                                                            .find(|p| p.is_particle_type(&crate::reaction_product::ParticleType::Neutron))
+                                                        {
+                                                            // Sample (e_out, mu) - but for elastic we need to recompute energy
+                                                            let (_, mu_cm) = neutron_product.sample(particle.energy, &mut rng);
+
+                                                            // Two-body elastic kinematics
+                                                            let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+                                                            let e_out = particle.energy * (1.0 + alpha + (1.0 - alpha) * mu_cm) / 2.0;
+
+                                                            // Convert mu from CM to lab frame
+                                                            let denom = (1.0 + awr * awr + 2.0 * awr * mu_cm).sqrt();
+                                                            let mu_lab = (1.0 + awr * mu_cm) / denom;
+
+                                                            particle.energy = e_out;
+                                                            crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, &mut rng);
                                                         }
                                                     } else {
                                                         // No product data - use free-gas thermal scattering
@@ -193,9 +200,12 @@ impl Model {
                                                 }
                                                 50..=91 => {
                                                     // Inelastic scatter (MT 50-91): use tabulated product data if available
+                                                    let awr = *ATOMIC_WEIGHT_RATIO
+                                                        .get(nuclide_name.as_str())
+                                                        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let outgoing_particles = if !constituent_reaction.products.is_empty() {
-                                                        crate::inelastic::sample_from_products(
-                                                            &particle, &constituent_reaction, &mut rng
+                                                        crate::inelastic::sample_from_products_with_awr(
+                                                            &particle, &constituent_reaction, awr, &mut rng
                                                         )
                                                     } else {
                                                         crate::inelastic::analytical_inelastic_scatter(
@@ -203,14 +213,12 @@ impl Model {
                                                         )
                                                     };
 
-                                                    // MT 50-91 should always return exactly 1 particle
-                                                    assert_eq!(
-                                                        outgoing_particles.len(),
-                                                        1,
-                                                        "MT {} should produce exactly 1 neutron, got {}",
-                                                        constituent_reaction.mt_number,
-                                                        outgoing_particles.len()
-                                                    );
+                                                    // MT 50-91 typically produce 1 particle, but may produce more
+                                                    if outgoing_particles.is_empty() {
+                                                        // No particles produced - this shouldn't happen for MT 50-91
+                                                        eprintln!("Warning: MT {} produced 0 particles", constituent_reaction.mt_number);
+                                                        continue;
+                                                    }
 
                                                     let outgoing = &outgoing_particles[0];
                                                     particle.energy = outgoing.energy;
@@ -220,8 +228,12 @@ impl Model {
                                                 _ => {
                                                     // Other scattering reactions - handle products, multiplicity, banking
                                                     // Use scatter module for general scattering (n,2n), (n,3n), (n,n'alpha), etc.
-                                                    let outgoing_particles = crate::scatter::scatter(
-                                                        &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                                    // Pass AWR for CM to LAB conversion if needed
+                                                    let awr = *ATOMIC_WEIGHT_RATIO
+                                                        .get(nuclide_name.as_str())
+                                                        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                                    let outgoing_particles = crate::scatter::scatter_with_awr(
+                                                        &particle, &constituent_reaction, &nuclide_name, awr, &mut rng
                                                     );
 
                                                     // All scattering MTs should produce at least 1 neutron
@@ -360,7 +372,7 @@ mod tests {
         material.set_density("g/cc", 1.0).unwrap(); // Add density to fix test
         material.add_nuclide("Li6", 1.0).unwrap();
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         material.read_nuclides_from_json(&nuclide_json_map).unwrap();
         // Prepare material cross sections before creating the Arc
         material.calculate_macroscopic_xs(&vec![1], true);

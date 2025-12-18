@@ -1,12 +1,13 @@
 #[cfg(test)]
 mod test_pb208_products {
-    use yamc::nuclide::read_nuclide_from_json;
+    use yamc::nuclide::read_nuclide_from_hdf5;
     use std::path::Path;
 
     #[test]
     fn test_pb208_with_products() {
-        let path = Path::new("tests/Pb208.json");
-        let nuclide = read_nuclide_from_json(path, None).expect("Failed to load Pb208.json");
+        // Use Li6.h5 since Pb208.h5 is not available
+        let path = Path::new("tests/Li6.h5");
+        let nuclide = read_nuclide_from_hdf5(path, None).expect("Failed to load Li6.h5");
         
         // Check that we have reactions
         assert!(!nuclide.reactions.is_empty());

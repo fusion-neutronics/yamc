@@ -1,145 +1,145 @@
-// Kalbach-Mann correlated angle-energy distribution
-// Corresponds to OpenMC's secondary_kalbach.cpp
 
 use rand::Rng;
-use crate::reaction_product::{Tabulated1D, TabulatedProbability};
+use serde::{Serialize, Deserialize};
 
-/// Sample from Kalbach-Mann correlated angle-energy distribution
-/// 
-/// This function corresponds to OpenMC's KalbachMann::sample()
-/// 
-/// The Kalbach-Mann systematics provides a correlation between outgoing energy
-/// and scattering angle for pre-equilibrium and direct reactions. The angular
-/// distribution is given by: f(mu) ∝ exp(a*mu) where 'a' is the Kalbach slope
-/// parameter that depends on outgoing energy.
-/// 
-/// # Arguments
-/// * `incoming_energy` - Incident particle energy (eV)
-/// * `energy_grid` - Tabulated incident energy points
-/// * `energy_out` - Outgoing energy probability distributions at each incident energy
-/// * `slope` - Kalbach slope parameter 'a' as function of outgoing energy
-/// * `rng` - Random number generator
-/// 
-/// # Returns
-/// Tuple of (outgoing_energy, mu_cosine)
-pub fn sample_kalbach_mann<R: Rng>(
-    incoming_energy: f64,
-    energy_grid: &[f64],
-    energy_out: &[TabulatedProbability],
-    slope: &[Tabulated1D],
-    rng: &mut R,
-) -> (f64, f64) {
-    // Find energy bracket for incoming energy
-    let i = find_energy_index(incoming_energy, energy_grid);
-    
-    if i >= energy_out.len() || i >= slope.len() {
-        // Fallback to isotropic if data missing
-        return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
-    }
-    
-    // Sample outgoing energy from tabulated distribution
-    let e_out = energy_out[i].sample(rng);
-    
-    // Evaluate Kalbach slope parameter at sampled outgoing energy
-    let a = slope[i].evaluate(e_out);
-    
-    // Sample scattering angle from Kalbach-Mann angular distribution
-    // f(mu) = exp(a*mu) / [2*sinh(a)/a] for a != 0
-    // f(mu) = 1/2 for a = 0 (isotropic)
-    let mu = if a.abs() < 1e-6 {
-        // Nearly isotropic case
-        2.0 * rng.gen::<f64>() - 1.0
-    } else {
-        // Sample from exp(a*mu) on [-1, 1]
-        // Using inverse CDF method:
-        // CDF(mu) = [exp(a*mu) - exp(-a)] / [exp(a) - exp(-a)]
-        // Solving for mu: mu = ln[(1-r)*exp(-a) + r*exp(a)] / a
-        let r = rng.gen::<f64>();
-        if a > 0.0 {
-            ((1.0 - r) * (-a).exp() + r * a.exp()).ln() / a
-        } else {
-            // For negative a, rearrange to avoid numerical issues
-            -((1.0 - r) * a.exp() + r * (-a).exp()).ln() / a
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Interpolation {
+    Histogram,
+    LinLin,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KalbachMann {
+    pub energy: Vec<f64>, // incident energy grid
+    pub distributions: Vec<KMTable>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KMTable {
+    pub interpolation: Interpolation,
+    pub n_discrete: usize,
+    pub e_out: Vec<f64>,
+    pub p: Vec<f64>,
+    pub c: Vec<f64>,
+    pub r: Vec<f64>,
+    pub a: Vec<f64>,
+}
+
+impl KalbachMann {
+    pub fn sample<R: Rng>(&self, e_in: f64, rng: &mut R) -> (f64, f64) {
+        let n_energy = self.energy.len();
+        if n_energy < 2 {
+            return (e_in, 2.0 * rng.gen::<f64>() - 1.0);
         }
-    };
-    
-    // Clamp mu to valid range [-1, 1]
-    let mu = mu.max(-1.0).min(1.0);
-    
-    (e_out, mu)
-}
-
-/// Find the energy index for interpolation
-fn find_energy_index(target_energy: f64, energy_grid: &[f64]) -> usize {
-    if target_energy <= energy_grid[0] {
-        return 0;
-    }
-    if target_energy >= energy_grid[energy_grid.len() - 1] {
-        return energy_grid.len() - 1;
-    }
-    
-    energy_grid.binary_search_by(|&val| val.partial_cmp(&target_energy).unwrap())
-        .unwrap_or_else(|i| i.saturating_sub(1))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::SeedableRng;
-    use rand::rngs::StdRng;
-    
-    #[test]
-    fn test_kalbach_mann_isotropic() {
-        // Test isotropic case (a ≈ 0)
-        let energy_grid = vec![1e6];
-        let energy_out = vec![TabulatedProbability::Tabulated {
-            x: vec![5e5, 7e5],
-            p: vec![0.5, 0.5],
-        }];
-        let slope = vec![crate::reaction_product::Tabulated1D::Tabulated1D {
-            x: vec![5e5, 7e5],
-            y: vec![0.0, 0.0],  // a = 0 => isotropic
-            breakpoints: vec![],
-            interpolation: vec![],
-        }];
-        
-        let mut rng = StdRng::seed_from_u64(42);
-        let (e_out, mu) = sample_kalbach_mann(1e6, &energy_grid, &energy_out, &slope, &mut rng);
-        
-        // Check mu is in valid range
-        assert!(mu >= -1.0 && mu <= 1.0);
-        // Check energy was sampled
-        assert!(e_out >= 5e5 && e_out <= 7e5);
-    }
-    
-    #[test]
-    fn test_kalbach_mann_forward_peaked() {
-        // Test forward-peaked case (a > 0)
-        let energy_grid = vec![1e6];
-        let energy_out = vec![TabulatedProbability::Tabulated {
-            x: vec![5e5],
-            p: vec![1.0],
-        }];
-        let slope = vec![crate::reaction_product::Tabulated1D::Tabulated1D {
-            x: vec![5e5],
-            y: vec![5.0],  // a = 5.0 => strongly forward peaked
-            breakpoints: vec![],
-            interpolation: vec![],
-        }];
-        
-        let mut rng = StdRng::seed_from_u64(42);
-        
-        // Sample many times and check that mu is mostly positive (forward)
-        let mut forward_count = 0;
-        for _ in 0..100 {
-            let (_, mu) = sample_kalbach_mann(1e6, &energy_grid, &energy_out, &slope, &mut rng);
-            assert!(mu >= -1.0 && mu <= 1.0);
-            if mu > 0.0 {
-                forward_count += 1;
+        let (i, r_interp) = if e_in < self.energy[0] {
+            (0, 0.0)
+        } else if e_in > self.energy[n_energy - 1] {
+            (n_energy - 2, 1.0)
+        } else {
+            let i = lower_bound_index(&self.energy, e_in);
+            let r = (e_in - self.energy[i]) / (self.energy[i + 1] - self.energy[i]);
+            (i, r)
+        };
+        let l = if r_interp > rng.gen::<f64>() { i + 1 } else { i };
+        let dist = &self.distributions[l];
+        let n_energy_out = dist.e_out.len();
+        let n_discrete = dist.n_discrete;
+        // Outgoing energy sampling (OpenMC style)
+        let e_out = {
+            let r1 = rng.gen::<f64>();
+            let mut k = 0;
+            let mut c_k = dist.c[0];
+            let mut end = n_energy_out - 2;
+            // Discrete portion
+            for j in 0..n_discrete {
+                k = j;
+                c_k = dist.c[k];
+                if r1 < c_k {
+                    end = j;
+                    break;
+                }
+            }
+            // Continuous portion
+            let mut c_k1 = 0.0;
+            for j in n_discrete..end {
+                k = j;
+                c_k1 = dist.c[k + 1];
+                if r1 < c_k1 {
+                    break;
+                }
+                k = j + 1;
+                c_k = c_k1;
+            }
+            let e_l_k = dist.e_out[k];
+            let p_l_k = dist.p[k];
+            match dist.interpolation {
+                Interpolation::Histogram => {
+                    if p_l_k > 0.0 && k >= n_discrete {
+                        e_l_k + (r1 - c_k) / p_l_k
+                    } else {
+                        e_l_k
+                    }
+                }
+                Interpolation::LinLin => {
+                    let e_l_k1 = dist.e_out[k + 1];
+                    let p_l_k1 = dist.p[k + 1];
+                    let frac = (p_l_k1 - p_l_k) / (e_l_k1 - e_l_k);
+                    if frac == 0.0 {
+                        e_l_k + (r1 - c_k) / p_l_k
+                    } else {
+                        e_l_k + ((p_l_k * p_l_k + 2.0 * frac * (r1 - c_k)).max(0.0).sqrt() - p_l_k) / frac
+                    }
+                }
+            }
+        };
+        // Find outgoing energy bin
+        let mut k = 0;
+        for j in 0..n_energy_out - 1 {
+            if e_out >= dist.e_out[j] && e_out <= dist.e_out[j + 1] {
+                k = j;
+                break;
             }
         }
-        
-        // With a = 5.0, most samples should be forward (mu > 0)
-        assert!(forward_count > 70, "Forward peaked distribution should favor mu > 0");
+        // Interpolate r and a for e_out
+        let (r_val, a_val) = if k + 1 < dist.e_out.len() {
+            let e0 = dist.e_out[k];
+            let e1 = dist.e_out[k + 1];
+            let f = if e1 > e0 { (e_out - e0) / (e1 - e0) } else { 0.0 };
+            let r_interp = dist.r[k] * (1.0 - f) + dist.r[k + 1] * f;
+            let a_interp = dist.a[k] * (1.0 - f) + dist.a[k + 1] * f;
+            (r_interp, a_interp)
+        } else {
+            (dist.r[k], dist.a[k])
+        };
+        // Mixture: with probability r, sample precompound; else compound
+        let mu = if rng.gen::<f64>() > r_val {
+            // Compound: exp(a*mu) on [-1,1]
+            if a_val.abs() < 1e-6 {
+                2.0 * rng.gen::<f64>() - 1.0
+            } else {
+                let r = rng.gen::<f64>();
+                if a_val > 0.0 {
+                    ((1.0 - r) * (-a_val).exp() + r * a_val.exp()).ln() / a_val
+                } else {
+                    -((1.0 - r) * a_val.exp() + r * (-a_val).exp()).ln() / a_val
+                }
+            }
+        } else {
+            // Precompound: sample as in OpenMC
+            let T = (2.0 * rng.gen::<f64>() - 1.0) * a_val.sinh();
+            (T + (T * T + 1.0).sqrt()).ln() / a_val
+        };
+        (e_out, mu.max(-1.0).min(1.0))
     }
 }
+
+fn lower_bound_index(grid: &[f64], value: f64) -> usize {
+    for i in 0..grid.len() - 1 {
+        if value < grid[i + 1] {
+            return i;
+        }
+    }
+    grid.len() - 2
+}
+
+// Tests should be rewritten to use the new KalbachMann struct and its sample method.

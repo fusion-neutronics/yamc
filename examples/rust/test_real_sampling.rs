@@ -1,11 +1,11 @@
-use yamc::nuclide::{read_nuclide_from_json};
+use yamc::nuclide::{read_nuclide_from_hdf5};
 use rand::thread_rng;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Testing Real Nuclear Data Sampling ===");
     
     // Load Li6 which has product data
-    let li6 = read_nuclide_from_json("tests/Li6.json", None)?;
+    let li6 = read_nuclide_from_hdf5("tests/Li6.h5", None)?;
     
     if let Some(temps) = li6.temperatures() {
         println!("Loaded Li6 nuclide with {} temperatures", temps.len());

@@ -40,17 +40,17 @@ pub fn is_keyword(input: &str) -> bool {
 pub fn expand_keyword_to_url(keyword: &str, nuclide_name: &str) -> Option<String> {
     get_keyword_url_mapping()
         .get(keyword)
-        .map(|stem| format!("{}{}.json", stem, nuclide_name))
+        .map(|stem| format!("{}{}.h5", stem, nuclide_name))
 }
 
 /// Generate a filename for cache based on keyword or URL
 #[cfg(feature = "download")]
 fn generate_cache_filename(source: &str, nuclide_name: &str) -> String {
     if is_keyword(source) {
-        format!("{}-{}.json", source, nuclide_name)
+        format!("{}-{}.h5", source, nuclide_name)
     } else {
         // For direct URLs, still use the nuclide name
-        format!("{}.json", nuclide_name)
+        format!("{}.h5", nuclide_name)
     }
 }
 

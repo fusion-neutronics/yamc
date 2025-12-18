@@ -44,7 +44,7 @@ fn test_batch_tally_variation() {
     let _ = material.add_nuclide("Be9", 1.0);
     let _ = material.set_density("g/cm3", 1.85);
     let mut nuclide_map = HashMap::new();
-    nuclide_map.insert("Be9".to_string(), "tests/Be9.json".to_string());
+    nuclide_map.insert("Be9".to_string(), "tests/Be9.h5".to_string());
     material.read_nuclides_from_json(&nuclide_map).unwrap();
 
     let mat_arc = Arc::new(material);
@@ -212,7 +212,7 @@ fn test_different_seeds_produce_different_results() {
         let _ = material.add_nuclide("Be9", 1.0);
         let _ = material.set_density("g/cm3", 1.85);
         let mut nuclide_map = HashMap::new();
-        nuclide_map.insert("Be9".to_string(), "tests/Be9.json".to_string());
+        nuclide_map.insert("Be9".to_string(), "tests/Be9.h5".to_string());
         material.read_nuclides_from_json(&nuclide_map).unwrap();
 
         let mat_arc = Arc::new(material);
@@ -305,7 +305,7 @@ fn test_same_seed_produces_reproducible_results() {
         let _ = material.add_nuclide("Li6", 1.0);
         let _ = material.set_density("g/cm3", 0.5);
         let mut nuclide_map = HashMap::new();
-        nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         material.read_nuclides_from_json(&nuclide_map).unwrap();
 
         let mat_arc = Arc::new(material);

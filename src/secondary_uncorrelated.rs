@@ -7,12 +7,12 @@ use crate::reaction_product::{EnergyDistribution, AngleDistribution};
 
 /// Sample from uncorrelated angle-energy distribution
 /// This function corresponds to OpenMC's UncorrelatedAngleEnergy::sample()
-/// 
+///
 /// The angle and energy are sampled independently:
 /// - If angle distribution exists, sample mu from it
 /// - Otherwise use isotropic scattering
 /// - If energy distribution exists, sample E_out from it
-/// - Otherwise use incoming energy (elastic)
+/// - Otherwise return None for energy (caller must handle kinematics)
 pub fn sample_uncorrelated<R: Rng>(
     incoming_energy: f64,
     angle: &AngleDistribution,
@@ -21,13 +21,40 @@ pub fn sample_uncorrelated<R: Rng>(
 ) -> (f64, f64) {
     // Sample cosine of scattering angle
     let mu = angle.sample(incoming_energy, rng);
-    
-    // Sample outgoing energy
+
+    // Sample outgoing energy if distribution exists
+    // If no energy distribution, return incoming energy as placeholder
+    // (caller should apply two-body kinematics for elastic scattering)
     let e_out = energy.as_ref()
         .map(|e| e.sample(incoming_energy, rng))
         .unwrap_or(incoming_energy);
-    
+
     (e_out, mu)
+}
+
+/// Sample from uncorrelated angle-energy for elastic scattering
+/// Applies two-body kinematics to compute outgoing energy from angle
+pub fn sample_elastic_uncorrelated<R: Rng>(
+    incoming_energy: f64,
+    angle: &AngleDistribution,
+    awr: f64,  // atomic weight ratio (target mass / neutron mass)
+    rng: &mut R,
+) -> (f64, f64) {
+    // Sample cosine of scattering angle in center-of-mass frame
+    let mu_cm = angle.sample(incoming_energy, rng);
+
+    // Two-body elastic kinematics (target at rest approximation)
+    // In CM frame: E_out/E_in = (1 + alpha + (1 - alpha)*mu_cm) / 2
+    // where alpha = ((A-1)/(A+1))^2
+    let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+    let e_out = incoming_energy * (1.0 + alpha + (1.0 - alpha) * mu_cm) / 2.0;
+
+    // Convert mu from CM to lab frame
+    // mu_lab = (1 + A*mu_cm) / sqrt(1 + A^2 + 2*A*mu_cm)
+    let denom = (1.0 + awr * awr + 2.0 * awr * mu_cm).sqrt();
+    let mu_lab = (1.0 + awr * mu_cm) / denom;
+
+    (e_out, mu_lab)
 }
 
 #[cfg(test)]

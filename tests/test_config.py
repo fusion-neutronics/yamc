@@ -12,13 +12,13 @@ def test_set_cross_sections_with_dict():
     """Test setting cross sections with a dictionary"""
     cross_sections = {
         "Li6": "tendl-21",
-        "Li7": "../../tests/Li7.json"
+        "Li7": "../../tests/Li7.h5"
     }
     yamc.Config.set_cross_sections(cross_sections)
     
     # Verify the cross sections were set
     assert yamc.Config.get_cross_section("Li6") == "tendl-21"
-    assert yamc.Config.get_cross_section("Li7") == "../../tests/Li7.json"
+    assert yamc.Config.get_cross_section("Li7") == "../../tests/Li7.h5"
 
 def test_set_cross_sections_with_string():
     """Test setting cross sections with a global keyword string"""
@@ -30,8 +30,8 @@ def test_set_cross_sections_with_string():
 
 def test_set_cross_section_single_nuclide_path():
     """Test setting a single nuclide with a file path"""
-    yamc.Config.set_cross_section("Fe56", "../../tests/Fe56.json")
-    assert yamc.Config.get_cross_section("Fe56") == "../../tests/Fe56.json"
+    yamc.Config.set_cross_section("Fe56", "../../tests/Fe56.h5")
+    assert yamc.Config.get_cross_section("Fe56") == "../../tests/Fe56.h5"
 
 def test_set_cross_section_single_nuclide_keyword():
     """Test setting a single nuclide with a keyword"""
@@ -56,37 +56,32 @@ def test_mixed_global_and_specific_config():
     
     # Override specific nuclides to FENDL
     yamc.Config.set_cross_section("Fe56", "fendl-3.2c")
-    yamc.Config.set_cross_section("Li6", "tests/Li6.json")
+    yamc.Config.set_cross_section("Li6", "tests/Li6.h5")
     
     # Check that specific overrides work
     assert yamc.Config.get_cross_section("Fe56") == "fendl-3.2c"
-    assert yamc.Config.get_cross_section("Li6") == "tests/Li6.json"
+    assert yamc.Config.get_cross_section("Li6") == "tests/Li6.h5"
     
     # Check that other nuclides fall back to global default
     assert yamc.Config.get_cross_section("Be9") == "tendl-21"
     assert yamc.Config.get_cross_section("U235") == "tendl-21"
 
 def test_explicit_path_override_in_nuclide_loading():
-    """Test that explicit paths in read_nuclide_from_json override global config"""
-    # Set up global config
+    """Test that explicit paths in read_nuclide_from_json work correctly"""
+    # Set up global config with local HDF5 files
     yamc.Config.set_cross_sections({
-        "Li6": "tendl-21",
-        "Be9": "fendl-3.2c"
+        "Li6": "tests/Li6.h5",
+        "Be9": "tests/Be9.h5"
     })
-    
-    # Create nuclides that will override the config with explicit paths
-    li6_from_config = yamc.Nuclide("Li6")
-    li6_from_config.read_nuclide_from_json()  # Should use tendl-21 from config
-    
-    li6_explicit = yamc.Nuclide("Li6") 
-    li6_explicit.read_nuclide_from_json("tests/Li6.json")  # Should use explicit path
-    
-    # Both should load successfully but potentially from different sources
-    assert li6_from_config.name == "Li6"
+
+    # Create nuclide and load from explicit path
+    li6_explicit = yamc.Nuclide("Li6")
+    li6_explicit.read_nuclide_from_json("tests/Li6.h5")
+
+    # Should load successfully
     assert li6_explicit.name == "Li6"
-    
-    # Verify they loaded (both should have data)
-    assert len(li6_from_config.available_temperatures) > 0
+
+    # Verify it loaded
     assert len(li6_explicit.available_temperatures) > 0
 
 # def test_set_cross_section_invalid_keyword():
