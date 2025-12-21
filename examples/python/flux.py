@@ -158,6 +158,7 @@ for isotope in ['Cr52']:
     yamc_flux = results.get('yamc', np.zeros(len(energy_bins)-1))
 
     for i in range(len(energy_bins) - 1):
+
         e_low = energy_bins[i]
         e_high = energy_bins[i + 1]
         omc = openmc_flux[i]
@@ -180,6 +181,15 @@ for isotope in ['Cr52']:
             marker = " *"
 
         print(f"{i:<4} {e_low:<14.4e} {e_high:<14.4e} {omc:<16.6e} {ymc:<16.6e} {diff:<+16.6e} {rel_diff:<12.2f}{marker}")
+
+    # Save flux spectrum to CSV file (yamc, openmc, energy)
+    csv_filename = f'flux_spectrum_{isotope}.txt'
+    bin_centers = np.sqrt(energy_bins[:-1] * energy_bins[1:])
+    with open(csv_filename, 'w') as f:
+        f.write('yamc,openmc,energy\n')
+        for i in range(len(bin_centers)):
+            f.write(f"{yamc_flux[i]:.8e},{openmc_flux[i]:.8e},{bin_centers[i]:.8e}\n")
+    print(f"Flux spectrum data saved as '{csv_filename}' (columns: yamc, openmc, energy)")
 
     print("-"*110)
     omc_total = np.sum(openmc_flux)
