@@ -75,7 +75,7 @@ fn main() {
     nuclide_map.insert("Be9".to_string(), "tests/Be9.h5".to_string());
     nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
     nuclide_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
-    material1.read_nuclides_from_json(&nuclide_map).unwrap();
+    material1.read_nuclides_from_h5(&nuclide_map).unwrap();
 
     let mat_arc = Arc::new(material1);
 

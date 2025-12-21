@@ -15,7 +15,7 @@ def test_q_values():
     # Test Li6 nuclide
     print("\n1. Loading Li6 nuclide...")
     li6 = yamc.Nuclide()
-    li6.read_nuclide_from_json('tests/Li6.h5')
+    li6.read_nuclide_from_h5('tests/Li6.h5')
     
     print(f"   Name: {li6.name}")
     print(f"   Available temperatures: {li6.available_temperatures}")
@@ -42,7 +42,7 @@ def test_q_values():
     # Test Be9 nuclide
     print("\n2. Loading Be9 nuclide...")
     be9 = yamc.Nuclide()
-    be9.read_nuclide_from_json('tests/Be9.h5')
+    be9.read_nuclide_from_h5('tests/Be9.h5')
     
     print(f"   Name: {be9.name}")
     print(f"   Available temperatures: {be9.available_temperatures}")

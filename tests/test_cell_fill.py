@@ -5,7 +5,7 @@ def test_cell_fill():
     mat = csg.Material("fuel")
     mat.add_nuclide('Li6', 1.0)
     mat.set_density('g/cm3', 1.0)
-    mat.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+    mat.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
     cell = csg.Cell(cell_id=1, region=-surf1, fill=mat)
     cell.fill.macroscopic_cross_section(reaction=1)
     assert cell.fill is not None

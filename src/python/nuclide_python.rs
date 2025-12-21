@@ -13,7 +13,7 @@ use std::collections::HashMap;
 ///
 /// Args:
 ///     name (Optional[str]): Optional nuclide identifier (e.g. "Li6", "Fe56"). If not
-///         supplied you must pass `path` to `read_nuclide_from_json` later.
+///         supplied you must pass `path` to `read_nuclide_from_h5` later.
 ///
 /// Notes:
 ///     Individual fields (e.g. `name`, `atomic_number`, `available_temperatures`,
@@ -159,7 +159,7 @@ impl PyNuclide {
     ///
     /// Args:
     ///     name (Optional[str]): Optional nuclide identifier (e.g. "Li6", "Fe56"). If not
-    ///         supplied you must pass `path` to `read_nuclide_from_json` later.
+    ///         supplied you must pass `path` to `read_nuclide_from_h5` later.
     ///
     /// Returns:
     ///     Nuclide: A nuclide object with no data loaded yet.
@@ -217,17 +217,17 @@ impl PyNuclide {
     ///     >>>
     ///     >>> # Load from global config (will use TENDL)
     ///     >>> li6_tendl = yamc.Nuclide("Li6")
-    ///     >>> li6_tendl.read_nuclide_from_json()
+    ///     >>> li6_tendl.read_nuclide_from_h5()
     ///     >>>
     ///     >>> # Override to use FENDL for comparison
     ///     >>> li6_fendl = yamc.Nuclide("Li6")
-    ///     >>> li6_fendl.read_nuclide_from_json("fendl-3.1d")
+    ///     >>> li6_fendl.read_nuclide_from_h5("fendl-3.1d")
     ///     >>>
     ///     >>> # Use custom local file
     ///     >>> li6_custom = yamc.Nuclide("Li6")
-    ///     >>> li6_custom.read_nuclide_from_json("path/to/custom_Li6.h5")
+    ///     >>> li6_custom.read_nuclide_from_h5("path/to/custom_Li6.h5")
     #[pyo3(signature = (path=None, temperatures=None), text_signature = "(self, path=None, temperatures=None)")]
-    pub fn read_nuclide_from_json(
+    pub fn read_nuclide_from_h5(
         &mut self,
         path: Option<String>,
         temperatures: Option<Vec<String>>,
@@ -399,7 +399,7 @@ impl PyNuclide {
     ///
     /// Example:
     ///     >>> nuclide = Nuclide("Li6")
-    ///     >>> nuclide.read_nuclide_from_json()
+    ///     >>> nuclide.read_nuclide_from_h5()
     ///     >>> reaction = nuclide.sample_reaction(1e-3, "294", seed=42)
     ///     >>> if reaction:
     ///     ...     print(f"Sampled MT {reaction['mt_number']}")
@@ -507,7 +507,7 @@ impl From<PyNuclide> for Nuclide {
 /// Raises:
 ///     OSError: If the file cannot be opened or parsed.
 #[pyo3(text_signature = "(path)")]
-pub fn py_read_nuclide_from_json(path: &str) -> PyResult<PyNuclide> {
+pub fn py_read_nuclide_from_h5(path: &str) -> PyResult<PyNuclide> {
     let nuclide = crate::nuclide::load_nuclide_from_path_or_keyword(path)
         .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
     Ok(PyNuclide::from(nuclide))

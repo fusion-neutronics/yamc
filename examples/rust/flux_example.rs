@@ -56,7 +56,7 @@ fn main() {
     material.add_nuclide("Cr52", 1.0).unwrap();
     let mut nuclide_json_map = std::collections::HashMap::new();
     nuclide_json_map.insert("Cr52".to_string(), "/home/jon/nuclear_data/neutron/Cr52.h5".to_string());
-    material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+    material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
     material.calculate_macroscopic_xs(&vec![1], true);
     let material_arc = Arc::new(material);
 

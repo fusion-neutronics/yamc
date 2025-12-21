@@ -51,7 +51,7 @@ for isotope in ['Cr52']:
         if code == 'yamc':
             print(f"Reading nuclide data for {isotope}...")
             # Load from OpenMC-format HDF5 file
-            material1.read_nuclides_from_json({isotope: f"{NUCLEAR_DATA_DIR}neutron/{isotope}.h5"})
+            material1.read_nuclides_from_h5({isotope: f"{NUCLEAR_DATA_DIR}neutron/{isotope}.h5"})
 
         # Create cells
         cell1 = mc.Cell(

@@ -3,20 +3,20 @@ from yamc import Nuclide
 
 def test_be9_not_fissionable():
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     assert hasattr(nuc, 'fissionable'), "Nuclide should have a 'fissionable' attribute"
     assert nuc.fissionable is False, "Be9 should not be fissionable"
 
 def test_fe58_not_fissionable():
     nuc = Nuclide('Fe58')
-    nuc.read_nuclide_from_json('tests/Fe58.h5')
+    nuc.read_nuclide_from_h5('tests/Fe58.h5')
     assert hasattr(nuc, 'fissionable'), "Nuclide should have a 'fissionable' attribute"
     assert nuc.fissionable is False, "Fe58 should not be fissionable"
 from yamc import Nuclide
 
 def test_read_li6_nuclide():
     nuc1 = Nuclide('Li6')
-    nuc1.read_nuclide_from_json('tests/Li6.h5')
+    nuc1.read_nuclide_from_h5('tests/Li6.h5')
     assert nuc1.element.lower() == 'lithium'
     assert nuc1.atomic_symbol == "Li"
     assert nuc1.atomic_number == 3
@@ -39,7 +39,7 @@ def test_read_li6_nuclide():
 
 def test_read_li7_nuclide():
     nuc1 = Nuclide('Li7')
-    nuc1.read_nuclide_from_json('tests/Li7.h5')
+    nuc1.read_nuclide_from_h5('tests/Li7.h5')
     assert nuc1.element.lower() == 'lithium'
     assert nuc1.atomic_symbol == "Li"
     assert nuc1.atomic_number == 3
@@ -63,7 +63,7 @@ def test_read_li7_nuclide():
 
 def test_read_be9_available_and_loaded_temperatures():
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     assert nuc.available_temperatures == ['294']
     # By current implementation, all temps are loaded eagerly
     assert hasattr(nuc, 'loaded_temperatures'), "loaded_temperatures attribute missing"
@@ -74,7 +74,7 @@ def test_read_be9_available_and_loaded_temperatures():
 
 def test_read_be9_mt_numbers_per_temperature():
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     mts_294 = sorted(int(mt) for mt in nuc.reactions['294'].keys())
     # Check essential MTs are present (not exact match since HDF5 may have different MTs)
     essential_mts = [1, 2, 3, 101, 102, 1001]
@@ -85,7 +85,7 @@ def test_read_be9_mt_numbers_per_temperature():
 def test_read_be9_selective_single_temperature():
     # Ensure only the specified temperature (294) is retained in reactions and loaded_temperatures
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5', temperatures=['294'])
+    nuc.read_nuclide_from_h5('tests/Be9.h5', temperatures=['294'])
     assert nuc.available_temperatures == ['294'], "available_temperatures should list all temps present in file"
     assert nuc.loaded_temperatures == ['294'], f"loaded_temperatures should be only ['294'], got {nuc.loaded_temperatures}"
     assert '294' in nuc.reactions, "294K reactions missing after selective load"
@@ -96,28 +96,28 @@ def test_read_be9_selective_single_temperature():
         assert mt in mts_294, f"Be9 selective load should have MT {mt}"
 
 
-def test_read_nuclide_from_json_keyword():
+def test_read_nuclide_from_h5_keyword():
     """Test keyword-based data loading from remote H5 files."""
     from yamc import Nuclide
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tendl-2019')
+    nuc.read_nuclide_from_h5('tendl-2019')
     assert nuc.element.lower() == 'lithium'
     assert nuc.atomic_number == 3
     assert nuc.mass_number == 6
     assert len(nuc.available_temperatures) > 0
 
-def test_read_nuclide_from_json_local_path():
+def test_read_nuclide_from_h5_local_path():
     from yamc import Nuclide
     nuc = Nuclide('Li6')
     # Should not raise TypeError when passing local path
-    nuc.read_nuclide_from_json("tests/Li6.h5")
+    nuc.read_nuclide_from_h5("tests/Li6.h5")
 
 
 def test_microscopic_cross_section_with_temperature():
     """Test microscopic_cross_section with explicit temperature."""
     from yamc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Test with specific temperature
     xs, energy = nuc.microscopic_cross_section(reaction=2, temperature='294')
@@ -141,7 +141,7 @@ def test_microscopic_cross_section_without_temperature():
     from yamc import Nuclide
     nuc = Nuclide('Be9')
     # Load only one temperature
-    nuc.read_nuclide_from_json('tests/Be9.h5', temperatures=['294'])
+    nuc.read_nuclide_from_h5('tests/Be9.h5', temperatures=['294'])
     
     # Should work without specifying temperature since only one is loaded
     xs, energy = nuc.microscopic_cross_section(2)
@@ -154,7 +154,7 @@ def test_microscopic_cross_section_multiple_temperatures_error():
     """Test that microscopic_cross_section works with single temperature without specifying."""
     from yamc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')  # Loads only 294K
+    nuc.read_nuclide_from_h5('tests/Be9.h5')  # Loads only 294K
     
     # Should work when no temperature specified with single loaded temperature
     xs, energy = nuc.microscopic_cross_section(2)
@@ -166,7 +166,7 @@ def test_microscopic_cross_section_invalid_temperature():
     """Test error handling for invalid temperature."""
     from yamc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Should raise error for non-existent temperature
     with pytest.raises(Exception) as exc_info:
@@ -181,7 +181,7 @@ def test_microscopic_cross_section_invalid_mt():
     """Test error handling for invalid MT number."""
     from yamc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Should raise error for non-existent MT
     with pytest.raises(Exception) as exc_info:
@@ -195,7 +195,7 @@ def test_microscopic_cross_section_multiple_mt_numbers():
     """Test microscopic_cross_section with various MT numbers."""
     from yamc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Test common MT numbers that should exist in Be9
     test_mts = [1, 2, 3, 16, 27, 101, 102]  # Common reaction types
@@ -217,7 +217,7 @@ def test_microscopic_cross_section_lithium():
     """Test microscopic_cross_section with Li6 data."""
     from yamc import Nuclide
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Li6 should have only one temperature, so no temperature needed
     xs, energy = nuc.microscopic_cross_section(reaction=2)  # Elastic scattering
@@ -262,7 +262,7 @@ def test_auto_loading_additional_temperature():
     
     # Load Be9 with only 294K initially
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5', ['294'])
+    nuc.read_nuclide_from_h5('tests/Be9.h5', ['294'])
     
     assert nuc.loaded_temperatures == ['294'], "Should only have 294K loaded initially"
     assert '294' in nuc.available_temperatures, "Should know 294K is available"
@@ -346,7 +346,7 @@ def test_auto_loading_with_manual_loading_combined():
     
     # Manually load some data first
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5', ['294'])
+    nuc.read_nuclide_from_h5('tests/Be9.h5', ['294'])
     
     # Verify manual loading worked
     assert '294' in nuc.loaded_temperatures, "Manual loading should work"
@@ -431,7 +431,7 @@ def test_microscopic_cross_section_by_name():
     """Test microscopic_cross_section with reaction names."""
     from yamc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Test elastic scattering using reaction name
     xs_name, energy_name = nuc.microscopic_cross_section("(n,elastic)", temperature='294')
@@ -474,7 +474,7 @@ def test_microscopic_cross_section_by_name_invalid_reaction():
     """Test error handling for invalid reaction names."""
     from yamc import Nuclide
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Test with invalid reaction name
     with pytest.raises(Exception) as exc_info:
@@ -489,7 +489,7 @@ def test_microscopic_cross_section_by_name_fission():
     
     # Use Li6 which might have fission data, or test the error handling
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     try:
         xs_fission, energy_fission = nuc.microscopic_cross_section("fission", temperature='294')
@@ -512,7 +512,7 @@ def test_sample_reaction_basic():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Test sampling at a typical neutron energy
     reaction = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
@@ -549,7 +549,7 @@ def test_sample_reaction_reproducibility():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Sample with same seed multiple times
     reaction1 = nuc.sample_reaction(energy=1.0, temperature='294', seed=123)
@@ -575,7 +575,7 @@ def test_sample_reaction_different_energies():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Test various energies from thermal to fast neutron range
     test_energies = [1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 1000.0]
@@ -604,7 +604,7 @@ def test_sample_reaction_be9():
     from yamc import Nuclide
     
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Be9 has different reaction channels than Li6
     reaction = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
@@ -628,7 +628,7 @@ def test_sample_reaction_without_seed():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Sample without seed (should use system random state)
     reaction1 = nuc.sample_reaction(energy=1.0, temperature='294')
@@ -649,7 +649,7 @@ def test_sample_reaction_multiple_temperatures():
     from yamc import Nuclide
     
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')  # Has 294K
+    nuc.read_nuclide_from_h5('tests/Be9.h5')  # Has 294K
     
     # Sample at available temperature
     reaction_294 = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
@@ -670,7 +670,7 @@ def test_sample_reaction_invalid_temperature():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Test with invalid temperature - should handle gracefully
     # The current implementation uses fallback behavior rather than strict errors
@@ -689,7 +689,7 @@ def test_sample_reaction_edge_cases():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Test very low energy
     reaction_low = nuc.sample_reaction(energy=1e-5, temperature='294', seed=42)
@@ -712,7 +712,7 @@ def test_sample_reaction_zero_energy():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Test with zero energy (edge case)
     reaction = nuc.sample_reaction(energy=0.0, temperature='294', seed=42)
@@ -729,7 +729,7 @@ def test_sample_reaction_consistency_with_available_mts():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     available_mts = set(nuc.reaction_mts)
     sampled_mts = set()
@@ -755,7 +755,7 @@ def test_sample_reaction_return_type():
     from yamc import Nuclide
     
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     reaction = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
     
@@ -793,11 +793,11 @@ def test_nuclide_different_data_sources():
 
     # Load from keyword
     nuc1 = Nuclide('Li6')
-    nuc1.read_nuclide_from_json('tendl-2019')
+    nuc1.read_nuclide_from_h5('tendl-2019')
 
     # Load from local file
     nuc2 = Nuclide('Li6')
-    nuc2.read_nuclide_from_json('tests/Li6.h5')
+    nuc2.read_nuclide_from_h5('tests/Li6.h5')
 
     # Both should have valid data
     assert len(nuc1.available_temperatures) > 0
@@ -811,11 +811,11 @@ def test_nuclide_file_vs_keyword_sources():
 
     # Load Li6 from file
     nuc_file = Nuclide('Li6')
-    nuc_file.read_nuclide_from_json('tests/Li6.h5')
+    nuc_file.read_nuclide_from_h5('tests/Li6.h5')
 
     # Load Li7 from keyword
     nuc_keyword = Nuclide('Li7')
-    nuc_keyword.read_nuclide_from_json('tendl-2019')
+    nuc_keyword.read_nuclide_from_h5('tendl-2019')
 
     # Both should work
     assert nuc_file.mass_number == 6
@@ -831,11 +831,11 @@ def test_nuclide_cache_respects_data_source_boundaries():
 
     # Load from keyword
     nuc1 = Nuclide('Li6')
-    nuc1.read_nuclide_from_json('tendl-2019')
+    nuc1.read_nuclide_from_h5('tendl-2019')
 
     # Load from local file
     nuc2 = Nuclide('Li6')
-    nuc2.read_nuclide_from_json('tests/Li6.h5')
+    nuc2.read_nuclide_from_h5('tests/Li6.h5')
 
     # Both should work independently
     assert len(nuc1.reaction_mts) > 0
@@ -848,12 +848,12 @@ def test_nuclide_path_normalization():
     
     # Load Li6 with relative path
     li6_rel = Nuclide("Li6")
-    li6_rel.read_nuclide_from_json("tests/Li6.h5")
+    li6_rel.read_nuclide_from_h5("tests/Li6.h5")
     
     # Load Li6 with absolute path
     li6_abs = Nuclide("Li6")
     abs_path = os.path.abspath("tests/Li6.h5")
-    li6_abs.read_nuclide_from_json(abs_path)
+    li6_abs.read_nuclide_from_h5(abs_path)
     
     # Should give identical results (same file)
     xs_rel, _ = li6_rel.microscopic_cross_section("(n,gamma)")
@@ -866,7 +866,7 @@ def test_basic_nuclide_properties_after_loading():
     """Test that basic nuclide properties are correctly set after loading data."""
     # Test Li6 properties
     nuc_li6 = Nuclide('Li6')
-    nuc_li6.read_nuclide_from_json('tests/Li6.h5')
+    nuc_li6.read_nuclide_from_h5('tests/Li6.h5')
     
     # Basic identification properties
     assert nuc_li6.name == 'Li6', "Nuclide name should be Li6"
@@ -889,7 +889,7 @@ def test_basic_nuclide_properties_after_loading():
 def test_basic_nuclide_properties_li7():
     """Test that basic nuclide properties are correctly set for Li7."""
     nuc_li7 = Nuclide('Li7')
-    nuc_li7.read_nuclide_from_json('tests/Li7.h5')
+    nuc_li7.read_nuclide_from_h5('tests/Li7.h5')
     
     # Basic identification properties
     assert nuc_li7.name == 'Li7', "Nuclide name should be Li7"
@@ -907,7 +907,7 @@ def test_basic_nuclide_properties_li7():
 def test_basic_nuclide_properties_be9():
     """Test that basic nuclide properties are correctly set for Be9."""
     nuc_be9 = Nuclide('Be9')
-    nuc_be9.read_nuclide_from_json('tests/Be9.h5')
+    nuc_be9.read_nuclide_from_h5('tests/Be9.h5')
     
     # Basic identification properties
     assert nuc_be9.name == 'Be9', "Nuclide name should be Be9"
@@ -930,7 +930,7 @@ def test_basic_nuclide_properties_iron_isotopes():
     
     for name, mass_num, neutron_num in iron_isotopes:
         nuc = Nuclide(name)
-        nuc.read_nuclide_from_json(f'tests/{name}.h5')
+        nuc.read_nuclide_from_h5(f'tests/{name}.h5')
         
         # Basic identification properties
         assert nuc.name == name, f"Nuclide name should be {name}"
@@ -970,10 +970,10 @@ def test_nuclide_properties_consistency():
     """Test that nuclide properties are consistent across multiple instances."""
     # Create two instances of the same nuclide
     nuc1 = Nuclide('Li6')
-    nuc1.read_nuclide_from_json('tests/Li6.h5')
+    nuc1.read_nuclide_from_h5('tests/Li6.h5')
     
     nuc2 = Nuclide('Li6')
-    nuc2.read_nuclide_from_json('tests/Li6.h5')
+    nuc2.read_nuclide_from_h5('tests/Li6.h5')
     
     # Should have identical properties
     assert nuc1.name == nuc2.name, "Names should be identical"
@@ -1000,7 +1000,7 @@ def test_nuclide_name_parsing():
     
     for name, expected_symbol, expected_mass in test_cases:
         nuc = Nuclide(name)
-        nuc.read_nuclide_from_json(f'tests/{name}.h5')
+        nuc.read_nuclide_from_h5(f'tests/{name}.h5')
         
         assert nuc.atomic_symbol == expected_symbol, f"Atomic symbol for {name} should be {expected_symbol}"
         assert nuc.mass_number == expected_mass, f"Mass number for {name} should be {expected_mass}"
@@ -1009,7 +1009,7 @@ def test_nuclide_name_parsing():
 def test_nuclide_reaction_mts_content():
     """Test that reaction MTs contain expected values."""
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Check for common reaction types that should be present
     common_mts = [1, 2, 3]  # total, elastic, nonelastic
@@ -1028,7 +1028,7 @@ def test_nuclide_reaction_mts_content():
 def test_nuclide_temperature_data_consistency():
     """Test that temperature data is consistent."""
     nuc = Nuclide('Be9')
-    nuc.read_nuclide_from_json('tests/Be9.h5')
+    nuc.read_nuclide_from_h5('tests/Be9.h5')
     
     # Available temperatures should include loaded temperatures
     available_set = set(nuc.available_temperatures)
@@ -1052,7 +1052,7 @@ def test_nuclide_fissionable_property():
     
     for name in non_fissionable:
         nuc = Nuclide(name)
-        nuc.read_nuclide_from_json(f'tests/{name}.h5')
+        nuc.read_nuclide_from_h5(f'tests/{name}.h5')
         
         assert hasattr(nuc, 'fissionable'), f"{name} should have fissionable attribute"
         assert nuc.fissionable is False, f"{name} should not be fissionable"
@@ -1061,7 +1061,7 @@ def test_nuclide_fissionable_property():
 def test_nuclide_atomic_mass_property():
     """Test atomic mass property if available."""
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Check if atomic mass is available
     if hasattr(nuc, 'atomic_mass'):
@@ -1074,7 +1074,7 @@ def test_nuclide_atomic_mass_property():
 def test_nuclide_cross_section_availability():
     """Test that cross section data is available after loading."""
     nuc = Nuclide('Li6')
-    nuc.read_nuclide_from_json('tests/Li6.h5')
+    nuc.read_nuclide_from_h5('tests/Li6.h5')
     
     # Should have reactions data
     assert hasattr(nuc, 'reactions'), "Should have reactions attribute"

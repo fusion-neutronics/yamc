@@ -38,7 +38,7 @@ print(f"Energy grid points: {len(energy)}")
 print("\n=== Reaction Products and Angular Distributions ===")
 # Load a heavier nuclide that has product data
 nuc_pb = yamc.Nuclide('Pb208')
-nuc_pb.read_nuclide_from_json('tests/Pb208.h5')
+nuc_pb.read_nuclide_from_h5('tests/Pb208.h5')
 reactions = nuc_pb.reactions['294']
 
 # Find reactions with product data

@@ -373,7 +373,7 @@ mod tests {
         material.add_nuclide("Li6", 1.0).unwrap();
         let mut nuclide_json_map = std::collections::HashMap::new();
         nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
         // Prepare material cross sections before creating the Arc
         material.calculate_macroscopic_xs(&vec![1], true);
         let material_arc = Arc::new(material.clone());

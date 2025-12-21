@@ -16,7 +16,7 @@ mat1.add_nuclide('Li6',1)
 mat1.add_nuclide('Li7',1)
 mat1.set_density('g/cm3',1.)
 mat1.temperature = "294"
-mat1.read_nuclides_from_json({'Li6':'tests/Li6.h5', 'Li7':'tests/Li7.h5'})
+mat1.read_nuclides_from_h5({'Li6':'tests/Li6.h5', 'Li7':'tests/Li7.h5'})
 
 # Get the unified energy grid
 m4mc_mean_free_path_at_14mev = mat1.mean_free_path_neutron(14e6)

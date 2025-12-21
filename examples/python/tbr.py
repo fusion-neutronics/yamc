@@ -41,7 +41,7 @@ for code in ['yamc']:
     # material1.add_element("Si", 1.0)
     material1.set_density("g/cm3", 2.0)
     if code == 'yamc':
-        material1.read_nuclides_from_json({"Be9": "tests/Be9.h5", "Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})
+        material1.read_nuclides_from_h5({"Be9": "tests/Be9.h5", "Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})
 
 
     # Create cells

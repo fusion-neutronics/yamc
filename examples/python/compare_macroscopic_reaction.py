@@ -12,7 +12,7 @@ openmc_macro=openmc_xs[0]
 
 mat2 = yamc.Material()
 mat2.add_nuclide('Li6',1)
-mat2.read_nuclides_from_json({'Li6':'tests/Li6.h5'})
+mat2.read_nuclides_from_h5({'Li6':'tests/Li6.h5'})
 mat2.set_density('g/cm3',2.)
 mat2.temperature = "294"
 my_energies, xs_dict = mat2.calculate_macroscopic_xs([3])

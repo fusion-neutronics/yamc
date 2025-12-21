@@ -118,14 +118,14 @@ You can also avoid the ```Config``` entirely and specify the nuclear data to use
 This can be done using a nuclear data library.
 ```python
 nuclide = yamc.Nuclide('Li6')
-nuclide.read_nuclide_from_json('tendl-2019')
+nuclide.read_nuclide_from_h5('tendl-2019')
 ```
 
 Alternatively a specific nuclear data path
 
 ```python
 nuclide = yamc.Nuclide('Li6')
-nuclide.read_nuclide_from_json('tests/Li6.h5')
+nuclide.read_nuclide_from_h5('tests/Li6.h5')
 ```
 
 ### Specific nuclear data on the Material
@@ -137,7 +137,7 @@ Again this can be done using a nuclear data library.
 material = yamc.Material()
 material.add_nuclide('Li6',1)
 material.set_density('g/cm3',2.)
-material.read_nuclides_from_json({'Li6':'tendl-2019'})
+material.read_nuclides_from_h5({'Li6':'tendl-2019'})
 material.temperature = "294"  # needed if there are multiple temperatures 
 my_energies, xs_dict = material.calculate_macroscopic_xs([3])
 ```
@@ -148,7 +148,7 @@ Alternatively a specific nuclear data path
 material = yamc.Material()
 material.add_nuclide('Li6',1)
 material.set_density('g/cm3',2.)
-material.read_nuclides_from_json({'Li6':'tests/Li6.h5'})
+material.read_nuclides_from_h5({'Li6':'tests/Li6.h5'})
 material.temperature = "294"  # needed if there are multiple temperatures 
 my_energies, xs_dict = material.calculate_macroscopic_xs([3])
 ```
@@ -170,7 +170,7 @@ mat1.add_nuclide('Li6',1)
 mat1.add_nuclide('Li7',1)
 mat1.set_density('g/cm3',1.)
 mat1.temperature = "294"
-mat1.read_nuclides_from_json({'Li6':'tests/Li6.h5', 'Li7':'tests/Li7.h5'})
+mat1.read_nuclides_from_h5({'Li6':'tests/Li6.h5', 'Li7':'tests/Li7.h5'})
 mean_free_path = mat1.mean_free_path_neutron(14e6)
 print(f'mean free path is {mean_free_path}')
 ```
@@ -187,7 +187,7 @@ import yamc
 mat = yamc.Material()
 mat.add_nuclide("Li6", 1.0)
 mat.set_density("g/cm3", 1.)
-mat.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+mat.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 mat.temperature = "294"
 mat.calculate_macroscopic_xs()  # Ensure xs are calculated
 sampled_distance = mat.sample_distance_to_collision(energy=14e6, seed=1234)
@@ -207,7 +207,7 @@ material.add_nuclide("Li6", 0.5)
 material.add_nuclide("Li7", 0.5)
 material.set_density("g/cm3", 1.0)
 material.temperature = "294"
-material.read_nuclides_from_json({
+material.read_nuclides_from_h5({
     "Li6": "tests/Li6.h5",
     "Li7": "tests/Li7.h5",
 })
@@ -224,7 +224,7 @@ Once the interacting nuclide is known then the reaction can be sampled using ```
 ```python
 import yamc
 nuc = yamc.Nuclide('Li6')
-nuc.read_nuclide_from_json('tests/Li6.h5')
+nuc.read_nuclide_from_h5('tests/Li6.h5')
 reaction = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
 print(f'interacting reaction is {reaction}')
 ```

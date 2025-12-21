@@ -18,7 +18,7 @@ mat1.set_density('g/cm3', 2.0)
 print(mat1)
 
 # Demonstrate partial override: provide only one mapping (others pulled from Config)
-# mat1.read_nuclides_from_json({"Li7": "tests/Li7.h5"})
+# mat1.read_nuclides_from_h5({"Li7": "tests/Li7.h5"})
 
 xs, energy = mat1.macroscopic_cross_section(reaction='(n,gamma)')
 xs, energy = mat1.macroscopic_cross_section(reaction=1)

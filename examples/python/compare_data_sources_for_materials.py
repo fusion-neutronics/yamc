@@ -13,7 +13,7 @@ print("Creating Li7 material from TENDL-21...")
 mat_tendl = yamc.Material()
 mat_tendl.add_nuclide("Li7", 1.0)
 print("Reading Li7 from TENDL-21...")
-mat_tendl.read_nuclides_from_json("tendl-21")
+mat_tendl.read_nuclides_from_h5("tendl-21")
 mat_tendl.set_density("g/cm3", 0.534)  # Lithium density
 
 # Material 2: Li7 from FENDL-3.2c  
@@ -21,7 +21,7 @@ print("Creating Li7 material from FENDL-3.2c...")
 mat_fendl = yamc.Material()
 mat_fendl.add_nuclide("Li7", 1.0)
 print("Reading Li7 from FENDL-3.2c...")
-mat_fendl.read_nuclides_from_json("fendl-3.2c")
+mat_fendl.read_nuclides_from_h5("fendl-3.2c")
 mat_fendl.set_density("g/cm3", 0.534)  # Lithium density
 
 # Get macroscopic (n,gamma) cross sections from both materials

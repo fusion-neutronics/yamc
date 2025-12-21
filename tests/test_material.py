@@ -255,7 +255,7 @@ def test_material_vs_nuclide_microscopic_xs_li6():
     grid = mat.unified_energy_grid_neutron()
     # Get the nuclide directly
     nuclide = Nuclide('Li6')
-    nuclide.read_nuclide_from_json('tests/Li6.h5')
+    nuclide.read_nuclide_from_h5('tests/Li6.h5')
     # Get the temperature string used by the material
     temperature = mat.temperature
     # Get reactions and energy grid for nuclide
@@ -290,7 +290,7 @@ def test_calculate_microscopic_xs_neutron_mt_filter():
     mat.add_element("Li", 1.0)
     # Set up the nuclide JSON map for Li6 and Li7
     nuclide_json_map = {"Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"}
-    mat.read_nuclides_from_json(nuclide_json_map)
+    mat.read_nuclides_from_h5(nuclide_json_map)
     # Calculate all MTs
     xs_all = mat.calculate_microscopic_xs_neutron()
     # Calculate only MT=2
@@ -308,7 +308,7 @@ def test_macroscopic_xs_neutron_mt_filter():
     from yamc import Material
     mat = Material()
     mat.add_element("Li", 1.0)
-    mat.read_nuclides_from_json({"Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})
+    mat.read_nuclides_from_h5({"Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})
     mat.set_density("g/cm3", 1.0)
     # Calculate all MTs
     energy_all, macro_xs_all = mat.calculate_macroscopic_xs(mt_filter=[1,2, 3], by_nuclide=False)
@@ -324,7 +324,7 @@ def test_hierarchical_mt3_generated_for_li6():
     import yamc
     mat = yamc.Material()
     mat.add_nuclide('Li6', 1.0)
-    mat.read_nuclides_from_json({'Li6': 'tests/Li6.h5'})
+    mat.read_nuclides_from_h5({'Li6': 'tests/Li6.h5'})
     mat.set_density('g/cm3', 0.534)
     mat.temperature = "294"
     energies, xs_dict = mat.calculate_macroscopic_xs([3], by_nuclide=False)
@@ -337,7 +337,7 @@ def test_macroscopic_xs_mt3_does_not_generate_mt1():
     mat.add_nuclide("Li6", 1.0)
     mat.set_density("g/cm3", 0.534)
     nuclide_json_map = {"Li6": "tests/Li6.h5"}
-    mat.read_nuclides_from_json(nuclide_json_map)
+    mat.read_nuclides_from_h5(nuclide_json_map)
     mt_filter = [3]
     _, macro_xs = mat.calculate_macroscopic_xs(mt_filter, by_nuclide=False)
     assert 1 not in macro_xs, "MT=1 should NOT be present when only MT=3 is requested"
@@ -347,7 +347,7 @@ def test_macroscopic_xs_mt24_does_not_generate_mt1():
     mat.add_nuclide("Li6", 1.0)
     mat.set_density("g/cm3", 0.534)
     nuclide_json_map = {"Li6": "tests/Li6.h5"}
-    mat.read_nuclides_from_json(nuclide_json_map)
+    mat.read_nuclides_from_h5(nuclide_json_map)
     mt_filter = [24]
     _, macro_xs = mat.calculate_macroscopic_xs(mt_filter, by_nuclide=False)
     assert 1 not in macro_xs, "MT=1 should NOT be present when only MT=24 is requested"
@@ -356,7 +356,7 @@ def test_sample_distance_to_collision_statistical():
     mat = Material()
     mat.add_nuclide("Li6", 1.0)
     mat.set_density("g/cm3", 1.)
-    mat.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+    mat.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
     mat.temperature = "294"
     mat.calculate_macroscopic_xs()  # Ensure xs are calculated
     energy = 14e6
@@ -382,7 +382,7 @@ def test_sample_interacting_nuclide_li6_li7():
         "Li6": "tests/Li6.h5",'(n,total)'
         "Li7": "tests/Li7.h5",
     }
-    material.read_nuclides_from_json(nuclide_json_map)
+    material.read_nuclides_from_h5(nuclide_json_map)
 
     # Calculate per-nuclide macroscopic total xs
     material.calculate_macroscopic_xs([1], True)
@@ -419,7 +419,7 @@ def test_material_be9_selective_temperature_load():
     mat.temperature = "300"
     mat.add_nuclide("Be9", 1.0)
     Config.set_cross_sections({"Be9": "tests/Be9.h5"})
-    mat.read_nuclides_from_json({"Be9": "tests/Be9.h5"})
+    mat.read_nuclides_from_h5({"Be9": "tests/Be9.h5"})
 
 def test_material_be9_selective_temperature_load_294():
     from yamc import Config, Material, clear_nuclide_cache
@@ -429,26 +429,26 @@ def test_material_be9_selective_temperature_load_294():
     mat.temperature = "294"
     mat.add_nuclide("Be9", 1.0)
     Config.set_cross_sections({"Be9": "tests/Be9.h5"})
-    mat.read_nuclides_from_json({"Be9": "tests/Be9.h5"})
+    mat.read_nuclides_from_h5({"Be9": "tests/Be9.h5"})
 
-def test_read_nuclides_from_json_keyword():
+def test_read_nuclides_from_h5_keyword():
     """Test keyword-based data loading from remote H5 files."""
     mat = Material()
     mat.add_element('Li', 1.0)
     mat.set_density('g/cm3', 2.0)
     mat.volume = 1.0
-    mat.read_nuclides_from_json("tendl-2019")
+    mat.read_nuclides_from_h5("tendl-2019")
     # Verify data was loaded
     grid = mat.unified_energy_grid_neutron()
     assert len(grid) > 0, "Energy grid should not be empty after keyword-based loading"
 
-def test_read_nuclides_from_json_dict():
+def test_read_nuclides_from_h5_dict():
     mat = Material()
     mat.add_element('Li', 1.0)
     mat.set_density('g/cm3', 2.0)
     mat.volume = 1.0
     # Provide local H5 paths for both Li6 and Li7 since element expansion creates both
-    mat.read_nuclides_from_json({"Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})
+    mat.read_nuclides_from_h5({"Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})
 
 
 def test_material_different_data_sources():
@@ -457,13 +457,13 @@ def test_material_different_data_sources():
     mat1 = Material()
     mat1.add_nuclide('Li6', 1.0)
     mat1.set_density('g/cm3', 1.0)
-    mat1.read_nuclides_from_json("tendl-2019")
+    mat1.read_nuclides_from_h5("tendl-2019")
 
     # Material using local file
     mat2 = Material()
     mat2.add_nuclide('Li6', 1.0)
     mat2.set_density('g/cm3', 1.0)
-    mat2.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+    mat2.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 
     # Both should have loaded data
     grid1 = mat1.unified_energy_grid_neutron()
@@ -479,7 +479,7 @@ def test_material_file_and_keyword_sources():
     mat.add_nuclide('Li7', 1.0)
     mat.set_density('g/cm3', 1.0)
     # Mix file path and keyword
-    mat.read_nuclides_from_json({
+    mat.read_nuclides_from_h5({
         "Li6": "tests/Li6.h5",
         "Li7": "tendl-2019"
     })
@@ -496,13 +496,13 @@ def test_material_cache_respects_data_source_boundaries():
     mat1 = Material()
     mat1.add_nuclide('Li6', 1.0)
     mat1.set_density('g/cm3', 1.0)
-    mat1.read_nuclides_from_json("tendl-2019")
+    mat1.read_nuclides_from_h5("tendl-2019")
 
     # Load same nuclide from local file
     mat2 = Material()
     mat2.add_nuclide('Li6', 1.0)
     mat2.set_density('g/cm3', 1.0)
-    mat2.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+    mat2.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 
     # Both should work independently
     grid1 = mat1.unified_energy_grid_neutron()
@@ -518,14 +518,14 @@ def test_material_path_normalization_in_cache():
     # Material 1: relative path
     mat_rel = Material()
     mat_rel.add_nuclide("Li6", 1.0)
-    mat_rel.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+    mat_rel.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
     mat_rel.set_density("g/cm3", 1.0)
     
     # Material 2: absolute path to same file
     mat_abs = Material()
     mat_abs.add_nuclide("Li6", 1.0)
     abs_path = os.path.abspath("tests/Li6.h5")
-    mat_abs.read_nuclides_from_json({"Li6": abs_path})
+    mat_abs.read_nuclides_from_h5({"Li6": abs_path})
     mat_abs.set_density("g/cm3", 1.0)
     
     # Should give identical results (same file, cache working)

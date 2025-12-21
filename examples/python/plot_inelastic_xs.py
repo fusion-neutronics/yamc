@@ -7,7 +7,7 @@ import yamc
 import matplotlib.pyplot as plt
 
 li6_nuc = yamc.Nuclide("Li6")
-li6_nuc.read_nuclide_from_json("tests/Li6.h5")
+li6_nuc.read_nuclide_from_h5("tests/Li6.h5")
 
 xs_4, energy_4 = li6_nuc.microscopic_cross_section(4, "294")
 xs_57, energy_57 = li6_nuc.microscopic_cross_section(57, "294")

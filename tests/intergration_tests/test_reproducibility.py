@@ -12,7 +12,7 @@ def test_reproducibility_with_same_seed():
     material.material_id = 1
     material.add_nuclide("Li6", 1.0)
     material.set_density("g/cm3", 10.0)
-    material.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+    material.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 
     # Create cell and geometry
     cell = mc.Cell(cell_id=1, name="test_cell", region=region, fill=material)
@@ -80,7 +80,7 @@ def test_different_seeds_produce_different_results():
     material.material_id = 1
     material.add_nuclide("Li6", 1.0)
     material.set_density("g/cm3", 10.0)
-    material.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+    material.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 
     # Create cell and geometry
     cell = mc.Cell(cell_id=1, name="test_cell", region=region, fill=material)

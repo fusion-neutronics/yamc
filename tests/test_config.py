@@ -67,7 +67,7 @@ def test_mixed_global_and_specific_config():
     assert yamc.Config.get_cross_section("U235") == "tendl-21"
 
 def test_explicit_path_override_in_nuclide_loading():
-    """Test that explicit paths in read_nuclide_from_json work correctly"""
+    """Test that explicit paths in read_nuclide_from_h5 work correctly"""
     # Set up global config with local HDF5 files
     yamc.Config.set_cross_sections({
         "Li6": "tests/Li6.h5",
@@ -76,7 +76,7 @@ def test_explicit_path_override_in_nuclide_loading():
 
     # Create nuclide and load from explicit path
     li6_explicit = yamc.Nuclide("Li6")
-    li6_explicit.read_nuclide_from_json("tests/Li6.h5")
+    li6_explicit.read_nuclide_from_h5("tests/Li6.h5")
 
     # Should load successfully
     assert li6_explicit.name == "Li6"
