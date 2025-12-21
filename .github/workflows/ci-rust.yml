@@ -22,6 +22,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev cmake
       - name: Set up Rust
         run: rustup update stable && rustup default stable
       - name: Build
@@ -37,7 +42,12 @@ jobs:
           cargo run --example materials_demo
           cargo run --example tbr
           cargo run --example flux_example
-          
+
+      - name: Install ARM cross-compilers and HDF5 (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libhdf5-dev:arm64 libhdf5-dev:armhf
       - name: Test ARM cross-compilation
         run: |
           rustup target add aarch64-unknown-linux-gnu
