@@ -318,21 +318,6 @@ impl AngleEnergyDistribution {
     /// Sample outgoing energy and scattering cosine
     /// Delegates to the appropriate secondary distribution sampler
     pub fn sample<R: Rng>(&self, incoming_energy: f64, rng: &mut R) -> (f64, f64) {
-        // Debug: show which distribution type is being used
-        static DEBUG_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-            let count = DEBUG_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if count < 10 {
-                let dist_type = match self {
-                    AngleEnergyDistribution::UncorrelatedAngleEnergy { .. } => "Uncorrelated",
-                    AngleEnergyDistribution::KalbachMann { .. } => "KalbachMann",
-                    AngleEnergyDistribution::CorrelatedAngleEnergy { .. } => "Correlated",
-                    AngleEnergyDistribution::Evaporation { .. } => "Evaporation",
-                };
-                eprintln!("  AngleEnergyDist::sample: type={}, E_in={:.3e}", dist_type, incoming_energy);
-            }
-        }
-
         match self {
             AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
                 crate::secondary_uncorrelated::sample_uncorrelated(incoming_energy, angle, energy, rng)
@@ -458,14 +443,6 @@ impl ReactionProduct {
     /// Sample an outgoing particle from this product
     pub fn sample<R: Rng>(&self, incoming_energy: f64, rng: &mut R) -> (f64, f64) {
         if self.distribution.is_empty() {
-            // Debug: warn about empty distribution
-            static WARN_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-            if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-                let count = WARN_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                if count < 5 {
-                    eprintln!("WARNING: ReactionProduct has empty distribution, returning E_in={:.3e}", incoming_energy);
-                }
-            }
             return (incoming_energy, 2.0 * rng.gen::<f64>() - 1.0);
         }
         

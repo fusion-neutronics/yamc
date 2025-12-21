@@ -103,10 +103,6 @@ pub fn sample_from_products_with_awr<R: rand::Rng>(
         // Sample outgoing energy and scattering cosine from product distribution
         let (mut e_out, mut mu) = neutron_product.sample(e_in, rng);
 
-        // Debug: track original sampled values
-        let e_out_orig = e_out;
-        let mu_orig = mu;
-
         // If scattering is in center-of-mass frame, convert to LAB frame
         // OpenMC: physics.cpp inelastic_scatter() lines 1131-1141
         if reaction.scatter_in_cm {
@@ -124,16 +120,6 @@ pub fn sample_from_products_with_awr<R: rand::Rng>(
 
             // Clamp mu to [-1, 1] due to floating point roundoff
             mu = mu.max(-1.0).min(1.0);
-        }
-
-        // Debug output for first few scatters (controlled by env var)
-        static DEBUG_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-            let count = DEBUG_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if count < 20 {
-                eprintln!("MT{}: E_in={:.3e} -> E_out_cm={:.3e}, mu_cm={:.3} -> E_out_lab={:.3e}, mu_lab={:.3}, scatter_in_cm={}, AWR={:.1}",
-                    reaction.mt_number, e_in, e_out_orig, mu_orig, e_out, mu, reaction.scatter_in_cm, awr);
-            }
         }
 
         // Create new neutron particle
