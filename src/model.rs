@@ -1,13 +1,11 @@
 use crate::bank::ParticleBank;
 use crate::data::ATOMIC_WEIGHT_RATIO;
+use crate::fast_rng::FastRng;
 use crate::geometry::Geometry;
 use crate::physics::elastic_scatter;
 use crate::settings::Settings;
 use crate::surface::BoundaryType;
 use crate::tallies::tally::Tally;
-// use rand::rngs::StdRng;
-use rand::SeedableRng;
-use rand_pcg::Pcg64;
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -52,21 +50,24 @@ impl Model {
         for batch in 0..self.settings.batches {
             println!("Starting batch {}/{}", batch + 1, self.settings.batches);
             // Parallel execution per batch with particle banking for multi-neutron reactions
-            (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
+            // Use for_each_init to reuse ParticleBank and FastRng across particles (OpenMC pattern)
+            (0..self.settings.particles).into_par_iter().for_each_init(
+                || (ParticleBank::with_capacity(10), FastRng::new(0)),  // Created once per thread
+                |(particle_bank, rng), particle_idx| {
+                // Clear the bank for reuse (preserves capacity, avoids reallocation)
+                particle_bank.clear();
+
                 // Each particle gets a unique, reproducible seed
                 const PARTICLE_STRIDE: u64 = 152917;
                 let particle_seed = base_seed
                     .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64).wrapping_mul(PARTICLE_STRIDE))
                     .wrapping_add((particle_idx as u64).wrapping_mul(PARTICLE_STRIDE));
-                
-                // Use PCG64 (fast, high-quality RNG)
-                let mut rng = Pcg64::seed_from_u64(particle_seed);
 
-                // Local particle bank for this thread (for secondary particles)
-                let mut particle_bank = ParticleBank::with_capacity(10);
+                // Reseed FastRng for this particle (avoids struct allocation)
+                rng.reseed(particle_seed);
                 
                 // Start with the source particle
-                let mut particle = self.settings.source.sample(&mut rng);
+                let mut particle = self.settings.source.sample(rng);
                 particle.alive = true;
                 particle_bank.add_source_particle(particle);
                 
@@ -113,7 +114,7 @@ impl Model {
                         Some(material_arc) => {
                             let material = material_arc.as_ref();
                             material
-                                .sample_distance_to_collision(particle.energy, &mut rng)
+                                .sample_distance_to_collision(particle.energy, rng)
                                 .unwrap_or(f64::INFINITY)
                         }
                         None => {
@@ -145,12 +146,12 @@ impl Model {
                             particle.move_by(dist_collision);
                             let material = cell.material.as_ref().unwrap().as_ref();
                             let nuclide_name =
-                                material.sample_interacting_nuclide(particle.energy, &mut rng);
+                                material.sample_interacting_nuclide(particle.energy, rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
                                 let reaction = nuclide.sample_reaction_no_autoload(
                                     particle.energy,
                                     &material.temperature,
-                                    &mut rng,
+                                    rng,
                                 );
                                 if let Some(reaction) = reaction {
                                     let mut reaction = reaction;
@@ -160,7 +161,7 @@ impl Model {
                                             let constituent_reaction = nuclide.sample_scattering_constituent(
                                                 particle.energy,
                                                 &material.temperature,
-                                                &mut rng,
+                                                rng,
                                             );
 
                                             // Handle the constituent reaction
@@ -180,7 +181,7 @@ impl Model {
                                                             .find(|p| p.is_particle_type(&crate::reaction_product::ParticleType::Neutron))
                                                         {
                                                             // Sample (e_out, mu) - but for elastic we need to recompute energy
-                                                            let (_, mu_cm) = neutron_product.sample(particle.energy, &mut rng);
+                                                            let (_, mu_cm) = neutron_product.sample(particle.energy, rng);
 
                                                             // Two-body elastic kinematics
                                                             let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
@@ -191,11 +192,11 @@ impl Model {
                                                             let mu_lab = (1.0 + awr * mu_cm) / denom;
 
                                                             particle.energy = e_out;
-                                                            crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, &mut rng);
+                                                            crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, rng);
                                                         }
                                                     } else {
                                                         // No product data - use free-gas thermal scattering
-                                                        elastic_scatter(&mut particle, awr, temperature_k, &mut rng);
+                                                        elastic_scatter(&mut particle, awr, temperature_k, rng);
                                                     }
                                                 }
                                                 50..=91 => {
@@ -205,11 +206,11 @@ impl Model {
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let outgoing_particles = if !constituent_reaction.products.is_empty() {
                                                         crate::inelastic::sample_from_products_with_awr(
-                                                            &particle, &constituent_reaction, awr, &mut rng
+                                                            &particle, &constituent_reaction, awr, rng
                                                         )
                                                     } else {
                                                         crate::inelastic::analytical_inelastic_scatter(
-                                                            &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                                            &particle, &constituent_reaction, &nuclide_name, rng
                                                         )
                                                     };
 
@@ -233,7 +234,7 @@ impl Model {
                                                         .get(nuclide_name.as_str())
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let outgoing_particles = crate::scatter::scatter_with_awr(
-                                                        &particle, &constituent_reaction, &nuclide_name, awr, &mut rng
+                                                        &particle, &constituent_reaction, &nuclide_name, awr, rng
                                                     );
 
                                                     // All scattering MTs should produce at least 1 neutron
@@ -274,7 +275,7 @@ impl Model {
                                             let constituent_reaction = nuclide.sample_absorption_constituent(
                                                 particle.energy,
                                                 &material.temperature,
-                                                &mut rng,
+                                                rng,
                                             );
                                             reaction = constituent_reaction;
                                             particle.alive = false;

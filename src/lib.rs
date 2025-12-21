@@ -1,6 +1,7 @@
 pub mod bounding_box;
 pub mod bank;
 pub mod cell;
+pub mod fast_rng;
 pub mod geometry;
 pub mod inelastic;
 pub mod model;
