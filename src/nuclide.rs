@@ -1016,9 +1016,15 @@ pub fn load_nuclide_for_python(
     // Resolve the path (handles keywords, URLs, and local paths when download feature is enabled)
     #[cfg(feature = "download")]
     let hdf5_path = {
-        let name = nuclide_name.ok_or("Nuclide name is required for keyword/URL resolution")?;
-        let resolved = crate::url_cache::resolve_path_or_url(path_str, name)?;
-        resolved.to_string_lossy().to_string()
+        // Check if it's a keyword or URL - only then do we need the nuclide name
+        if crate::url_cache::is_keyword(path_str) || crate::url_cache::is_url(path_str) {
+            let name = nuclide_name.ok_or("Nuclide name is required for keyword/URL resolution")?;
+            let resolved = crate::url_cache::resolve_path_or_url(path_str, name)?;
+            resolved.to_string_lossy().to_string()
+        } else {
+            // Local path - no name needed
+            path_str.to_string()
+        }
     };
 
     #[cfg(not(feature = "download"))]
