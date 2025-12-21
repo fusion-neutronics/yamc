@@ -22,10 +22,10 @@ import yamc
 ### Config the nuclear data
 
 For now we will specify a single nuclear data library to use for all nuclides.
-This is the simplest option other config options are covered later.  
+This is the simplest option other config options are covered later.
 
 ```python
-yamc.Config.set_cross_sections("fendl-3.1d")  # tendl-2019 is another option
+yamc.Config.set_cross_sections({"Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})  # or use "fendl-3.1d" / "tendl-2019" keywords
 ```
 
 ### Create a nuclides
@@ -39,7 +39,7 @@ nuclide = yamc.Nuclide('Li6')
 The microscopic cross section for a specific reaction can then be found for and MT number with.
 
 ```python
-xs, energy = nuclide.microscopic_cross_section(reaction="(n,gamma)")
+xs, energy = nuclide.microscopic_cross_section(reaction="(n,gamma)", temperature="294")
 ```
 
 ### Creating a Material
@@ -48,14 +48,15 @@ A material can be made by adding elements or nuclides with their atom fractions.
 
 ```python
 material = yamc.Material()
-material.add_element('Li', 0.5)
-material.add_nuclide('B10', 0.5)
+material.add_nuclide('Li6', 0.5)
+material.add_nuclide('Li7', 0.5)
 ```
 
 The density must also be set to complete the material.
 
 ```python
 material.set_density('g/cm3', 7.1)  # kg/m3 also accepted
+material.temperature = "294"  # set temperature for cross section lookup
 ```
 
 The macroscopic cross section for a specific reaction can then be found for and MT number with.
