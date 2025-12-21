@@ -5,7 +5,7 @@ use hdf5::{File, Group};
 use hdf5::types::{VarLenUnicode, VarLenAscii, FixedAscii};
 use std::collections::HashMap;
 use std::path::Path;
-use ndarray::Array2;
+
 
 use crate::nuclide::Nuclide;
 use crate::reaction::Reaction;
@@ -487,9 +487,10 @@ fn read_products(rx_group: &Group) -> Result<Vec<ReactionProduct>, Box<dyn std::
             }
         } else if yield_shape.len() == 2 {
             // Tabulated yield: shape (2, N) where row 0 is x (energy), row 1 is y (yield)
-            let yield_data: Array2<f64> = yield_ds.read()?;
-            let x: Vec<f64> = yield_data.row(0).to_vec();
-            let y: Vec<f64> = yield_data.row(1).to_vec();
+            let yield_data: Vec<f64> = yield_ds.read_raw::<f64>()?;
+            let n = yield_shape[1];
+            let x: Vec<f64> = yield_data.iter().cloned().take(n).collect();
+            let y: Vec<f64> = yield_data.iter().cloned().skip(n).take(n).collect();
             Some(Yield::Tabulated { x, y })
         } else {
             None
@@ -579,13 +580,13 @@ fn read_uncorrelated_distribution(group: &Group) -> Result<AngleEnergyDistributi
             // - row 1: PDF values
             // - row 2: CDF values
             // The data is offset-encoded for each incoming energy
-            let mu_data: Array2<f64> = mu_ds.read()?;
+            let mu_data: Vec<f64> = mu_ds.read_raw::<f64>()?;
 
             // Read offsets if available
             if let Ok(offsets_attr) = mu_ds.attr("offsets") {
                 let offsets: Vec<i32> = offsets_attr.read_1d()?.to_vec();
                 let n_energy = angle.energy.len();
-                let n_cols = mu_data.ncols();
+                let n_cols = mu_data.len() / 3;
 
                 for i in 0..n_energy {
                     let j = offsets[i] as usize;
@@ -595,15 +596,16 @@ fn read_uncorrelated_distribution(group: &Group) -> Result<AngleEnergyDistributi
                         n_cols - j
                     };
 
-                    let x: Vec<f64> = (0..n).map(|k| mu_data[[0, j + k]]).collect();
-                    let p: Vec<f64> = (0..n).map(|k| mu_data[[1, j + k]]).collect();
+                    let x: Vec<f64> = (0..n).map(|k| mu_data[0 * n_cols + j + k]).collect();
+                    let p: Vec<f64> = (0..n).map(|k| mu_data[1 * n_cols + j + k]).collect();
 
                     angle.mu.push(crate::reaction_product::Tabulated { x, p });
                 }
             } else {
                 // No offsets - assume single distribution or isotropic
-                let x: Vec<f64> = mu_data.row(0).to_vec();
-                let p: Vec<f64> = mu_data.row(1).to_vec();
+                let ncols = mu_data.len() / 3;
+                let x: Vec<f64> = mu_data[0..ncols].to_vec();
+                let p: Vec<f64> = mu_data[ncols..2*ncols].to_vec();
                 angle.mu.push(crate::reaction_product::Tabulated { x, p });
             }
         }
@@ -668,7 +670,7 @@ fn read_correlated_distribution(group: &Group) -> Result<AngleEnergyDistribution
     // Row 3: interp_mu (angular interpolation scheme for each e_out)
     // Row 4: offset_mu (offset into mu array for each e_out)
     let eout_ds = group.dataset("energy_out")?;
-    let eout_data: Array2<f64> = eout_ds.read()?;
+    let eout_data: Vec<f64> = eout_ds.read_raw::<f64>()?;
 
     // Read attributes
     let offsets: Vec<i32> = eout_ds.attr("offsets")?.read_1d()?.to_vec();
@@ -680,8 +682,9 @@ fn read_correlated_distribution(group: &Group) -> Result<AngleEnergyDistribution
     // Row 0: mu values (cosine of angle)
     // Row 1: p (PDF)
     // Row 2: c (CDF)
-    let mu_data: Array2<f64> = group.dataset("mu")?.read()?;
-    let mu_ncols = mu_data.ncols();
+    let mu_data: Vec<f64> = group.dataset("mu")?.read_raw::<f64>()?;
+    let mu_ncols = mu_data.len() / 3;
+    let eout_ncols = eout_data.len() / 5;
 
     // Build distributions for each incoming energy
     let mut distributions = Vec::with_capacity(n_energy);
@@ -691,7 +694,7 @@ fn read_correlated_distribution(group: &Group) -> Result<AngleEnergyDistribution
         let n = if i < n_energy - 1 {
             (offsets[i + 1] - offsets[i]) as usize
         } else {
-            eout_data.ncols() - j
+            eout_ncols - j
         };
 
         let interpolation = if interp[i] == 1 {
@@ -700,29 +703,29 @@ fn read_correlated_distribution(group: &Group) -> Result<AngleEnergyDistribution
             CorrInterpolation::LinLin
         };
 
-        let e_out: Vec<f64> = (0..n).map(|k| eout_data[[0, j + k]]).collect();
-        let p: Vec<f64> = (0..n).map(|k| eout_data[[1, j + k]]).collect();
-        let c: Vec<f64> = (0..n).map(|k| eout_data[[2, j + k]]).collect();
+        let e_out: Vec<f64> = (0..n).map(|k| eout_data[0 * eout_ncols + j + k]).collect();
+        let p: Vec<f64> = (0..n).map(|k| eout_data[1 * eout_ncols + j + k]).collect();
+        let c: Vec<f64> = (0..n).map(|k| eout_data[2 * eout_ncols + j + k]).collect();
 
         // Read angular distributions for each outgoing energy
         let mut angle: Vec<Tabular> = Vec::with_capacity(n);
         for k in 0..n {
             let idx = j + k;
-            let interp_mu = eout_data[[3, idx]] as i32;
-            let offset_mu = eout_data[[4, idx]] as usize;
+            let interp_mu = eout_data[3 * eout_ncols + idx] as i32;
+            let offset_mu = eout_data[4 * eout_ncols + idx] as usize;
 
             // Determine size of angular distribution
-            let m = if idx + 1 < eout_data.ncols() {
-                let next_offset = eout_data[[4, idx + 1]] as usize;
+            let m = if idx + 1 < eout_ncols {
+                let next_offset = eout_data[4 * eout_ncols + idx + 1] as usize;
                 next_offset - offset_mu
             } else {
                 mu_ncols - offset_mu
             };
 
             // Read mu data for this outgoing energy
-            let mu_x: Vec<f64> = (0..m).map(|l| mu_data[[0, offset_mu + l]]).collect();
-            let mu_p: Vec<f64> = (0..m).map(|l| mu_data[[1, offset_mu + l]]).collect();
-            let mu_c: Vec<f64> = (0..m).map(|l| mu_data[[2, offset_mu + l]]).collect();
+            let mu_x: Vec<f64> = (0..m).map(|l| mu_data[0 * mu_ncols + offset_mu + l]).collect();
+            let mu_p: Vec<f64> = (0..m).map(|l| mu_data[1 * mu_ncols + offset_mu + l]).collect();
+            let mu_c: Vec<f64> = (0..m).map(|l| mu_data[2 * mu_ncols + offset_mu + l]).collect();
 
             // Angular interpolation: 0 or 1 = histogram, 2 = lin-lin
             let mu_interp = if interp_mu == 0 || interp_mu == 1 {
@@ -770,12 +773,13 @@ fn read_kalbach_mann_distribution(group: &Group) -> Result<AngleEnergyDistributi
 
     // Read distribution data
     let dist_ds = group.dataset("distribution")?;
-    let dist_data: Array2<f64> = dist_ds.read()?;
+    let dist_data: Vec<f64> = dist_ds.read_raw::<f64>()?;
 
     // Read attributes
     let offsets: Vec<i32> = dist_ds.attr("offsets")?.read_1d()?.to_vec();
     let interp: Vec<i32> = dist_ds.attr("interpolation")?.read_1d()?.to_vec();
     let n_discrete: Vec<i32> = dist_ds.attr("n_discrete_lines")?.read_1d()?.to_vec();
+    let dist_ncols = dist_data.len() / 5;
 
     // Build distributions for each incoming energy
     let mut distributions = Vec::with_capacity(n_energy);
@@ -785,7 +789,7 @@ fn read_kalbach_mann_distribution(group: &Group) -> Result<AngleEnergyDistributi
         let n = if i < n_energy - 1 {
             (offsets[i + 1] - offsets[i]) as usize
         } else {
-            dist_data.ncols() - j
+            dist_ncols - j
         };
 
         let interpolation = if interp[i] == 1 {
@@ -794,11 +798,11 @@ fn read_kalbach_mann_distribution(group: &Group) -> Result<AngleEnergyDistributi
             KMInterpolation::LinLin
         };
 
-        let e_out: Vec<f64> = (0..n).map(|k| dist_data[[0, j + k]]).collect();
-        let p: Vec<f64> = (0..n).map(|k| dist_data[[1, j + k]]).collect();
-        let c: Vec<f64> = (0..n).map(|k| dist_data[[2, j + k]]).collect();
-        let r: Vec<f64> = (0..n).map(|k| dist_data[[3, j + k]]).collect();
-        let a: Vec<f64> = (0..n).map(|k| dist_data[[4, j + k]]).collect();
+        let e_out: Vec<f64> = (0..n).map(|k| dist_data[0 * dist_ncols + j + k]).collect();
+        let p: Vec<f64> = (0..n).map(|k| dist_data[1 * dist_ncols + j + k]).collect();
+        let c: Vec<f64> = (0..n).map(|k| dist_data[2 * dist_ncols + j + k]).collect();
+        let r: Vec<f64> = (0..n).map(|k| dist_data[3 * dist_ncols + j + k]).collect();
+        let a: Vec<f64> = (0..n).map(|k| dist_data[4 * dist_ncols + j + k]).collect();
 
         let table = KMTable {
             interpolation,
