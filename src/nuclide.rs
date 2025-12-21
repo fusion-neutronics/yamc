@@ -938,18 +938,28 @@ pub fn get_or_load_nuclide(
         .map(|s| s.iter().cloned().collect())
         .unwrap_or_else(HashSet::new);
 
-    // Get path from map
-    let path = hdf5_path_map.get(nuclide_name).ok_or_else(|| {
+    // Get path/keyword from map
+    let path_or_keyword = hdf5_path_map.get(nuclide_name).ok_or_else(|| {
         format!(
             "No HDF5 file provided for nuclide '{}'. Please supply a path for all nuclides.",
             nuclide_name
         )
     })?;
 
-    // Create cache key
-    let normalized_source = match std::fs::canonicalize(path) {
+    // Resolve keywords/URLs to local paths (when download feature is enabled)
+    #[cfg(feature = "download")]
+    let resolved_path = {
+        let resolved = crate::url_cache::resolve_path_or_url(path_or_keyword, nuclide_name)?;
+        resolved.to_string_lossy().to_string()
+    };
+
+    #[cfg(not(feature = "download"))]
+    let resolved_path = path_or_keyword.clone();
+
+    // Create cache key using resolved path
+    let normalized_source = match std::fs::canonicalize(&resolved_path) {
         Ok(canonical) => canonical.to_string_lossy().to_string(),
-        Err(_) => path.clone(),
+        Err(_) => resolved_path.clone(),
     };
     let cache_key = format!("{}@{}", nuclide_name, normalized_source);
 
@@ -975,8 +985,8 @@ pub fn get_or_load_nuclide(
         Some(&requested)
     };
 
-    let mut nuclide = crate::nuclide_hdf5::read_nuclide_from_hdf5(path, filter.map(|s| s as &HashSet<String>))?;
-    nuclide.data_path = Some(path.clone());
+    let mut nuclide = crate::nuclide_hdf5::read_nuclide_from_hdf5(&resolved_path, filter.map(|s| s as &HashSet<String>))?;
+    nuclide.data_path = Some(resolved_path.clone());
 
     // Store in cache
     let arc_nuclide = Arc::new(nuclide);
@@ -993,17 +1003,29 @@ pub fn get_or_load_nuclide(
 
 /// Load a nuclide with Python wrapper semantics.
 /// Handles both path and name parameters and preserves available_temperatures when filtering.
+/// Supports keywords (e.g., "tendl-2019", "fendl-3.1d") when the download feature is enabled.
 #[allow(dead_code)]
 pub fn load_nuclide_for_python(
     path: Option<&str>,
-    _nuclide_name: Option<&str>,
+    nuclide_name: Option<&str>,
     temperatures: Option<&std::collections::HashSet<String>>,
 ) -> Result<Nuclide, Box<dyn std::error::Error>> {
     // Get the path - path is required for HDF5
-    let hdf5_path = path.ok_or("HDF5 file path is required")?;
+    let path_str = path.ok_or("HDF5 file path is required")?;
+
+    // Resolve the path (handles keywords, URLs, and local paths when download feature is enabled)
+    #[cfg(feature = "download")]
+    let hdf5_path = {
+        let name = nuclide_name.ok_or("Nuclide name is required for keyword/URL resolution")?;
+        let resolved = crate::url_cache::resolve_path_or_url(path_str, name)?;
+        resolved.to_string_lossy().to_string()
+    };
+
+    #[cfg(not(feature = "download"))]
+    let hdf5_path = path_str.to_string();
 
     // Load the nuclide
-    crate::nuclide_hdf5::read_nuclide_from_hdf5(hdf5_path, temperatures)
+    crate::nuclide_hdf5::read_nuclide_from_hdf5(&hdf5_path, temperatures)
 }
 
 /// Load a nuclide from a path for the standalone Python function.

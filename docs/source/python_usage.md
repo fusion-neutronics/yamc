@@ -25,7 +25,7 @@ For now we will specify a single nuclear data library to use for all nuclides.
 This is the simplest option other config options are covered later.  
 
 ```python
-yamc.Config.set_cross_sections("fendl-3.2c")  # tendl-21 is another option
+yamc.Config.set_cross_sections("fendl-3.1d")  # tendl-2019 is another option
 ```
 
 ### Create a nuclides
@@ -73,7 +73,7 @@ User control over the source of nuclear data for each on a nuclide and material 
 The simplest method is to configure the package to use a single source of nuclear data for all nuclides.
 
 ```python
-yamc.Config.set_cross_sections("tendl-21")
+yamc.Config.set_cross_sections("tendl-2019")
 ```
 
 Whenever nuclear data is needed this will check the users ```.cache/yamc``` folder to see if the JSON file for the required nuclide exists.
@@ -81,7 +81,7 @@ If the file is found then it will be used and if not the JSON file will be downl
 
 ### Config with JSON paths
 
-It is also possible to download JSON files from nuclear data repos [fendl-3.2](https://github.com/fusion-neutronics/cross_section_data_fendl_3.2c) and [tendl-21](https://github.com/fusion-neutronics/cross_section_data_tendl_21).Once the JSON files are saved locally then the path to these files can be used to configure the nuclear data. Replace the ```tests``` dir to the path to the downloaded JSON files.
+It is also possible to download H5 files from nuclear data repos [FENDL-3.1d](https://github.com/openmc-data-storage/FENDL-3.1d) and [TENDL-2019](https://github.com/openmc-data-storage/TENDL-2019). Once the H5 files are saved locally then the path to these files can be used to configure the nuclear data. Replace the ```tests``` dir to the path to the downloaded H5 files.
 
 ```python
 yamc.Config.set_cross_sections({
@@ -97,17 +97,17 @@ yamc.Config.set_cross_sections({
 
 ### Config with JSON paths and specific libraries
 
-It is also possible to mix different sources when configuring the nuclear data sources. In this example we use tendl-21 for some nuclides, file paths for others and fendl-3.2c for others. Replace the ```tests``` dir to the path to the downloaded JSON files.
+It is also possible to mix different sources when configuring the nuclear data sources. In this example we use tendl-2019 for some nuclides, file paths for others and fendl-3.1d for others. Replace the ```tests``` dir to the path to the downloaded JSON files.
 
 ```python
 yamc.Config.set_cross_sections({
-    "Be9": "tendl-21",
-    "Fe54": "tendl-21",
+    "Be9": "tendl-2019",
+    "Fe54": "tendl-2019",
     "Fe56": "tests/Fe56.h5",
     "Fe57": "tests/Fe57.h5",
     "Fe58": "tests/Fe58.h5",
-    "Li6": "fendl-3.2c/Li6.h5",
-    "Li7": "fendl-3.2c/Li7.h5",
+    "Li6": "fendl-3.1d",
+    "Li7": "fendl-3.1d",
 })
 ```
 
@@ -118,7 +118,7 @@ You can also avoid the ```Config``` entirely and specify the nuclear data to use
 This can be done using a nuclear data library.
 ```python
 nuclide = yamc.Nuclide('Li6')
-nuclide.read_nuclide_from_json('tendl-21')
+nuclide.read_nuclide_from_json('tendl-2019')
 ```
 
 Alternatively a specific nuclear data path
@@ -137,7 +137,7 @@ Again this can be done using a nuclear data library.
 material = yamc.Material()
 material.add_nuclide('Li6',1)
 material.set_density('g/cm3',2.)
-material.read_nuclides_from_json({'Li6':'tendl-21'})
+material.read_nuclides_from_json({'Li6':'tendl-2019'})
 material.temperature = "294"  # needed if there are multiple temperatures 
 my_energies, xs_dict = material.calculate_macroscopic_xs([3])
 ```

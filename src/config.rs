@@ -36,8 +36,8 @@ impl Config {
 
     /// Set a cross section file path for a nuclide, or set a global default if only a keyword is provided
     pub fn set_cross_section(&mut self, nuclide_or_keyword: &str, path: Option<&str>) {
-        // List of acceptable keywords
-        const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-21", "fendl-3.2c"];
+        // List of acceptable keywords (must match url_cache.rs keywords)
+        const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-2019", "fendl-3.1d"];
         match path {
             Some(p) => {
                 self.cross_sections
@@ -87,8 +87,8 @@ pub trait IntoCrossSectionsInput {
 
 impl IntoCrossSectionsInput for HashMap<String, String> {
     fn apply(self, config: &mut Config) {
-        // List of acceptable keywords
-        const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-21", "fendl-3.2c"];
+        // List of acceptable keywords (must match url_cache.rs keywords)
+        const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-2019", "fendl-3.1d"];
         for (nuclide, path) in self {
             if ACCEPTABLE_KEYWORDS.contains(&path.as_str()) {
                 // If value is a keyword, set as global default
@@ -101,8 +101,8 @@ impl IntoCrossSectionsInput for HashMap<String, String> {
 
 impl IntoCrossSectionsInput for &str {
     fn apply(self, config: &mut Config) {
-        // List of acceptable keywords
-        const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-21", "fendl-3.2c"];
+        // List of acceptable keywords (must match url_cache.rs keywords)
+        const ACCEPTABLE_KEYWORDS: &[&str] = &["tendl-2019", "fendl-3.1d"];
         if !ACCEPTABLE_KEYWORDS.contains(&self) {
             panic!(
                 "Invalid cross section keyword: '{}'. Acceptable keywords are: {}",
@@ -136,8 +136,8 @@ mod tests {
     #[test]
     fn test_set_cross_section_global_keyword() {
         let mut config = Config::new();
-        config.set_cross_section("tendl-21", None);
-        assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
+        config.set_cross_section("tendl-2019", None);
+        assert_eq!(config.default_cross_section, Some("tendl-2019".to_string()));
     }
 
     #[test]
@@ -160,10 +160,10 @@ mod tests {
     #[test]
     fn test_get_cross_section_fallback_to_global() {
         let mut config = Config::new();
-        config.set_cross_section("tendl-21", None);
+        config.set_cross_section("tendl-2019", None);
         assert_eq!(
             config.get_cross_section("Fe56"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
     }
 
@@ -180,10 +180,10 @@ mod tests {
     #[test]
     fn test_set_cross_section_single_keyword() {
         let mut config = Config::new();
-        config.set_cross_section("Fe56", Some("tendl-21"));
+        config.set_cross_section("Fe56", Some("tendl-2019"));
         assert_eq!(
             config.get_cross_section("Fe56"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
     }
 
@@ -192,7 +192,7 @@ mod tests {
         let mut config = Config::new();
         let cross_sections = std::collections::HashMap::from([
             ("Li7".to_string(), "../../tests/Li7.h5".to_string()),
-            ("Li6".to_string(), "tendl-21".to_string()),
+            ("Li6".to_string(), "tendl-2019".to_string()),
         ]);
         config.set_cross_sections(cross_sections);
         assert_eq!(
@@ -201,36 +201,36 @@ mod tests {
         );
         assert_eq!(
             config.get_cross_section("Li6"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
     }
 
     #[test]
     fn test_set_cross_section_global_keyword_for_all() {
         let mut config = Config::new();
-        config.set_cross_section("tendl-21", None);
+        config.set_cross_section("tendl-2019", None);
         assert_eq!(
             config.get_cross_section("Li6"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
         assert_eq!(
             config.get_cross_section("Fe56"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
     }
 
     #[test]
     fn test_set_cross_sections_with_string_keyword() {
         let mut config = Config::new();
-        config.set_cross_sections("tendl-21");
-        assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
+        config.set_cross_sections("tendl-2019");
+        assert_eq!(config.default_cross_section, Some("tendl-2019".to_string()));
         assert_eq!(
             config.get_cross_section("Li6"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
         assert_eq!(
             config.get_cross_section("Fe56"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
     }
 
@@ -239,7 +239,7 @@ mod tests {
         let mut config = Config::new();
         let cross_sections = std::collections::HashMap::from([
             ("Li6".to_string(), "../../tests/Li6.h5".to_string()),
-            ("Fe56".to_string(), "tendl-21".to_string()),
+            ("Fe56".to_string(), "tendl-2019".to_string()),
         ]);
         config.set_cross_sections(cross_sections);
         assert_eq!(
@@ -248,10 +248,10 @@ mod tests {
         );
         assert_eq!(
             config.get_cross_section("Fe56"),
-            Some("tendl-21".to_string())
+            Some("tendl-2019".to_string())
         );
         // When a keyword is in the hashmap, it should set the global default too
-        assert_eq!(config.default_cross_section, Some("tendl-21".to_string()));
+        assert_eq!(config.default_cross_section, Some("tendl-2019".to_string()));
     }
 
     #[test]

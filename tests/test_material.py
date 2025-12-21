@@ -432,9 +432,15 @@ def test_material_be9_selective_temperature_load_294():
     mat.read_nuclides_from_json({"Be9": "tests/Be9.h5"})
 
 def test_read_nuclides_from_json_keyword():
-    """Test keyword-based data loading (skipped - HDF5 only uses file paths)."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    """Test keyword-based data loading from remote H5 files."""
+    mat = Material()
+    mat.add_element('Li', 1.0)
+    mat.set_density('g/cm3', 2.0)
+    mat.volume = 1.0
+    mat.read_nuclides_from_json("tendl-2019")
+    # Verify data was loaded
+    grid = mat.unified_energy_grid_neutron()
+    assert len(grid) > 0, "Energy grid should not be empty after keyword-based loading"
 
 def test_read_nuclides_from_json_dict():
     mat = Material()
@@ -447,20 +453,62 @@ def test_read_nuclides_from_json_dict():
 
 def test_material_different_data_sources():
     """Test that material loading respects different data sources."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    # Material using keyword
+    mat1 = Material()
+    mat1.add_nuclide('Li6', 1.0)
+    mat1.set_density('g/cm3', 1.0)
+    mat1.read_nuclides_from_json("tendl-2019")
+
+    # Material using local file
+    mat2 = Material()
+    mat2.add_nuclide('Li6', 1.0)
+    mat2.set_density('g/cm3', 1.0)
+    mat2.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+
+    # Both should have loaded data
+    grid1 = mat1.unified_energy_grid_neutron()
+    grid2 = mat2.unified_energy_grid_neutron()
+    assert len(grid1) > 0, "Keyword source should load data"
+    assert len(grid2) > 0, "File source should load data"
 
 
 def test_material_file_and_keyword_sources():
     """Test that materials can use both file paths and keywords."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    mat = Material()
+    mat.add_nuclide('Li6', 1.0)
+    mat.add_nuclide('Li7', 1.0)
+    mat.set_density('g/cm3', 1.0)
+    # Mix file path and keyword
+    mat.read_nuclides_from_json({
+        "Li6": "tests/Li6.h5",
+        "Li7": "tendl-2019"
+    })
+    grid = mat.unified_energy_grid_neutron()
+    assert len(grid) > 0, "Mixed sources should load data"
 
 
 def test_material_cache_respects_data_source_boundaries():
     """Test that material cache properly separates different data sources."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    from yamc import clear_nuclide_cache
+    clear_nuclide_cache()
+
+    # Load from keyword
+    mat1 = Material()
+    mat1.add_nuclide('Li6', 1.0)
+    mat1.set_density('g/cm3', 1.0)
+    mat1.read_nuclides_from_json("tendl-2019")
+
+    # Load same nuclide from local file
+    mat2 = Material()
+    mat2.add_nuclide('Li6', 1.0)
+    mat2.set_density('g/cm3', 1.0)
+    mat2.read_nuclides_from_json({"Li6": "tests/Li6.h5"})
+
+    # Both should work independently
+    grid1 = mat1.unified_energy_grid_neutron()
+    grid2 = mat2.unified_energy_grid_neutron()
+    assert len(grid1) > 0, "First material should have data"
+    assert len(grid2) > 0, "Second material should have data"
 
 
 def test_material_path_normalization_in_cache():

@@ -97,9 +97,14 @@ def test_read_be9_selective_single_temperature():
 
 
 def test_read_nuclide_from_json_keyword():
-    """Test keyword-based data loading (skipped - HDF5 only uses file paths)."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    """Test keyword-based data loading from remote H5 files."""
+    from yamc import Nuclide
+    nuc = Nuclide('Li6')
+    nuc.read_nuclide_from_json('tendl-2019')
+    assert nuc.element.lower() == 'lithium'
+    assert nuc.atomic_number == 3
+    assert nuc.mass_number == 6
+    assert len(nuc.available_temperatures) > 0
 
 def test_read_nuclide_from_json_local_path():
     from yamc import Nuclide
@@ -371,65 +376,55 @@ def test_auto_loading_with_manual_loading_combined():
     # This is fine - the important thing is that both calls succeeded
 
 
-def test_fendl_3_2c_keyword():
-    """Test that the fendl-3.2c keyword is recognized and works correctly."""
+def test_fendl_3_1d_keyword():
+    """Test that the fendl-3.1d keyword is recognized and works correctly."""
     import yamc
-    
+
     # Test that the keyword is recognized (this tests the Rust backend)
     try:
         # This should not raise an exception if the keyword is recognized
         # We'll create a dummy config entry to test keyword recognition
         from yamc import Config
         config = Config()
-        
+
         # Test setting cross sections with the keyword - this should not fail
         # if the keyword is recognized in the backend
-        config.set_cross_sections({'Li6': 'fendl-3.2c'})
-        
+        config.set_cross_sections({'Li6': 'fendl-3.1d'})
+
         # Verify we can retrieve it
         cross_sections = config.get_cross_sections()
         assert 'Li6' in cross_sections, "Li6 should be in cross sections config"
-        assert cross_sections['Li6'] == 'fendl-3.2c', "Should store fendl-3.2c keyword correctly"
-        
+        assert cross_sections['Li6'] == 'fendl-3.1d', "Should store fendl-3.1d keyword correctly"
+
         # Test that keyword expansion would work (without actually downloading)
-        # This implicitly tests the URL cache functionality  
-        print("fendl-3.2c keyword test passed - keyword is recognized")
-        
+        # This implicitly tests the URL cache functionality
+        print("fendl-3.1d keyword test passed - keyword is recognized")
+
     except Exception as e:
-        pytest.fail(f"fendl-3.2c keyword should be recognized by the system: {e}")
+        pytest.fail(f"fendl-3.1d keyword should be recognized by the system: {e}")
 
 
 def test_auto_loading_with_global_keyword():
     """Test that auto-loading works with global keyword configuration"""
     from yamc import Config, Nuclide
-    
+
     # Set global keyword configuration
     config = Config()
-    config.set_cross_sections('fendl-3.2c')
-    
+    config.set_cross_sections('fendl-3.1d')
+
     # Verify config is set correctly
-    assert config.get_cross_section('Li6') == 'fendl-3.2c', "Global config should apply to Li6"
-    
+    assert config.get_cross_section('Li6') == 'fendl-3.1d', "Global config should apply to Li6"
+
     # Create empty nuclide
     nuc = Nuclide('Li6')
     assert nuc.loaded_temperatures == [], "Should start with no loaded temperatures"
-    
+
     # Call microscopic_cross_section - should auto-load data from global config
-    try:
-        xs, energy = nuc.microscopic_cross_section(reaction=1, temperature='294')
-        assert len(xs) > 0, "Auto-loaded cross section data should not be empty"
-        assert len(energy) > 0, "Auto-loaded energy data should not be empty"
-        assert len(xs) == len(energy), "Cross section and energy arrays should have same length"
-        print("Auto-loading with global keyword test passed!")
-        
-    except Exception as e:
-        # If we can't download (no internet or URL issues), that's OK for this test
-        # The important thing is that the config lookup worked
-        if "No configuration found" in str(e):
-            pytest.fail(f"Config lookup failed - auto-loading should work with global keywords: {e}")
-        else:
-            print(f"Note: Auto-loading test skipped due to download issue: {e}")
-            # This is acceptable - we verified the config lookup works
+    # Note: fendl-3.1d uses temperature '300', not '294'
+    xs, energy = nuc.microscopic_cross_section(reaction=1, temperature='300')
+    assert len(xs) > 0, "Auto-loaded cross section data should not be empty"
+    assert len(energy) > 0, "Auto-loaded energy data should not be empty"
+    assert len(xs) == len(energy), "Cross section and energy arrays should have same length"
 
 
 def test_microscopic_cross_section_by_name():
@@ -793,21 +788,58 @@ def test_sample_reaction_return_type():
 
 
 def test_nuclide_different_data_sources():
-    """Test that loading the same nuclide from different sources gives different results."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    """Test that loading nuclides from different sources works."""
+    from yamc import Nuclide
+
+    # Load from keyword
+    nuc1 = Nuclide('Li6')
+    nuc1.read_nuclide_from_json('tendl-2019')
+
+    # Load from local file
+    nuc2 = Nuclide('Li6')
+    nuc2.read_nuclide_from_json('tests/Li6.h5')
+
+    # Both should have valid data
+    assert len(nuc1.available_temperatures) > 0
+    assert len(nuc2.available_temperatures) > 0
+    assert nuc1.atomic_number == nuc2.atomic_number == 3
 
 
 def test_nuclide_file_vs_keyword_sources():
     """Test that file paths and keywords can coexist."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    from yamc import Nuclide
+
+    # Load Li6 from file
+    nuc_file = Nuclide('Li6')
+    nuc_file.read_nuclide_from_json('tests/Li6.h5')
+
+    # Load Li7 from keyword
+    nuc_keyword = Nuclide('Li7')
+    nuc_keyword.read_nuclide_from_json('tendl-2019')
+
+    # Both should work
+    assert nuc_file.mass_number == 6
+    assert nuc_keyword.mass_number == 7
+    assert len(nuc_file.reaction_mts) > 0
+    assert len(nuc_keyword.reaction_mts) > 0
 
 
 def test_nuclide_cache_respects_data_source_boundaries():
     """Test that the cache properly separates different data sources."""
-    import pytest
-    pytest.skip("Keyword-based remote data loading not supported with HDF5 format")
+    from yamc import Nuclide, clear_nuclide_cache
+    clear_nuclide_cache()
+
+    # Load from keyword
+    nuc1 = Nuclide('Li6')
+    nuc1.read_nuclide_from_json('tendl-2019')
+
+    # Load from local file
+    nuc2 = Nuclide('Li6')
+    nuc2.read_nuclide_from_json('tests/Li6.h5')
+
+    # Both should work independently
+    assert len(nuc1.reaction_mts) > 0
+    assert len(nuc2.reaction_mts) > 0
 
 
 def test_nuclide_path_normalization():

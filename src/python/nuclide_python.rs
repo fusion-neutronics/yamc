@@ -195,7 +195,7 @@ impl PyNuclide {
     ///
     /// Args:
     ///     path (Optional[str]): Optional path to the nuclide JSON file, keyword
-    ///         (e.g. "tendl-21", "fendl-3.2c"), or filesystem path. If provided,
+    ///         (e.g. "tendl-2019", "fendl-3.1d"), or filesystem path. If provided,
     ///         this overrides any global configuration for this nuclide. If omitted,
     ///         the constructor `name` is used to look up the path from global config.
     ///     temperatures (Optional[List[str]]): Temperature strings (e.g. ["293K"]).
@@ -213,7 +213,7 @@ impl PyNuclide {
     ///     Compare the same nuclide from different data sources:
     ///     
     ///     >>> # Set global default
-    ///     >>> yamc.Config.set_cross_sections("tendl-21")
+    ///     >>> yamc.Config.set_cross_sections("tendl-2019")
     ///     >>>
     ///     >>> # Load from global config (will use TENDL)
     ///     >>> li6_tendl = yamc.Nuclide("Li6")
@@ -221,7 +221,7 @@ impl PyNuclide {
     ///     >>>
     ///     >>> # Override to use FENDL for comparison
     ///     >>> li6_fendl = yamc.Nuclide("Li6")
-    ///     >>> li6_fendl.read_nuclide_from_json("fendl-3.2c")
+    ///     >>> li6_fendl.read_nuclide_from_json("fendl-3.1d")
     ///     >>>
     ///     >>> # Use custom local file
     ///     >>> li6_custom = yamc.Nuclide("Li6")
@@ -499,7 +499,7 @@ impl From<PyNuclide> for Nuclide {
 /// Read a nuclide JSON file and return a `Nuclide` instance.
 ///
 /// Args:
-///     path (str): Path to nuclide JSON file or keyword like "tendl-21".
+///     path (str): Path to nuclide JSON file or keyword like "tendl-2019".
 ///
 /// Returns:
 ///     Nuclide: A fully populated `Nuclide` object with all available temperatures loaded.
