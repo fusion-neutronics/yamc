@@ -43,12 +43,14 @@ jobs:
           cargo run --example tbr
           cargo run --example flux_example
 
-      - name: Install ARM cross-compilers and HDF5 (Linux only)
+      - name: Install ARM cross-compilers (Linux only)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libhdf5-dev:arm64 libhdf5-dev:armhf
-      - name: Test ARM cross-compilation
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+      - name: Test ARM cross-compilation (Linux only)
+        if: runner.os == 'Linux'
         run: |
           rustup target add aarch64-unknown-linux-gnu
           rustup target add arm-unknown-linux-gnueabihf
