@@ -11,7 +11,7 @@ use crate::nuclide::Nuclide;
 use crate::reaction::Reaction;
 use crate::reaction_product::{
     ReactionProduct, AngleEnergyDistribution, AngleDistribution,
-    EnergyDistribution, ParticleType, Yield,
+    EnergyDistribution, ParticleType, Yield, Tabulated1D,
 };
 use crate::secondary_kalbach::{KalbachMann, KMTable, Interpolation as KMInterpolation};
 use crate::secondary_correlated::{CorrelatedAngleEnergy, CorrTable, Tabular, Interpolation as CorrInterpolation};
@@ -75,6 +75,12 @@ fn read_string_attr(group: &Group, name: &str) -> Result<String, hdf5::Error> {
         "Could not read string attribute '{}': unknown string type",
         name
     )))
+}
+
+/// Helper to read an f64 attribute from HDF5
+fn read_f64_attr(group: &Group, name: &str) -> Result<f64, hdf5::Error> {
+    let attr = group.attr(name)?;
+    attr.read_scalar::<f64>()
 }
 
 /// Parse element symbol and name from nuclide name (e.g., "Li6" -> ("Li", "lithium"))
@@ -564,6 +570,68 @@ fn read_distribution(group: &Group) -> Result<AngleEnergyDistribution, Box<dyn s
 
 /// Read uncorrelated angle-energy distribution
 fn read_uncorrelated_distribution(group: &Group) -> Result<AngleEnergyDistribution, Box<dyn std::error::Error>> {
+    // Check if this is an evaporation energy distribution first
+    // Evaporation is a special case that returns its own AngleEnergyDistribution variant
+    if let Ok(energy_group) = group.group("energy") {
+        let energy_type = read_string_attr(&energy_group, "type").unwrap_or_default();
+        if energy_type == "evaporation" {
+            // Read evaporation parameters
+            // theta is the nuclear temperature parameter (Tabulated1D)
+            // u is the restriction energy (threshold)
+            let u = read_f64_attr(&energy_group, "u").unwrap_or(0.0);
+
+            // Read theta as Tabulated1D
+            let theta = if let Ok(theta_ds) = energy_group.dataset("theta") {
+                // theta is a Tabulated1D with x (energy), y (temperature), breakpoints, interpolation
+                // OpenMC stores it as a group, but some files may have it as a dataset
+                // For now, try to read it as a simple Tabulated1D structure
+                if let Ok(theta_group) = energy_group.group("theta") {
+                    let x: Vec<f64> = theta_group.dataset("x")?.read_1d()?.to_vec();
+                    let y: Vec<f64> = theta_group.dataset("y")?.read_1d()?.to_vec();
+                    let breakpoints: Vec<i32> = theta_group.dataset("breakpoints")
+                        .and_then(|ds| ds.read_1d().map(|arr| arr.to_vec()))
+                        .unwrap_or_default();
+                    let interpolation: Vec<i32> = theta_group.dataset("interpolation")
+                        .and_then(|ds| ds.read_1d().map(|arr| arr.to_vec()))
+                        .unwrap_or_default();
+                    Some(Tabulated1D::Tabulated1D { x, y, breakpoints, interpolation })
+                } else {
+                    // theta might be a simple 2-column dataset
+                    if let Ok(theta_data) = theta_ds.read_2d::<f64>() {
+                        let x: Vec<f64> = theta_data.row(0).to_vec();
+                        let y: Vec<f64> = theta_data.row(1).to_vec();
+                        Some(Tabulated1D::Tabulated1D {
+                            x, y,
+                            breakpoints: vec![],
+                            interpolation: vec![]
+                        })
+                    } else {
+                        None
+                    }
+                }
+            } else if let Ok(theta_group) = energy_group.group("theta") {
+                // theta is stored as a group
+                let x: Vec<f64> = theta_group.dataset("x")?.read_1d()?.to_vec();
+                let y: Vec<f64> = theta_group.dataset("y")?.read_1d()?.to_vec();
+                let breakpoints: Vec<i32> = theta_group.dataset("breakpoints")
+                    .and_then(|ds| ds.read_1d().map(|arr| arr.to_vec()))
+                    .unwrap_or_default();
+                let interpolation: Vec<i32> = theta_group.dataset("interpolation")
+                    .and_then(|ds| ds.read_1d().map(|arr| arr.to_vec()))
+                    .unwrap_or_default();
+                Some(Tabulated1D::Tabulated1D { x, y, breakpoints, interpolation })
+            } else {
+                None
+            };
+
+            if std::env::var("YAMC_DEBUG_LOAD").is_ok() {
+                eprintln!("  read_uncorrelated: evaporation u={:.2e}, theta={}", u, theta.is_some());
+            }
+
+            return Ok(AngleEnergyDistribution::Evaporation { theta, u });
+        }
+    }
+
     let mut angle = AngleDistribution {
         energy: vec![],
         mu: vec![],
@@ -621,22 +689,63 @@ fn read_uncorrelated_distribution(group: &Group) -> Result<AngleEnergyDistributi
             "continuous" => {
                 // Read continuous tabular distribution
                 // The energy group contains 'energy' dataset (incoming energies)
-                // and 'distribution' dataset (outgoing energy PDFs)
-                if let Ok(energy_ds) = energy_group.dataset("energy") {
-                    match energy_ds.read_1d::<f64>() {
-                        Ok(energy_arr) => {
-                            Some(EnergyDistribution::ContinuousTabular {
-                                energy: energy_arr.to_vec(),
-                                energy_out: vec![],
-                            })
-                        }
-                        Err(e) => {
-                            eprintln!("Warning: Failed to read continuous energy: {}", e);
-                            None
-                        }
-                    }
-                } else {
+                // and 'distribution' dataset (outgoing energy PDFs with shape (3, N))
+                let energy_arr: Vec<f64> = match energy_group.dataset("energy") {
+                    Ok(ds) => ds.read_1d::<f64>().map(|a| a.to_vec()).unwrap_or_default(),
+                    Err(_) => vec![],
+                };
+
+                if energy_arr.is_empty() {
                     None
+                } else {
+                    // Read distribution dataset: shape (3, N) with e_out, p, c
+                    let energy_out = if let Ok(dist_ds) = energy_group.dataset("distribution") {
+                        // Get offsets attribute - tells us where each incoming energy's distribution starts
+                        let offsets: Vec<i32> = dist_ds.attr("offsets")
+                            .and_then(|a| a.read_1d().map(|arr| arr.to_vec()))
+                            .unwrap_or_default();
+
+                        // Read the distribution data
+                        let dist_data: Vec<f64> = dist_ds.read_raw::<f64>().unwrap_or_default();
+                        let n_cols = dist_data.len() / 3;
+
+                        if std::env::var("YAMC_DEBUG_LOAD").is_ok() {
+                            eprintln!("  continuous: {} energies, dist shape (3, {}), {} offsets",
+                                energy_arr.len(), n_cols, offsets.len());
+                        }
+
+                        // Build TabulatedProbability for each incoming energy
+                        let n_energy = energy_arr.len();
+                        let mut energy_out_vec = Vec::with_capacity(n_energy);
+
+                        for i in 0..n_energy {
+                            let j = offsets.get(i).copied().unwrap_or(0) as usize;
+                            let n = if i < n_energy - 1 {
+                                (offsets.get(i + 1).copied().unwrap_or(0) - offsets[i]) as usize
+                            } else {
+                                n_cols.saturating_sub(j)
+                            };
+
+                            if n > 0 && j + n <= n_cols {
+                                // Row 0: e_out, Row 1: p (PDF), Row 2: c (CDF - we use the PDF and convert)
+                                let e_out: Vec<f64> = (0..n).map(|k| dist_data[0 * n_cols + j + k]).collect();
+                                let p: Vec<f64> = (0..n).map(|k| dist_data[1 * n_cols + j + k]).collect();
+
+                                energy_out_vec.push(crate::reaction_product::TabulatedProbability::Tabulated {
+                                    x: e_out,
+                                    p,
+                                });
+                            }
+                        }
+                        energy_out_vec
+                    } else {
+                        vec![]
+                    };
+
+                    Some(EnergyDistribution::ContinuousTabular {
+                        energy: energy_arr,
+                        energy_out,
+                    })
                 }
             }
             _ => None,

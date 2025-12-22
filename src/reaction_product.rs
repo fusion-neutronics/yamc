@@ -64,25 +64,14 @@ impl Tabulated {
     }
     
     pub fn to_cdf(&self) -> Self {
-        if self.p.is_empty() {
+        if self.p.is_empty() || self.x.is_empty() {
             return self.clone();
         }
-        
-        let mut cdf_p = Vec::with_capacity(self.p.len());
-        let mut cumsum = 0.0;
-        
-        for &prob in &self.p {
-            cumsum += prob;
-            cdf_p.push(cumsum);
-        }
-        
-        let total = cdf_p[cdf_p.len() - 1];
-        if total > 0.0 {
-            for p in &mut cdf_p {
-                *p /= total;
-            }
-        }
-        
+
+        // Use proper trapezoidal integration to convert PDF to CDF
+        // This accounts for non-uniform spacing in x values
+        let cdf_p = cumulative_from_pdf(&self.x, &self.p);
+
         Tabulated {
             x: self.x.clone(),
             p: cdf_p,

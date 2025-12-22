@@ -1,13 +1,15 @@
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import yamc
 
 # Path to OpenMC-format HDF5 nuclear data files
 # Update this to point to your nuclear data directory
 NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/"
+isotopes = yamc.natural_abundance()
 
-# for isotope in isotopes:
-for isotope in ['Cr52']:
+for isotope in isotopes:
+# for isotope in ['He4', 'Cr52']:
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Energy bins: logarithmically spaced from 0.01 eV to 20 MeV
@@ -47,7 +49,7 @@ for isotope in ['Cr52']:
         material1 = mc.Material()
         material1.material_id = 1
         material1.add_nuclide(isotope, 1.0)
-        material1.set_density("g/cm3", 2.0)
+        material1.set_density("g/cm3", 1.0)
         if code == 'yamc':
             print(f"Reading nuclide data for {isotope}...")
             # Load from OpenMC-format HDF5 file

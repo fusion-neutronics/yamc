@@ -165,6 +165,9 @@ impl Model {
                                             );
 
                                             // Handle the constituent reaction
+                                            if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                eprintln!("Sampled MT {} for scattering", constituent_reaction.mt_number);
+                                            }
                                             match constituent_reaction.mt_number {
                                                 2 => {
                                                     // Elastic scattering
@@ -183,6 +186,11 @@ impl Model {
                                                             // Sample (e_out, mu) - but for elastic we need to recompute energy
                                                             let (_, mu_cm) = neutron_product.sample(particle.energy, rng);
 
+                                                            // Debug output
+                                                            if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                                eprintln!("MT2 elastic: E_in={:.2e}, mu_cm={:.4}, awr={:.2}", particle.energy, mu_cm, awr);
+                                                            }
+
                                                             // Two-body elastic kinematics
                                                             let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
                                                             let e_out = particle.energy * (1.0 + alpha + (1.0 - alpha) * mu_cm) / 2.0;
@@ -193,9 +201,14 @@ impl Model {
 
                                                             particle.energy = e_out;
                                                             crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, rng);
+                                                        } else if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                            eprintln!("MT2 elastic: NO neutron product found! n_products={}", constituent_reaction.products.len());
                                                         }
                                                     } else {
                                                         // No product data - use free-gas thermal scattering
+                                                        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                            eprintln!("MT2 elastic: using free-gas thermal scattering (no products)");
+                                                        }
                                                         elastic_scatter(&mut particle, awr, temperature_k, rng);
                                                     }
                                                 }
@@ -204,6 +217,11 @@ impl Model {
                                                     let awr = *ATOMIC_WEIGHT_RATIO
                                                         .get(nuclide_name.as_str())
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                                    if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                        eprintln!("MT{} inelastic: E_in={:.2e}, Q={:.2e}, n_products={}",
+                                                            constituent_reaction.mt_number, particle.energy,
+                                                            constituent_reaction.q_value, constituent_reaction.products.len());
+                                                    }
                                                     let outgoing_particles = if !constituent_reaction.products.is_empty() {
                                                         crate::inelastic::sample_from_products_with_awr(
                                                             &particle, &constituent_reaction, awr, rng
