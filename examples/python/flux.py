@@ -9,7 +9,8 @@ NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/"
 isotopes = yamc.natural_abundance()
 
 for isotope in isotopes:
-# for isotope in ['He4', 'Cr52']:
+# for isotope in ['C12']:
+    # if isotope not in ['He4', 'Cr52']:
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Energy bins: logarithmically spaced from 0.01 eV to 20 MeV

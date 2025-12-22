@@ -176,8 +176,23 @@ impl Model {
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let temperature_k = material.temperature.parse::<f64>().unwrap_or(294.0);
 
-                                                    // Check if we have product data with angular distributions
-                                                    if !constituent_reaction.products.is_empty() {
+                                                    // At thermal energies, target motion is significant and we must use
+                                                    // free-gas scattering to allow upscattering (energy gain from hot nuclei).
+                                                    // Target-at-rest kinematics always loses energy, preventing thermalization.
+                                                    // Use free-gas model below ~400*kT (about 10 eV at room temperature).
+                                                    const K_B: f64 = 8.617333e-5; // eV/K
+                                                    let thermal_cutoff = 400.0 * K_B * temperature_k; // ~10 eV at 294K
+
+                                                    let use_free_gas = particle.energy < thermal_cutoff;
+
+                                                    if use_free_gas {
+                                                        // Use free-gas thermal scattering (allows upscattering)
+                                                        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                            eprintln!("MT2 elastic: E_in={:.2e}, using free-gas (E < {:.2e})",
+                                                                particle.energy, thermal_cutoff);
+                                                        }
+                                                        elastic_scatter(&mut particle, awr, temperature_k, rng);
+                                                    } else if !constituent_reaction.products.is_empty() {
                                                         // Use tabulated angular distribution with two-body kinematics
                                                         // Sample angle from product, compute energy from kinematics
                                                         if let Some(neutron_product) = constituent_reaction.products.iter()
