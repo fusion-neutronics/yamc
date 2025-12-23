@@ -17,7 +17,6 @@ jobs:
     name: Test on ${{ matrix.os }} / Rust
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         # macos-latest = Intel (x86_64), macos-14 = Apple Silicon (ARM64)
         os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
