@@ -17,9 +17,25 @@ pub fn rotate_angle(u_cm: Vector3<f64>, mu_cm: f64, rng: &mut impl Rng) -> Vecto
     mu_cm * u_cm + sin_theta * phi.cos() * perp + sin_theta * phi.sin() * ortho
 }
 
+/// Rotate a direction vector by angle theta (cos(theta)=mu) around arbitrary axis
+/// This rotates u_old to a new direction with cosine mu relative to original
+pub fn rotate_direction_3d(u_old: &Vector3<f64>, mu: f64, phi: f64) -> Vector3<f64> {
+    let sin_theta = (1.0 - mu * mu).max(0.0).sqrt();
+
+    // Find a perpendicular vector to u_old
+    let perp = if u_old.x.abs() < 0.99 {
+        Vector3::new(1.0, 0.0, 0.0).cross(u_old).normalize()
+    } else {
+        Vector3::new(0.0, 1.0, 0.0).cross(u_old).normalize()
+    };
+    let ortho = u_old.cross(&perp);
+
+    mu * u_old + sin_theta * phi.cos() * perp + sin_theta * phi.sin() * ortho
+}
+
 /// Sample target velocity from Maxwell-Boltzmann distribution
 /// Returns velocity in units consistent with neutron velocity (sqrt(eV))
-fn sample_target_velocity(awr: f64, temperature_k: f64, rng: &mut impl Rng) -> Vector3<f64> {
+pub fn sample_target_velocity(awr: f64, temperature_k: f64, rng: &mut impl Rng) -> Vector3<f64> {
     // Boltzmann constant in eV/K
     const K_B: f64 = 8.617333e-5;
     

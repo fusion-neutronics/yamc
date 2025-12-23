@@ -41,11 +41,34 @@ impl KalbachMann {
             (i, r)
         };
         let l = if r_interp > rng.gen::<f64>() { i + 1 } else { i };
+
+        // Get distributions for both bins i and i+1 for interpolation
+        let dist_i = &self.distributions[i];
+        let dist_i1 = &self.distributions[i + 1];
+
+        // Get E_out bounds for interpolation (OpenMC style)
+        // E_i_1 = min continuous E_out for bin i, E_i_K = max E_out for bin i
+        let n_discrete_i = dist_i.n_discrete;
+        let e_i_1 = dist_i.e_out.get(n_discrete_i).copied().unwrap_or(0.0);
+        let e_i_k = *dist_i.e_out.last().unwrap_or(&0.0);
+
+        let n_discrete_i1 = dist_i1.n_discrete;
+        let e_i1_1 = dist_i1.e_out.get(n_discrete_i1).copied().unwrap_or(0.0);
+        let e_i1_k = *dist_i1.e_out.last().unwrap_or(&0.0);
+
+        // Interpolated E_out bounds
+        let e_1 = e_i_1 + r_interp * (e_i1_1 - e_i_1);
+        let e_k = e_i_k + r_interp * (e_i1_k - e_i_k);
+
         let dist = &self.distributions[l];
         let n_energy_out = dist.e_out.len();
         let n_discrete = dist.n_discrete;
+
+        // Track which bin k we sample from for interpolation decision
+        let mut sampled_k: usize = 0;
+
         // Outgoing energy sampling (OpenMC style)
-        let e_out = {
+        let mut e_out = {
             let r1 = rng.gen::<f64>();
             let mut k = 0;
             let mut c_k = dist.c[0];
@@ -72,6 +95,7 @@ impl KalbachMann {
             }
             let e_l_k = dist.e_out[k];
             let p_l_k = dist.p[k];
+            sampled_k = k;
             match dist.interpolation {
                 Interpolation::Histogram => {
                     if p_l_k > 0.0 && k >= n_discrete {
@@ -92,7 +116,24 @@ impl KalbachMann {
                 }
             }
         };
-        // Find outgoing energy bin
+
+        // Interpolate outgoing energy between incident energy bins (OpenMC style)
+        // This is crucial for preventing artificial thermal neutrons at near-threshold energies
+        if sampled_k >= n_discrete {
+            // Get the min/max E_out for the sampled distribution
+            let (e_l_1, e_l_k_max) = if l == i {
+                (e_i_1, e_i_k)
+            } else {
+                (e_i1_1, e_i1_k)
+            };
+
+            // Scale e_out to the interpolated range
+            if e_l_k_max > e_l_1 {
+                e_out = e_1 + (e_out - e_l_1) * (e_k - e_1) / (e_l_k_max - e_l_1);
+            }
+        }
+
+        // Find outgoing energy bin for r,a interpolation
         let mut k = 0;
         for j in 0..n_energy_out - 1 {
             if e_out >= dist.e_out[j] && e_out <= dist.e_out[j + 1] {

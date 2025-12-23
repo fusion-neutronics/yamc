@@ -8,8 +8,8 @@ import yamc
 NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/"
 isotopes = yamc.natural_abundance()
 
-for isotope in isotopes:
-# for isotope in ['C12']:
+# for isotope in isotopes:
+for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']:
     # if isotope not in ['He4', 'Cr52']:
     fig, ax = plt.subplots(figsize=(10, 6))
 

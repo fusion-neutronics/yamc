@@ -241,11 +241,67 @@ impl EnergyDistribution {
                 if energy.is_empty() || energy_out.is_empty() {
                     return incoming_energy;
                 }
-                let i = Self::find_energy_index(incoming_energy, energy);
-                if i >= energy_out.len() {
+
+                let n_energy = energy.len();
+
+                // Find energy bin and interpolation factor (OpenMC style)
+                let (i, r) = if incoming_energy <= energy[0] {
+                    (0, 0.0)
+                } else if incoming_energy >= energy[n_energy - 1] {
+                    (n_energy.saturating_sub(2), 1.0)
+                } else {
+                    let idx = Self::find_energy_index(incoming_energy, energy);
+                    let interp = if idx + 1 < n_energy && energy[idx + 1] > energy[idx] {
+                        (incoming_energy - energy[idx]) / (energy[idx + 1] - energy[idx])
+                    } else {
+                        0.0
+                    };
+                    (idx, interp)
+                };
+
+                // Check bounds
+                if i >= energy_out.len() || i + 1 >= energy_out.len() {
+                    if i < energy_out.len() {
+                        return energy_out[i].sample(rng);
+                    }
                     return incoming_energy;
                 }
-                energy_out[i].sample(rng)
+
+                // Stochastically choose bin l (either i or i+1)
+                let l = if r > rng.gen::<f64>() { i + 1 } else { i };
+
+                // Get E_out bounds for both bins
+                let x_i = energy_out[i].get_x_values();
+                let x_i1 = energy_out[i + 1].get_x_values();
+
+                if x_i.is_empty() || x_i1.is_empty() {
+                    return energy_out[l].sample(rng);
+                }
+
+                let e_i_1 = x_i[0];  // min E_out for bin i
+                let e_i_k = *x_i.last().unwrap_or(&e_i_1);  // max E_out for bin i
+                let e_i1_1 = x_i1[0];  // min E_out for bin i+1
+                let e_i1_k = *x_i1.last().unwrap_or(&e_i1_1);  // max E_out for bin i+1
+
+                // Interpolated E_out bounds
+                let e_1 = e_i_1 + r * (e_i1_1 - e_i_1);
+                let e_k = e_i_k + r * (e_i1_k - e_i_k);
+
+                // Sample from chosen distribution
+                let e_out_raw = energy_out[l].sample(rng);
+
+                // Interpolate outgoing energy between incident energy bins (OpenMC style)
+                let (e_l_1, e_l_k) = if l == i {
+                    (e_i_1, e_i_k)
+                } else {
+                    (e_i1_1, e_i1_k)
+                };
+
+                if e_l_k > e_l_1 && e_k > e_1 {
+                    e_1 + (e_out_raw - e_l_1) * (e_k - e_1) / (e_l_k - e_l_1)
+                } else {
+                    e_out_raw
+                }
             }
         }
     }

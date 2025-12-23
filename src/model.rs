@@ -2,10 +2,10 @@ use crate::bank::ParticleBank;
 use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::fast_rng::FastRng;
 use crate::geometry::Geometry;
-use crate::physics::elastic_scatter;
 use crate::settings::Settings;
 use crate::surface::BoundaryType;
 use crate::tallies::tally::Tally;
+use rand::Rng;
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -176,37 +176,29 @@ impl Model {
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let temperature_k = material.temperature.parse::<f64>().unwrap_or(294.0);
 
-                                                    // At thermal energies, target motion is significant and we must use
-                                                    // free-gas scattering to allow upscattering (energy gain from hot nuclei).
-                                                    // Target-at-rest kinematics always loses energy, preventing thermalization.
-                                                    // Use free-gas model below ~400*kT (about 10 eV at room temperature).
-                                                    const K_B: f64 = 8.617333e-5; // eV/K
-                                                    let thermal_cutoff = 400.0 * K_B * temperature_k; // ~10 eV at 294K
+                                                    // OpenMC-style elastic scattering:
+                                                    // - At high energies (E >= 400*kT): target at rest, use two-body kinematics
+                                                    // - At low energies (E < 400*kT): sample target velocity from Maxwell-Boltzmann,
+                                                    //   transform to CM frame, sample mu_cm from angular distribution (if available)
 
-                                                    let use_free_gas = particle.energy < thermal_cutoff;
+                                                    const K_B: f64 = 8.617333e-5; // eV/K (Boltzmann constant)
+                                                    let k_t = K_B * temperature_k;
+                                                    let free_gas_threshold = 400.0 * k_t; // ~10 eV at room temperature
 
-                                                    if use_free_gas {
-                                                        // Use free-gas thermal scattering (allows upscattering)
-                                                        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-                                                            eprintln!("MT2 elastic: E_in={:.2e}, using free-gas (E < {:.2e})",
-                                                                particle.energy, thermal_cutoff);
-                                                        }
-                                                        elastic_scatter(&mut particle, awr, temperature_k, rng);
-                                                    } else if !constituent_reaction.products.is_empty() {
-                                                        // Use tabulated angular distribution with two-body kinematics
-                                                        // Sample angle from product, compute energy from kinematics
-                                                        if let Some(neutron_product) = constituent_reaction.products.iter()
-                                                            .find(|p| p.is_particle_type(&crate::reaction_product::ParticleType::Neutron))
-                                                        {
-                                                            // Sample (e_out, mu) - but for elastic we need to recompute energy
-                                                            let (_, mu_cm) = neutron_product.sample(particle.energy, rng);
+                                                    // Check if we have tabulated angular distribution
+                                                    let neutron_product = constituent_reaction.products.iter()
+                                                        .find(|p| p.is_particle_type(&crate::reaction_product::ParticleType::Neutron));
 
-                                                            // Debug output
+                                                    if particle.energy >= free_gas_threshold && awr > 1.0 {
+                                                        // High energy: target at rest, use two-body kinematics
+                                                        if let Some(product) = neutron_product {
+                                                            let (_, mu_cm) = product.sample(particle.energy, rng);
+
                                                             if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-                                                                eprintln!("MT2 elastic: E_in={:.2e}, mu_cm={:.4}, awr={:.2}", particle.energy, mu_cm, awr);
+                                                                eprintln!("MT2 elastic (target-at-rest): E_in={:.2e}, mu_cm={:.4}, awr={:.2}", particle.energy, mu_cm, awr);
                                                             }
 
-                                                            // Two-body elastic kinematics
+                                                            // Two-body elastic kinematics (target at rest)
                                                             let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
                                                             let e_out = particle.energy * (1.0 + alpha + (1.0 - alpha) * mu_cm) / 2.0;
 
@@ -216,15 +208,91 @@ impl Model {
 
                                                             particle.energy = e_out;
                                                             crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, rng);
-                                                        } else if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-                                                            eprintln!("MT2 elastic: NO neutron product found! n_products={}", constituent_reaction.products.len());
+                                                        } else {
+                                                            // No angular data - isotropic scattering
+                                                            let mu_cm = 2.0 * rng.gen::<f64>() - 1.0;
+                                                            let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+                                                            let e_out = particle.energy * (1.0 + alpha + (1.0 - alpha) * mu_cm) / 2.0;
+                                                            let denom = (1.0 + awr * awr + 2.0 * awr * mu_cm).sqrt();
+                                                            let mu_lab = (1.0 + awr * mu_cm) / denom;
+                                                            particle.energy = e_out;
+                                                            crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, rng);
                                                         }
                                                     } else {
-                                                        // No product data - use free-gas thermal scattering
-                                                        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-                                                            eprintln!("MT2 elastic: using free-gas thermal scattering (no products)");
+                                                        // Low energy: use free-gas target velocity sampling with angular distribution
+                                                        // This is the CXS (constant cross section) approximation from OpenMC
+                                                        use nalgebra::Vector3;
+
+                                                        let vel = particle.energy.sqrt();
+                                                        let v_n = Vector3::new(
+                                                            particle.direction[0] * vel,
+                                                            particle.direction[1] * vel,
+                                                            particle.direction[2] * vel,
+                                                        );
+
+                                                        // Sample target velocity using CXS approximation
+                                                        let v_t = crate::physics::sample_target_velocity(awr, temperature_k, rng);
+
+                                                        // Center-of-mass velocity
+                                                        let v_cm = (v_n + awr * v_t) / (awr + 1.0);
+
+                                                        // Transform to CM frame
+                                                        let v_n_cm = v_n - v_cm;
+                                                        let vel_cm = v_n_cm.norm();
+
+                                                        // Handle degenerate case
+                                                        if vel_cm < 1e-10 {
+                                                            // Just scatter isotropically
+                                                            let mu: f64 = 2.0 * rng.gen::<f64>() - 1.0;
+                                                            let phi: f64 = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+                                                            let sin_theta: f64 = (1.0 - mu * mu).sqrt();
+                                                            particle.direction = [
+                                                                sin_theta * phi.cos(),
+                                                                sin_theta * phi.sin(),
+                                                                mu,
+                                                            ];
+                                                            continue;
                                                         }
-                                                        elastic_scatter(&mut particle, awr, temperature_k, rng);
+
+                                                        // Sample mu_cm from angular distribution (if available) or isotropic
+                                                        let mu_cm = if let Some(product) = neutron_product {
+                                                            let (_, mu) = product.sample(particle.energy, rng);
+                                                            mu
+                                                        } else {
+                                                            2.0 * rng.gen::<f64>() - 1.0
+                                                        };
+
+                                                        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                            eprintln!("MT2 elastic (free-gas): E_in={:.2e}, mu_cm={:.4}, awr={:.2}, kT={:.2e}",
+                                                                particle.energy, mu_cm, awr, k_t);
+                                                        }
+
+                                                        // Direction in CM frame
+                                                        let u_cm = v_n_cm / vel_cm;
+
+                                                        // Rotate by mu_cm (speed doesn't change in elastic CM scatter)
+                                                        let phi = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+
+                                                        // New direction in CM frame (rotate u_cm by scattering angle)
+                                                        let u_new = crate::physics::rotate_direction_3d(&u_cm, mu_cm, phi);
+                                                        let v_n_cm_new = vel_cm * u_new;
+
+                                                        // Transform back to lab frame
+                                                        let v_n_lab = v_n_cm_new + v_cm;
+                                                        let e_out = v_n_lab.dot(&v_n_lab);
+                                                        let vel_out = e_out.sqrt();
+
+                                                        if vel_out > 1e-10 {
+                                                            particle.energy = e_out;
+                                                            particle.direction = [
+                                                                v_n_lab[0] / vel_out,
+                                                                v_n_lab[1] / vel_out,
+                                                                v_n_lab[2] / vel_out,
+                                                            ];
+                                                        } else {
+                                                            // Extremely low energy - particle effectively stopped
+                                                            particle.energy = 1e-11; // minimum energy
+                                                        }
                                                     }
                                                 }
                                                 50..=91 => {
@@ -255,6 +323,9 @@ impl Model {
                                                     }
 
                                                     let outgoing = &outgoing_particles[0];
+                                                    if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                        eprintln!("MT{} -> E_out={:.2e}", constituent_reaction.mt_number, outgoing.energy);
+                                                    }
                                                     particle.energy = outgoing.energy;
                                                     particle.direction = outgoing.direction;
                                                     particle.position = outgoing.position;
