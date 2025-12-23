@@ -55,13 +55,13 @@ jobs:
       - name: Build wheel (all platforms)
         shell: bash
         run: |
-          source venv/bin/activate || venv\Scripts\activate.ps1
+          source venv/bin/activate || source venv/Scripts/activate
           maturin build --release --features pyo3 -o dist
 
       - name: Install wheel (all platforms)
         shell: bash
         run: |
-          source venv/bin/activate || venv\Scripts\activate.ps1
+          source venv/bin/activate || source venv/Scripts/activate
           pip install dist/*.whl
 
       - name: Run tests (Windows)
