@@ -2,15 +2,26 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import yamc
+import glob
+import os
 
 # Path to OpenMC-format HDF5 nuclear data files
 # Update this to point to your nuclear data directory
-NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/"
-isotopes = yamc.natural_abundance()
 
-# for isotope in isotopes:
-for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']:
-    # if isotope not in ['He4', 'Cr52']:
+
+NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/fendl-3.2c-hdf5/"
+# Find all HDF5 files in the neutron data directory and sort them alphabetically
+
+neutron_dir = os.path.join(NUCLEAR_DATA_DIR, "neutron")
+h5_files = sorted(glob.glob(os.path.join(neutron_dir, "*.h5")))
+
+# Prepare to collect average relative differences for all isotopes
+isotopes = [os.path.splitext(os.path.basename(f))[0] for f in h5_files]
+avg_rel_diff_list = []
+isotopes = ['O16']
+for isotope in isotopes:
+# for isotope in ['S33', 'Er162',  'K39', 'K41', 'Ga71', 'Cd106']:
+    # if isotope not in ['O16', 'Cr52']:
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Energy bins: logarithmically spaced from 0.01 eV to 20 MeV
@@ -78,7 +89,7 @@ for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']
             )
             settings = mc.Settings(
                 particles=50000,
-                batches=2,
+                batches=20,
                 source=source,
                 seed=1,
                 run_mode='fixed source'
@@ -91,7 +102,7 @@ for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']
             )
             settings = mc.Settings(
                 particles=50000,
-                batches=2,
+                batches=20,
                 source=source,
                 seed=1
             )
@@ -141,7 +152,7 @@ for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']
     ax.set_yscale('log')
     ax.set_xlabel('Energy (eV)')
     ax.set_ylabel('Flux (particles/cm²/source particle)')
-    ax.set_title(f'Energy-dependent Flux Spectrum {isotope}')
+    ax.set_title(f'Energy-dependent Flux Spectrum {isotope} {NUCLEAR_DATA_DIR}')
     ax.grid(True, alpha=0.3)
     ax.legend()
 
@@ -160,8 +171,11 @@ for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']
     openmc_flux = results.get('openmc', np.zeros(len(energy_bins)-1))
     yamc_flux = results.get('yamc', np.zeros(len(energy_bins)-1))
 
-    for i in range(len(energy_bins) - 1):
 
+    # Calculate and print bin-by-bin differences, and collect for averaging
+    abs_diffs = []
+    rel_diffs = []
+    for i in range(len(energy_bins) - 1):
         e_low = energy_bins[i]
         e_high = energy_bins[i + 1]
         omc = openmc_flux[i]
@@ -174,6 +188,9 @@ for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']
         else:
             rel_diff = 0.0
 
+        abs_diffs.append(abs(diff))
+        rel_diffs.append(abs(rel_diff) if np.isfinite(rel_diff) else 0.0)
+
         # Highlight significant differences
         marker = ""
         if abs(rel_diff) > 50 and (omc > 0.01 or ymc > 0.01):
@@ -184,6 +201,16 @@ for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']
             marker = " *"
 
         print(f"{i:<4} {e_low:<14.4e} {e_high:<14.4e} {omc:<16.6e} {ymc:<16.6e} {diff:<+16.6e} {rel_diff:<12.2f}{marker}")
+
+
+    # Print average difference metrics for this isotope
+    avg_abs_diff = np.mean(abs_diffs)
+    avg_rel_diff = np.mean(rel_diffs)
+    print(f"\nAverage absolute difference per bin: {avg_abs_diff:.4e}")
+    print(f"Average relative difference per bin: {avg_rel_diff:.2f}%\n")
+
+    # Store for summary
+    avg_rel_diff_list.append((isotope, avg_rel_diff))
 
     # Save flux spectrum to CSV file (yamc, openmc, energy)
     csv_filename = f'flux_spectrum_{isotope}.txt'
@@ -201,4 +228,11 @@ for isotope in ['S33', 'Er162', 'In115', 'K39', 'K41', 'Ga71', 'Cd106', 'Ru104']
     total_rel_diff = (total_diff / omc_total * 100) if omc_total != 0 else 0.0
     print(f"{'TOT':<4} {'':<14} {'':<14} {omc_total:<16.6e} {ymc_total:<16.6e} {total_diff:<+16.6e} {total_rel_diff:<12.2f}")
     print("="*110)
+
     print("\nLegend: * = >10% diff, ** = >20% diff, *** = >50% diff (only for flux > 0.01)")
+
+# After all isotopes, print sorted summary of avg_rel_diff
+if avg_rel_diff_list:
+    print("\n===== Sorted Isotopes by Average Relative Difference =====")
+    for isotope, avg_rel in sorted(avg_rel_diff_list, key=lambda x: x[1]):
+        print(f"{isotope:<10} {avg_rel:10.2f} %")
