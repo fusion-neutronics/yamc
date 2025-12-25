@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 # Load Fe56 from TENDL-21
 print("Loading Fe56 from TENDL-21...")
 fe56_tendl = yamc.Nuclide("Fe56")
-fe56_tendl.read_nuclide_from_json("tendl-21")
+fe56_tendl.read_nuclide_from_h5("tendl-21")
 
 # Load Fe56 from FENDL-3.2c  
 print("Loading Fe56 from FENDL-3.2c...")
 fe56_fendl = yamc.Nuclide("Fe56")
-fe56_fendl.read_nuclide_from_json("fendl-3.2c")
+fe56_fendl.read_nuclide_from_h5("fendl-3.2c")
 
 # Get (n,gamma) cross sections from both
 xs_tendl, energy_tendl = fe56_tendl.microscopic_cross_section("(n,gamma)", "294")

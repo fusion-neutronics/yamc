@@ -1,4 +1,4 @@
-use crate::nuclide::{read_nuclide_from_json_str, Nuclide};
+use crate::nuclide::{read_nuclide_from_h5_str, Nuclide};
 use js_sys::Array;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -45,7 +45,7 @@ pub fn get_or_load_nuclide_wasm(
 
     if let Some(content) = content {
         // If we have content, parse it
-        let nuclide = read_nuclide_from_json_str(&content)?;
+        let nuclide = read_nuclide_from_h5_str(&content)?;
         let arc_nuclide = Arc::new(nuclide);
 
         // Store in cache
@@ -155,12 +155,12 @@ impl WasmNuclide {
 }
 
 #[wasm_bindgen]
-pub fn wasm_read_nuclide_from_json(name: &str, json_path: &str) -> Result<WasmNuclide, JsValue> {
+pub fn wasm_read_nuclide_from_h5(name: &str, json_path: &str) -> Result<WasmNuclide, JsValue> {
     WasmNuclide::load_from_json(name, json_path)
 }
 
 #[wasm_bindgen]
-pub fn wasm_read_nuclide_from_json_str(
+pub fn wasm_read_nuclide_from_h5_str(
     name: &str,
     json_content: &str,
 ) -> Result<WasmNuclide, JsValue> {

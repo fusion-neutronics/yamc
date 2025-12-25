@@ -20,6 +20,7 @@ fn test_inelastic_scatter_returns_particles() {
         mt_number: 16, // (n,2n) reaction
         q_value: -6.0e6, // Endothermic, 6 MeV threshold
         products: vec![],
+        scatter_in_cm: false,
     };
     
     // Test the inelastic scatter function
@@ -61,6 +62,7 @@ fn test_single_neutron_reaction() {
         mt_number: 51, // Discrete inelastic level
         q_value: -1.0e6, // 1 MeV excitation energy
         products: vec![],
+        scatter_in_cm: false,
     };
     
     // Test the inelastic scatter function  

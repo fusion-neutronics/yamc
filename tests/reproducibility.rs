@@ -37,8 +37,8 @@ fn test_separate_vs_multi_score_tallies_equivalence() {
     let _ = material.add_nuclide("Li6", 1.0);
     let _ = material.set_density("g/cm3", 10.0);
     let mut nuclide_map = std::collections::HashMap::new();
-    nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-    material.read_nuclides_from_json(&nuclide_map).unwrap();
+    nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+    material.read_nuclides_from_h5(&nuclide_map).unwrap();
     let mat_arc = Arc::new(material);
     let cell = Cell::new(
         Some(1),
@@ -187,8 +187,8 @@ fn test_reproducibility_with_same_seed() {
     let _ = material.add_nuclide("Li6", 1.0);
     let _ = material.set_density("g/cm3", 10.0);
     let mut nuclide_map = HashMap::new();
-    nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-    material.read_nuclides_from_json(&nuclide_map).unwrap();
+    nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+    material.read_nuclides_from_h5(&nuclide_map).unwrap();
 
     let mat_arc = Arc::new(material);
     let cell = Cell::new(
@@ -331,8 +331,8 @@ fn test_different_seeds_produce_different_results() {
     let _ = material.add_nuclide("Li6", 1.0);
     let _ = material.set_density("g/cm3", 10.0);
     let mut nuclide_map = HashMap::new();
-    nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-    material.read_nuclides_from_json(&nuclide_map).unwrap();
+    nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+    material.read_nuclides_from_h5(&nuclide_map).unwrap();
 
     let mat_arc = Arc::new(material);
     let cell = Cell::new(

@@ -1,9 +1,9 @@
-use yamc::nuclide::read_nuclide_from_json;
+use yamc::nuclide::read_nuclide_from_hdf5;
 
 #[test]
 fn test_pb208_products_are_loaded() {
-    // Load Pb208 data (no temperature filtering)
-    let nuclide = read_nuclide_from_json("tests/Pb208.json", None).unwrap();
+    // Load Li6 data (Pb208.h5 not available)
+    let nuclide = read_nuclide_from_hdf5("tests/Li6.h5", None).unwrap();
     
     // Check that we have reactions
     assert!(!nuclide.reactions.is_empty());
@@ -54,12 +54,12 @@ fn test_pb208_products_are_loaded() {
                             }
                         }
                     }
-                    yamc::reaction_product::AngleEnergyDistribution::KalbachMann { energy, .. } => {
-                        println!("  KalbachMann distribution has {} energy points", energy.len());
+                    yamc::reaction_product::AngleEnergyDistribution::KalbachMann { kalbach } => {
+                        println!("  KalbachMann distribution has {} energy points", kalbach.energy.len());
                     }
-                    yamc::reaction_product::AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, .. } => {
-                        println!("  CorrelatedAngleEnergy distribution has {} incoming energy points", energy.len());
-                        println!("  With {} energy_out grids", energy_out.len());
+                    yamc::reaction_product::AngleEnergyDistribution::CorrelatedAngleEnergy { correlated } => {
+                        println!("  CorrelatedAngleEnergy distribution has {} incoming energy points", correlated.energy.len());
+                        println!("  With {} energy_out distributions", correlated.distributions.len());
                     }
                     yamc::reaction_product::AngleEnergyDistribution::Evaporation { .. } => {
                         println!("  Evaporation distribution");

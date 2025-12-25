@@ -22,10 +22,10 @@ import yamc
 ### Config the nuclear data
 
 For now we will specify a single nuclear data library to use for all nuclides.
-This is the simplest option other config options are covered later.  
+This is the simplest option other config options are covered later.
 
 ```python
-yamc.Config.set_cross_sections("fendl-3.2c")  # tendl-21 is another option
+yamc.Config.set_cross_sections({"Li6": "tests/Li6.h5", "Li7": "tests/Li7.h5"})  # or use "fendl-3.1d" / "tendl-2019" keywords
 ```
 
 ### Create a nuclides
@@ -39,7 +39,7 @@ nuclide = yamc.Nuclide('Li6')
 The microscopic cross section for a specific reaction can then be found for and MT number with.
 
 ```python
-xs, energy = nuclide.microscopic_cross_section(reaction="(n,gamma)")
+xs, energy = nuclide.microscopic_cross_section(reaction="(n,gamma)", temperature="294")
 ```
 
 ### Creating a Material
@@ -48,14 +48,15 @@ A material can be made by adding elements or nuclides with their atom fractions.
 
 ```python
 material = yamc.Material()
-material.add_element('Li', 0.5)
-material.add_nuclide('B10', 0.5)
+material.add_nuclide('Li6', 0.5)
+material.add_nuclide('Li7', 0.5)
 ```
 
 The density must also be set to complete the material.
 
 ```python
 material.set_density('g/cm3', 7.1)  # kg/m3 also accepted
+material.temperature = "294"  # set temperature for cross section lookup
 ```
 
 The macroscopic cross section for a specific reaction can then be found for and MT number with.
@@ -73,7 +74,7 @@ User control over the source of nuclear data for each on a nuclide and material 
 The simplest method is to configure the package to use a single source of nuclear data for all nuclides.
 
 ```python
-yamc.Config.set_cross_sections("tendl-21")
+yamc.Config.set_cross_sections("tendl-2019")
 ```
 
 Whenever nuclear data is needed this will check the users ```.cache/yamc``` folder to see if the JSON file for the required nuclide exists.
@@ -81,33 +82,33 @@ If the file is found then it will be used and if not the JSON file will be downl
 
 ### Config with JSON paths
 
-It is also possible to download JSON files from nuclear data repos [fendl-3.2](https://github.com/fusion-neutronics/cross_section_data_fendl_3.2c) and [tendl-21](https://github.com/fusion-neutronics/cross_section_data_tendl_21).Once the JSON files are saved locally then the path to these files can be used to configure the nuclear data. Replace the ```tests``` dir to the path to the downloaded JSON files.
+It is also possible to download H5 files from nuclear data repos [FENDL-3.1d](https://github.com/openmc-data-storage/FENDL-3.1d) and [TENDL-2019](https://github.com/openmc-data-storage/TENDL-2019). Once the H5 files are saved locally then the path to these files can be used to configure the nuclear data. Replace the ```tests``` dir to the path to the downloaded H5 files.
 
 ```python
 yamc.Config.set_cross_sections({
-    "Be9": "tests/Be9.json",
-    "Fe54": "tests/Fe54.json",
-    "Fe56": "tests/Fe56.json",
-    "Fe57": "tests/Fe57.json",
-    "Fe58": "tests/Fe58.json",
-    "Li6": "tests/Li6.json",
-    "Li7": "tests/Li7.json",
+    "Be9": "tests/Be9.h5",
+    "Fe54": "tests/Fe54.h5",
+    "Fe56": "tests/Fe56.h5",
+    "Fe57": "tests/Fe57.h5",
+    "Fe58": "tests/Fe58.h5",
+    "Li6": "tests/Li6.h5",
+    "Li7": "tests/Li7.h5",
 })
 ```
 
 ### Config with JSON paths and specific libraries
 
-It is also possible to mix different sources when configuring the nuclear data sources. In this example we use tendl-21 for some nuclides, file paths for others and fendl-3.2c for others. Replace the ```tests``` dir to the path to the downloaded JSON files.
+It is also possible to mix different sources when configuring the nuclear data sources. In this example we use tendl-2019 for some nuclides, file paths for others and fendl-3.1d for others. Replace the ```tests``` dir to the path to the downloaded JSON files.
 
 ```python
 yamc.Config.set_cross_sections({
-    "Be9": "tendl-21",
-    "Fe54": "tendl-21",
-    "Fe56": "tests/Fe56.json",
-    "Fe57": "tests/Fe57.json",
-    "Fe58": "tests/Fe58.json",
-    "Li6": "fendl-3.2c/Li6.json",
-    "Li7": "fendl-3.2c/Li7.json",
+    "Be9": "tendl-2019",
+    "Fe54": "tendl-2019",
+    "Fe56": "tests/Fe56.h5",
+    "Fe57": "tests/Fe57.h5",
+    "Fe58": "tests/Fe58.h5",
+    "Li6": "fendl-3.1d",
+    "Li7": "fendl-3.1d",
 })
 ```
 
@@ -118,14 +119,14 @@ You can also avoid the ```Config``` entirely and specify the nuclear data to use
 This can be done using a nuclear data library.
 ```python
 nuclide = yamc.Nuclide('Li6')
-nuclide.read_nuclide_from_json('tendl-21')
+nuclide.read_nuclide_from_h5('tendl-2019')
 ```
 
 Alternatively a specific nuclear data path
 
 ```python
 nuclide = yamc.Nuclide('Li6')
-nuclide.read_nuclide_from_json('tests/Li6.json')
+nuclide.read_nuclide_from_h5('tests/Li6.h5')
 ```
 
 ### Specific nuclear data on the Material
@@ -137,7 +138,7 @@ Again this can be done using a nuclear data library.
 material = yamc.Material()
 material.add_nuclide('Li6',1)
 material.set_density('g/cm3',2.)
-material.read_nuclides_from_json({'Li6':'tendl-21'})
+material.read_nuclides_from_h5({'Li6':'tendl-2019'})
 material.temperature = "294"  # needed if there are multiple temperatures 
 my_energies, xs_dict = material.calculate_macroscopic_xs([3])
 ```
@@ -148,7 +149,7 @@ Alternatively a specific nuclear data path
 material = yamc.Material()
 material.add_nuclide('Li6',1)
 material.set_density('g/cm3',2.)
-material.read_nuclides_from_json({'Li6':'tests/Li6.json'})
+material.read_nuclides_from_h5({'Li6':'tests/Li6.h5'})
 material.temperature = "294"  # needed if there are multiple temperatures 
 my_energies, xs_dict = material.calculate_macroscopic_xs([3])
 ```
@@ -170,7 +171,7 @@ mat1.add_nuclide('Li6',1)
 mat1.add_nuclide('Li7',1)
 mat1.set_density('g/cm3',1.)
 mat1.temperature = "294"
-mat1.read_nuclides_from_json({'Li6':'tests/Li6.json', 'Li7':'tests/Li7.json'})
+mat1.read_nuclides_from_h5({'Li6':'tests/Li6.h5', 'Li7':'tests/Li7.h5'})
 mean_free_path = mat1.mean_free_path_neutron(14e6)
 print(f'mean free path is {mean_free_path}')
 ```
@@ -187,7 +188,7 @@ import yamc
 mat = yamc.Material()
 mat.add_nuclide("Li6", 1.0)
 mat.set_density("g/cm3", 1.)
-mat.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+mat.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 mat.temperature = "294"
 mat.calculate_macroscopic_xs()  # Ensure xs are calculated
 sampled_distance = mat.sample_distance_to_collision(energy=14e6, seed=1234)
@@ -207,9 +208,9 @@ material.add_nuclide("Li6", 0.5)
 material.add_nuclide("Li7", 0.5)
 material.set_density("g/cm3", 1.0)
 material.temperature = "294"
-material.read_nuclides_from_json({
-    "Li6": "tests/Li6.json",
-    "Li7": "tests/Li7.json",
+material.read_nuclides_from_h5({
+    "Li6": "tests/Li6.h5",
+    "Li7": "tests/Li7.h5",
 })
 # Calculate per-nuclide macroscopic total xs
 material.calculate_macroscopic_xs(mt_filter=[1], by_nuclide=True)
@@ -224,7 +225,7 @@ Once the interacting nuclide is known then the reaction can be sampled using ```
 ```python
 import yamc
 nuc = yamc.Nuclide('Li6')
-nuc.read_nuclide_from_json('tests/Li6.json')
+nuc.read_nuclide_from_h5('tests/Li6.h5')
 reaction = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
 print(f'interacting reaction is {reaction}')
 ```

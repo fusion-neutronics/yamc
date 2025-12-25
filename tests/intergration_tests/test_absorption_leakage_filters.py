@@ -35,13 +35,13 @@ def test_absorption_leakage_filters():
     material1.material_id = 1  # Set material_id for MaterialFilter testing
     material1.add_nuclide("Li6", 1.0)
     material1.set_density("g/cm3", 10.0)
-    material1.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+    material1.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 
     material2 = mc.Material()
     material2.material_id = 2  # Set material_id for MaterialFilter testing
     material2.add_nuclide("Be9", 1.0)
     material2.set_density("g/cm3", 20.0)
-    material2.read_nuclides_from_json({"Be9": "tests/Be9.json"})
+    material2.read_nuclides_from_h5({"Be9": "tests/Be9.h5"})
 
     # Create cells
     cell1 = mc.Cell(
@@ -185,13 +185,13 @@ def test_duplicate_filter_error():
     material1.material_id = 1
     material1.add_nuclide("Li6", 1.0)
     material1.set_density("g/cm3", 10.0)
-    material1.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+    material1.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 
     material2 = mc.Material()
     material2.material_id = 2
     material2.add_nuclide("Be9", 1.0)
     material2.set_density("g/cm3", 20.0)
-    material2.read_nuclides_from_json({"Be9": "tests/Be9.json"})
+    material2.read_nuclides_from_h5({"Be9": "tests/Be9.h5"})
 
     # Create cells
     cell1 = mc.Cell(cell_id=1, name="cell1", region=region, fill=material1)

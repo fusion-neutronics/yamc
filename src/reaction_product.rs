@@ -1,3 +1,23 @@
+/// Helper: compute cumulative distribution from PDF (lin-lin, normalized)
+fn cumulative_from_pdf(x: &[f64], p: &[f64]) -> Vec<f64> {
+    let mut c = Vec::with_capacity(x.len());
+    let mut sum = 0.0;
+    c.push(0.0);
+    for i in 1..x.len() {
+        // Trapezoidal rule for lin-lin
+        let dx = x[i] - x[i - 1];
+        let avg = 0.5 * (p[i] + p[i - 1]);
+        sum += avg * dx;
+        c.push(sum);
+    }
+    // Normalize
+    if sum > 0.0 {
+        for v in &mut c {
+            *v /= sum;
+        }
+    }
+    c
+}
 // Reaction product types and distributions
 // Refactored to match OpenMC's file structure:
 // - This file contains all type definitions (like reaction_product.h)
@@ -44,25 +64,14 @@ impl Tabulated {
     }
     
     pub fn to_cdf(&self) -> Self {
-        if self.p.is_empty() {
+        if self.p.is_empty() || self.x.is_empty() {
             return self.clone();
         }
-        
-        let mut cdf_p = Vec::with_capacity(self.p.len());
-        let mut cumsum = 0.0;
-        
-        for &prob in &self.p {
-            cumsum += prob;
-            cdf_p.push(cumsum);
-        }
-        
-        let total = cdf_p[cdf_p.len() - 1];
-        if total > 0.0 {
-            for p in &mut cdf_p {
-                *p /= total;
-            }
-        }
-        
+
+        // Use proper trapezoidal integration to convert PDF to CDF
+        // This accounts for non-uniform spacing in x values
+        let cdf_p = cumulative_from_pdf(&self.x, &self.p);
+
         Tabulated {
             x: self.x.clone(),
             p: cdf_p,
@@ -232,11 +241,67 @@ impl EnergyDistribution {
                 if energy.is_empty() || energy_out.is_empty() {
                     return incoming_energy;
                 }
-                let i = Self::find_energy_index(incoming_energy, energy);
-                if i >= energy_out.len() {
+
+                let n_energy = energy.len();
+
+                // Find energy bin and interpolation factor (OpenMC style)
+                let (i, r) = if incoming_energy <= energy[0] {
+                    (0, 0.0)
+                } else if incoming_energy >= energy[n_energy - 1] {
+                    (n_energy.saturating_sub(2), 1.0)
+                } else {
+                    let idx = Self::find_energy_index(incoming_energy, energy);
+                    let interp = if idx + 1 < n_energy && energy[idx + 1] > energy[idx] {
+                        (incoming_energy - energy[idx]) / (energy[idx + 1] - energy[idx])
+                    } else {
+                        0.0
+                    };
+                    (idx, interp)
+                };
+
+                // Check bounds
+                if i >= energy_out.len() || i + 1 >= energy_out.len() {
+                    if i < energy_out.len() {
+                        return energy_out[i].sample(rng);
+                    }
                     return incoming_energy;
                 }
-                energy_out[i].sample(rng)
+
+                // Stochastically choose bin l (either i or i+1)
+                let l = if r > rng.gen::<f64>() { i + 1 } else { i };
+
+                // Get E_out bounds for both bins
+                let x_i = energy_out[i].get_x_values();
+                let x_i1 = energy_out[i + 1].get_x_values();
+
+                if x_i.is_empty() || x_i1.is_empty() {
+                    return energy_out[l].sample(rng);
+                }
+
+                let e_i_1 = x_i[0];  // min E_out for bin i
+                let e_i_k = *x_i.last().unwrap_or(&e_i_1);  // max E_out for bin i
+                let e_i1_1 = x_i1[0];  // min E_out for bin i+1
+                let e_i1_k = *x_i1.last().unwrap_or(&e_i1_1);  // max E_out for bin i+1
+
+                // Interpolated E_out bounds
+                let e_1 = e_i_1 + r * (e_i1_1 - e_i_1);
+                let e_k = e_i_k + r * (e_i1_k - e_i_k);
+
+                // Sample from chosen distribution
+                let e_out_raw = energy_out[l].sample(rng);
+
+                // Interpolate outgoing energy between incident energy bins (OpenMC style)
+                let (e_l_1, e_l_k) = if l == i {
+                    (e_i_1, e_i_k)
+                } else {
+                    (e_i1_1, e_i1_k)
+                };
+
+                if e_l_k > e_l_1 && e_k > e_1 {
+                    e_1 + (e_out_raw - e_l_1) * (e_k - e_1) / (e_l_k - e_l_1)
+                } else {
+                    e_out_raw
+                }
             }
         }
     }
@@ -279,18 +344,12 @@ pub enum AngleEnergyDistribution {
         energy: Option<EnergyDistribution>,
     },
     KalbachMann {
-        energy: Vec<f64>,
-        energy_out: Vec<TabulatedProbability>,
-        slope: Vec<Tabulated1D>,
+        #[serde(flatten)]
+        kalbach: crate::secondary_kalbach::KalbachMann,
     },
     CorrelatedAngleEnergy {
-        energy: Vec<f64>,
-        energy_out: Vec<TabulatedProbability>,
-        mu: Vec<Vec<TabulatedProbability>>,
-        #[serde(default)]
-        breakpoints: Option<Vec<i32>>,
-        #[serde(default)]
-        interpolation: Option<Vec<i32>>,
+        #[serde(flatten)]
+        correlated: crate::secondary_correlated::CorrelatedAngleEnergy,
     },
     /// Evaporation energy distribution (OpenMC-compatible)
     #[serde(rename = "Evaporation")]
@@ -308,11 +367,11 @@ impl AngleEnergyDistribution {
             AngleEnergyDistribution::UncorrelatedAngleEnergy { angle, energy } => {
                 crate::secondary_uncorrelated::sample_uncorrelated(incoming_energy, angle, energy, rng)
             },
-            AngleEnergyDistribution::KalbachMann { energy, energy_out, slope } => {
-                crate::secondary_kalbach::sample_kalbach_mann(incoming_energy, energy, energy_out, slope, rng)
+            AngleEnergyDistribution::KalbachMann { kalbach } => {
+                kalbach.sample(incoming_energy, rng)
             },
-            AngleEnergyDistribution::CorrelatedAngleEnergy { energy, energy_out, mu, .. } => {
-                crate::secondary_correlated::sample_correlated_angle_energy(incoming_energy, energy, energy_out, mu, rng)
+            AngleEnergyDistribution::CorrelatedAngleEnergy { correlated } => {
+                correlated.sample(incoming_energy, rng)
             }
             AngleEnergyDistribution::Evaporation { theta, u } => {
                 // OpenMC: sample outgoing energy from evaporation spectrum

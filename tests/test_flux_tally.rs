@@ -53,8 +53,8 @@ fn test_flux_tally_simulation() {
     material.add_nuclide("Li6", 1.0).unwrap();
     material.set_density("g/cm3", 0.46).unwrap();
     let mut nuclide_map = HashMap::new();
-    nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-    material.read_nuclides_from_json(&nuclide_map).unwrap();
+    nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+    material.read_nuclides_from_h5(&nuclide_map).unwrap();
 
     let mat_arc = Arc::new(material);
 
@@ -134,8 +134,8 @@ fn test_flux_and_reaction_mixed_tally() {
     material.add_nuclide("Li6", 1.0).unwrap();
     material.set_density("g/cm3", 0.46).unwrap();
     let mut nuclide_map = HashMap::new();
-    nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-    material.read_nuclides_from_json(&nuclide_map).unwrap();
+    nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+    material.read_nuclides_from_h5(&nuclide_map).unwrap();
 
     let mat_arc = Arc::new(material);
 

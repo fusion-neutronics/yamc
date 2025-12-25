@@ -17,11 +17,16 @@ jobs:
     name: Test on ${{ matrix.os }} / Rust
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macos-latest = Intel (x86_64), macos-14 = Apple Silicon (ARM64)
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev cmake
       - name: Set up Rust
         run: rustup update stable && rustup default stable
       - name: Build
@@ -37,8 +42,15 @@ jobs:
           cargo run --example materials_demo
           cargo run --example tbr
           cargo run --example flux_example
-          
-      - name: Test ARM cross-compilation
+
+      - name: Install ARM cross-compilers (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+      - name: Test ARM cross-compilation (Linux only)
+        if: runner.os == 'Linux'
         run: |
           rustup target add aarch64-unknown-linux-gnu
           rustup target add arm-unknown-linux-gnueabihf

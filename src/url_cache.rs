@@ -24,12 +24,13 @@ pub fn get_cache_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
 /// Get the mapping of keywords to URL stems
 fn get_keyword_url_mapping() -> HashMap<&'static str, &'static str> {
     let mut map = HashMap::new();
-    map.insert("tendl-21", "https://raw.githubusercontent.com/fusion-neutronics/cross_section_data_tendl_2021/refs/heads/main/tendl_2021/");
-    map.insert("fendl-3.2c", "https://raw.githubusercontent.com/fusion-neutronics/cross_section_data_fendl_3.2c/refs/heads/main/fendl3.2c_data/");
+    // map.insert("tendl-21", "https://raw.githubusercontent.com/fusion-neutronics/cross_section_data_tendl_2021/refs/heads/main/tendl_2021/");
+    // map.insert("fendl-3.2c", "https://raw.githubusercontent.com/fusion-neutronics/cross_section_data_fendl_3.2c/refs/heads/main/fendl3.2c_data/");
+    map.insert("tendl-2019", "https://github.com/openmc-data-storage/TENDL-2019/raw/refs/heads/main/h5_files/");
+    map.insert("fendl-3.1d", "https://github.com/openmc-data-storage/FENDL-3.1d/raw/refs/heads/main/h5_files/neutron/");
     // Add more keyword mappings here as needed
     map
 }
-
 /// Check if a string is a known keyword
 pub fn is_keyword(input: &str) -> bool {
     get_keyword_url_mapping().contains_key(input)
@@ -40,17 +41,17 @@ pub fn is_keyword(input: &str) -> bool {
 pub fn expand_keyword_to_url(keyword: &str, nuclide_name: &str) -> Option<String> {
     get_keyword_url_mapping()
         .get(keyword)
-        .map(|stem| format!("{}{}.json", stem, nuclide_name))
+        .map(|stem| format!("{}{}.h5", stem, nuclide_name))
 }
 
 /// Generate a filename for cache based on keyword or URL
 #[cfg(feature = "download")]
 fn generate_cache_filename(source: &str, nuclide_name: &str) -> String {
     if is_keyword(source) {
-        format!("{}-{}.json", source, nuclide_name)
+        format!("{}-{}.h5", source, nuclide_name)
     } else {
         // For direct URLs, still use the nuclide name
-        format!("{}.json", nuclide_name)
+        format!("{}.h5", nuclide_name)
     }
 }
 

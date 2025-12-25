@@ -190,7 +190,7 @@ impl PyMaterial {
         self.internal.density_units.clone()
     }
 
-    #[pyo3(name = "read_nuclides_from_json")]
+    #[pyo3(name = "read_nuclides_from_h5")]
     /// Bulk load nuclide data from a mapping of nuclide -> JSON path or a keyword string.
     ///
     /// Args:
@@ -198,7 +198,7 @@ impl PyMaterial {
     ///
     /// Raises:
     ///     ValueError: If any JSON file cannot be read / parsed.
-    fn read_nuclides_from_json(
+    fn read_nuclides_from_h5(
         &mut self,
         _py: Python,
         nuclide_json_map: Option<&pyo3::types::PyAny>,

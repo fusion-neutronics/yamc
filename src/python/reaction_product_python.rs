@@ -217,12 +217,12 @@ pub fn sample_tabulated(x: Vec<f64>, p: Vec<f64>) -> f64 {
 pub fn create_test_reaction_product() -> PyReactionProduct {
     // Create a simple test product with elastic scattering (energy unchanged)
     
-    // Create simple angular distribution (isotropic-ish)
+    // Create truly isotropic angular distribution (uniform in mu)
     let mu_dist = Tabulated {
-        x: vec![-1.0, 0.0, 1.0],
-        p: vec![0.33, 0.67, 1.0], // CDF values
+        x: vec![-1.0, 1.0],
+        p: vec![0.0, 1.0], // CDF for uniform distribution
     };
-    
+
     let angle_dist = AngleDistribution {
         energy: vec![1e5, 1e6, 1e7], // 0.1, 1, 10 MeV
         mu: vec![mu_dist.clone(), mu_dist.clone(), mu_dist.clone()],

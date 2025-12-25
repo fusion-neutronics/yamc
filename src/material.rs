@@ -192,7 +192,7 @@ impl Material {
     }
 
     /// Read nuclide data from JSON files for this material
-    pub fn read_nuclides_from_json(
+    pub fn read_nuclides_from_h5(
         &mut self,
         nuclide_json_map: &HashMap<String, String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -237,7 +237,7 @@ impl Material {
     }
 
     /// Read nuclide data from either a JSON mapping or a keyword string
-    pub fn read_nuclides_from_json_or_keyword(
+    pub fn read_nuclides_or_keyword(
         &mut self,
         source: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -247,22 +247,22 @@ impl Material {
             for nuclide_name in self.nuclides.keys() {
                 keyword_map.insert(nuclide_name.clone(), source.to_string());
             }
-            self.read_nuclides_from_json(&keyword_map)?;
+            self.read_nuclides_from_h5(&keyword_map)?;
         } else {
             // Treat as a single nuclide with a path (legacy behavior)
             let mut single_map = HashMap::new();
             single_map.insert(source.to_string(), source.to_string());
-            self.read_nuclides_from_json(&single_map)?;
+            self.read_nuclides_from_h5(&single_map)?;
         }
         Ok(())
     }
 
     /// Read nuclides from a keyword string that will be applied to all nuclides in this material
-    pub fn read_nuclides_from_json_keyword(
+    pub fn read_nuclides_keyword(
         &mut self,
         keyword: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.read_nuclides_from_json_or_keyword(keyword)
+        self.read_nuclides_or_keyword(keyword)
     }
 
     /// Read nuclides from either a HashMap or handle None case
@@ -271,10 +271,10 @@ impl Material {
         map: Option<&HashMap<String, String>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match map {
-            Some(m) => self.read_nuclides_from_json(m),
+            Some(m) => self.read_nuclides_from_h5(m),
             None => {
                 let empty_map = HashMap::new();
-                self.read_nuclides_from_json(&empty_map)
+                self.read_nuclides_from_h5(&empty_map)
             }
         }
     }
@@ -286,12 +286,12 @@ impl Material {
         keyword_data: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(map) = dict_data {
-            self.read_nuclides_from_json(&map)
+            self.read_nuclides_from_h5(&map)
         } else if let Some(keyword) = keyword_data {
-            self.read_nuclides_from_json_keyword(&keyword)
+            self.read_nuclides_keyword(&keyword)
         } else {
             let empty_map = HashMap::new();
-            self.read_nuclides_from_json(&empty_map)
+            self.read_nuclides_from_h5(&empty_map)
         }
     }
 
@@ -300,7 +300,7 @@ impl Material {
         &mut self,
         keyword: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.read_nuclides_from_json_keyword(keyword)
+        self.read_nuclides_keyword(keyword)
     }
 
     /// Read nuclides from a HashMap (for Python wrapper)
@@ -308,26 +308,49 @@ impl Material {
         &mut self,
         map: &HashMap<String, String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.read_nuclides_from_json(map)
+        self.read_nuclides_from_h5(map)
     }
 
     /// Read nuclides with no input - use defaults (for Python wrapper)
     pub fn read_nuclides_from_none(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let empty_map = HashMap::new();
-        self.read_nuclides_from_json(&empty_map)
+        self.read_nuclides_from_h5(&empty_map)
     }
 
-    /// Directly load a nuclide from a JSON string (e.g., for WASM in-memory usage) and insert into nuclide_data.
+    /// Directly load a nuclide from an HDF5 file path and insert into nuclide_data.
     /// If the nuclide already exists it will be overwritten.
-    pub fn load_nuclide_from_json_str(
+    /// Only loads the temperature needed for this material (from self.temperature field).
+    pub fn load_nuclide_from_hdf5(
         &mut self,
         nuclide_name: &str,
-        json_content: &str,
+        hdf5_path: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let nuclide = crate::nuclide::read_nuclide_from_json_str(json_content)?;
+        // Only load the temperature we need (from material's temperature setting)
+        // This dramatically reduces load time for files with many temperatures
+        let temp_filter: Option<std::collections::HashSet<String>> = {
+            let temp = self.temperature.trim_end_matches('K');
+            Some(std::iter::once(temp.to_string())
+                .chain(std::iter::once(format!("{}K", temp)))
+                .collect())
+        };
+        let nuclide = crate::nuclide_hdf5::read_nuclide_from_hdf5(
+            hdf5_path,
+            temp_filter.as_ref(),
+        )?;
         self.nuclide_data
             .insert(nuclide_name.to_string(), Arc::new(nuclide));
         Ok(())
+    }
+
+    /// Legacy: Load a nuclide from a JSON string - NOT SUPPORTED with HDF5 backend
+    /// This function exists for WASM compatibility but will return an error.
+    #[cfg(feature = "wasm")]
+    pub fn load_nuclide_from_json_str(
+        &mut self,
+        _nuclide_name: &str,
+        _json_content: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        Err("JSON string loading is not supported with HDF5 backend. Use load_nuclide_from_hdf5 with a file path instead.".into())
     }
 
     /// Ensure all nuclides are loaded, using the global configuration if needed
@@ -1015,10 +1038,10 @@ mod tests {
         material.add_nuclide("Li7", 0.5).unwrap();
         material.set_density("g/cm3", 1.0).unwrap();
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         // Call with by_nuclide = true
         let mt_filter = vec![1];
@@ -1057,9 +1080,9 @@ mod tests {
         material.add_nuclide("Li6", 1.0).unwrap();
         material.set_density("g/cm3", 0.534).unwrap();
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         let mt_filter = vec![3];
         let (_grid, macro_xs) = material.calculate_macroscopic_xs(&mt_filter, false);
@@ -1076,9 +1099,9 @@ mod tests {
         material.add_nuclide("Li6", 1.0).unwrap();
         material.set_density("g/cm3", 0.534).unwrap();
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         let mt_filter = vec![24];
         let (_grid, macro_xs) = material.calculate_macroscopic_xs(&mt_filter, false);
@@ -1094,9 +1117,9 @@ mod tests {
         material.add_nuclide("Li6", 1.0).unwrap();
         material.set_density("g/cm3", 0.534).unwrap();
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         // Request only MT=3 (now present in JSON)
         let mt_filter = vec![3];
@@ -1541,19 +1564,19 @@ mod tests {
         material.add_element("Li", 1.0).unwrap();
         // Prepare the nuclide JSON map for Li6 and Li7
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
         // Read in the nuclear data
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         // This will load Li6 and Li7, so the MTs should be the union of both, including hierarchical MTs
         let mts = material.reaction_mts().expect("Failed to get reaction MTs");
-        // The expected list should match the actual list from the JSON, including hierarchical MTs
+        // The expected list should match the actual list from the HDF5, including hierarchical MTs
         let expected = vec![
             1, 2, 3, 4, 16, 24, 25, 27, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
             65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 101, 102, 103,
-            104, 105, 203, 204, 205, 207, 301, 444, 1001, // 1001 is synthetic scattering reaction
+            104, 105, 203, 204, 205, 207, 301, 444, 1001, // 1001 is synthetic scattering
         ];
         assert_eq!(
             mts, expected,
@@ -1571,10 +1594,10 @@ mod tests {
         material.set_density("g/cm3", 2.0).unwrap();
 
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
 
         // Test with integer MT number
@@ -1631,11 +1654,11 @@ mod tests {
         mat.add_nuclide("Be9", 1.0).unwrap();
         mat.set_temperature("300");
         let mut map = std::collections::HashMap::new();
-        map.insert("Be9".to_string(), "tests/Be9.json".to_string());
+        map.insert("Be9".to_string(), "tests/Be9.h5".to_string());
         
         // Loading with temperature 300K when only 294K is available should succeed
         // but no temperature data will be loaded (since 300K doesn't exist)
-        let result = mat.read_nuclides_from_json(&map);
+        let result = mat.read_nuclides_from_h5(&map);
         assert!(result.is_ok(), "Material loading should succeed even if specific temp not available");
         
         let be9 = mat.nuclide_data.get("Be9").expect("Be9 not loaded");
@@ -1658,8 +1681,8 @@ mod tests {
         mat.add_nuclide("Be9", 1.0).unwrap();
         mat.set_temperature("294");
         let mut map = std::collections::HashMap::new();
-        map.insert("Be9".to_string(), "tests/Be9.json".to_string());
-        mat.read_nuclides_from_json(&map).unwrap();
+        map.insert("Be9".to_string(), "tests/Be9.h5".to_string());
+        mat.read_nuclides_from_h5(&map).unwrap();
         let be9 = mat.nuclide_data.get("Be9").expect("Be9 not loaded");
         assert_eq!(
             be9.available_temperatures,
@@ -1679,11 +1702,11 @@ mod tests {
         material.add_element("Li", 1.0).unwrap();
         // Prepare the nuclide JSON map for Li6 and Li7
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
         // Read in the nuclear data
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         // Build the unified energy grid
         let grid = material.unified_energy_grid_neutron();
@@ -1709,10 +1732,10 @@ mod tests {
         material.add_nuclide("Li6", 1.0).unwrap();
         // Prepare the nuclide JSON map for Li6
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         // Read in the nuclear data
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         // Build the unified energy grid
         let grid = material.unified_energy_grid_neutron();
@@ -1773,11 +1796,11 @@ mod tests {
         material.add_element("Li", 1.0).unwrap();
         // Prepare the nuclide JSON map for Li6 and Li7
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
         // Read in the nuclear data
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         // Build the unified energy grid
         let _grid = material.unified_energy_grid_neutron();
@@ -1825,10 +1848,10 @@ mod tests {
         material.add_element("Li", 1.0).unwrap();
         material.set_density("g/cm3", 0.534).unwrap(); // lithium density
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         let mt_filter = vec![
             2, 16, 24, 25, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
@@ -1851,9 +1874,9 @@ mod tests {
 
         // Prepare the nuclide JSON map for Li6
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         let _grid = material.unified_energy_grid_neutron();
 
@@ -1871,9 +1894,9 @@ mod tests {
         let mut material = Material::new();
         material.add_nuclide("Li6", 1.0).unwrap();
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
         material.unified_energy_grid_neutron();
 
@@ -1897,12 +1920,12 @@ mod tests {
 
         // Prepare the nuclide JSON map for Li6 and Li7
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
 
         // Read in the nuclear data
         material
-            .read_nuclides_from_json(&nuclide_json_map)
+            .read_nuclides_from_h5(&nuclide_json_map)
             .expect("Failed to read nuclide JSON");
 
         // Calculate the mean free path at 14 MeV (1.4e7 eV)
@@ -1932,8 +1955,8 @@ mod tests {
         mat.add_nuclide("Li6", 1.0).unwrap();
         // Load nuclide data from JSON
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        mat.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        mat.read_nuclides_from_h5(&nuclide_json_map).unwrap();
         mat.set_density("g/cm3", 1.0).unwrap();
         mat.set_temperature("294");
 
@@ -1975,9 +1998,9 @@ mod tests {
 
         // Load nuclide data from JSON
         let mut nuclide_json_map = HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
 
         // Calculate total xs to ensure everything is set up
         // For this test, calculate per-nuclide macroscopic total xs as well
@@ -2043,9 +2066,9 @@ mod tests {
 
         // Load nuclear data
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        nuclide_json_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
 
         // Pre-populate cache by calculating cross sections
         material.calculate_macroscopic_xs(&vec![1], false);
@@ -2073,8 +2096,8 @@ mod tests {
 
         // Load nuclear data
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
 
         // Pre-populate cache
         material.calculate_macroscopic_xs(&vec![1], false);
@@ -2102,8 +2125,8 @@ mod tests {
 
         // Load nuclear data
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
 
         // Pre-populate cache
         material.calculate_macroscopic_xs(&vec![1], false);
@@ -2121,7 +2144,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cache_invalidation_read_nuclides() {
+    fn test_cache_invalidation_read_nuclides_from_h5() {
         crate::nuclide::clear_nuclide_cache();
 
         let mut material = Material::new();
@@ -2131,8 +2154,8 @@ mod tests {
 
         // Load nuclear data first time
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
 
         // Pre-populate cache
         material.calculate_macroscopic_xs(&vec![1], false);
@@ -2142,7 +2165,7 @@ mod tests {
         );
 
         // Loading nuclear data again should clear the cache (use same map since empty map would fail)
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
         assert!(
             material.macroscopic_xs_neutron.is_empty(),
             "Cache should be cleared after loading nuclear data"
@@ -2160,8 +2183,8 @@ mod tests {
 
         // Load nuclear data
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
 
         // Calculate cross sections multiple times - each call replaces the cache
         material.calculate_macroscopic_xs(&vec![1], false);
@@ -2199,16 +2222,16 @@ mod tests {
         let mut mat_li6 = Material::new();
         mat_li6.add_nuclide("Li6", 1.0).unwrap();
         let mut li6_map = std::collections::HashMap::new();
-        li6_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        mat_li6.read_nuclides_from_json(&li6_map).unwrap();
+        li6_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        mat_li6.read_nuclides_from_h5(&li6_map).unwrap();
         mat_li6.set_density("g/cm3", 0.534).unwrap();
 
         // Material 2: Li7 from file
         let mut mat_li7 = Material::new();
         mat_li7.add_nuclide("Li7", 1.0).unwrap();
         let mut li7_map = std::collections::HashMap::new();
-        li7_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
-        mat_li7.read_nuclides_from_json(&li7_map).unwrap();
+        li7_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
+        mat_li7.read_nuclides_from_h5(&li7_map).unwrap();
         mat_li7.set_density("g/cm3", 0.534).unwrap();
 
         // Get macroscopic cross sections
@@ -2243,16 +2266,16 @@ mod tests {
         let mut mat_file = Material::new();
         mat_file.add_nuclide("Li6", 1.0).unwrap();
         let mut nuclide_map = std::collections::HashMap::new();
-        nuclide_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        mat_file.read_nuclides_from_json(&nuclide_map).unwrap();
+        nuclide_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        mat_file.read_nuclides_from_h5(&nuclide_map).unwrap();
         mat_file.set_density("g/cm3", 1.0).unwrap();
 
         // Material 2: Li7 from file (different nuclide, different file)
         let mut mat_other = Material::new();
         mat_other.add_nuclide("Li7", 1.0).unwrap();
         let mut other_map = std::collections::HashMap::new();
-        other_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
-        mat_other.read_nuclides_from_json(&other_map).unwrap();
+        other_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
+        mat_other.read_nuclides_from_h5(&other_map).unwrap();
         mat_other.set_density("g/cm3", 1.0).unwrap();
 
         // Both should work and give different results (different nuclides)
@@ -2286,22 +2309,22 @@ mod tests {
         let mut mat_li6_1 = Material::new();
         mat_li6_1.add_nuclide("Li6", 1.0).unwrap();
         let mut li6_map = std::collections::HashMap::new();
-        li6_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        mat_li6_1.read_nuclides_from_json(&li6_map).unwrap();
+        li6_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        mat_li6_1.read_nuclides_from_h5(&li6_map).unwrap();
         mat_li6_1.set_density("g/cm3", 0.534).unwrap();
 
         // Material 2: Li7 from file
         let mut mat_li7 = Material::new();
         mat_li7.add_nuclide("Li7", 1.0).unwrap();
         let mut li7_map = std::collections::HashMap::new();
-        li7_map.insert("Li7".to_string(), "tests/Li7.json".to_string());
-        mat_li7.read_nuclides_from_json(&li7_map).unwrap();
+        li7_map.insert("Li7".to_string(), "tests/Li7.h5".to_string());
+        mat_li7.read_nuclides_from_h5(&li7_map).unwrap();
         mat_li7.set_density("g/cm3", 0.534).unwrap();
 
         // Material 3: Li6 from file again (should use cache)
         let mut mat_li6_2 = Material::new();
         mat_li6_2.add_nuclide("Li6", 1.0).unwrap();
-        mat_li6_2.read_nuclides_from_json(&li6_map).unwrap(); // reuse same map
+        mat_li6_2.read_nuclides_from_h5(&li6_map).unwrap(); // reuse same map
         mat_li6_2.set_density("g/cm3", 0.534).unwrap();
 
         // Get cross sections
@@ -2337,17 +2360,17 @@ mod tests {
         let mut mat_rel = Material::new();
         mat_rel.add_nuclide("Li6", 1.0).unwrap();
         let mut map_rel = std::collections::HashMap::new();
-        map_rel.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        mat_rel.read_nuclides_from_json(&map_rel).unwrap();
+        map_rel.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        mat_rel.read_nuclides_from_h5(&map_rel).unwrap();
         mat_rel.set_density("g/cm3", 1.0).unwrap();
 
         // Material 2: absolute path to same file
         let mut mat_abs = Material::new();
         mat_abs.add_nuclide("Li6", 1.0).unwrap();
         let mut map_abs = std::collections::HashMap::new();
-        let abs_path = std::env::current_dir().unwrap().join("tests/Li6.json");
+        let abs_path = std::env::current_dir().unwrap().join("tests/Li6.h5");
         map_abs.insert("Li6".to_string(), abs_path.to_string_lossy().to_string());
-        mat_abs.read_nuclides_from_json(&map_abs).unwrap();
+        mat_abs.read_nuclides_from_h5(&map_abs).unwrap();
         mat_abs.set_density("g/cm3", 1.0).unwrap();
 
         // Should give identical results (same file, cache working)

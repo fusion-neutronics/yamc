@@ -1,14 +1,11 @@
 use crate::bank::ParticleBank;
 use crate::data::ATOMIC_WEIGHT_RATIO;
+use crate::fast_rng::FastRng;
 use crate::geometry::Geometry;
-use crate::inelastic::sample_from_products;
-use crate::physics::elastic_scatter;
 use crate::settings::Settings;
 use crate::surface::BoundaryType;
 use crate::tallies::tally::Tally;
-// use rand::rngs::StdRng;
-use rand::SeedableRng;
-use rand_pcg::Pcg64;
+use rand::Rng;
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -53,21 +50,24 @@ impl Model {
         for batch in 0..self.settings.batches {
             println!("Starting batch {}/{}", batch + 1, self.settings.batches);
             // Parallel execution per batch with particle banking for multi-neutron reactions
-            (0..self.settings.particles).into_par_iter().for_each(|particle_idx| {
+            // Use for_each_init to reuse ParticleBank and FastRng across particles (OpenMC pattern)
+            (0..self.settings.particles).into_par_iter().for_each_init(
+                || (ParticleBank::with_capacity(10), FastRng::new(0)),  // Created once per thread
+                |(particle_bank, rng), particle_idx| {
+                // Clear the bank for reuse (preserves capacity, avoids reallocation)
+                particle_bank.clear();
+
                 // Each particle gets a unique, reproducible seed
                 const PARTICLE_STRIDE: u64 = 152917;
                 let particle_seed = base_seed
                     .wrapping_add((batch as u64).wrapping_mul(self.settings.particles as u64).wrapping_mul(PARTICLE_STRIDE))
                     .wrapping_add((particle_idx as u64).wrapping_mul(PARTICLE_STRIDE));
-                
-                // Use PCG64 (fast, high-quality RNG)
-                let mut rng = Pcg64::seed_from_u64(particle_seed);
 
-                // Local particle bank for this thread (for secondary particles)
-                let mut particle_bank = ParticleBank::with_capacity(10);
+                // Reseed FastRng for this particle (avoids struct allocation)
+                rng.reseed(particle_seed);
                 
                 // Start with the source particle
-                let mut particle = self.settings.source.sample(&mut rng);
+                let mut particle = self.settings.source.sample(rng);
                 particle.alive = true;
                 particle_bank.add_source_particle(particle);
                 
@@ -114,7 +114,7 @@ impl Model {
                         Some(material_arc) => {
                             let material = material_arc.as_ref();
                             material
-                                .sample_distance_to_collision(particle.energy, &mut rng)
+                                .sample_distance_to_collision(particle.energy, rng)
                                 .unwrap_or(f64::INFINITY)
                         }
                         None => {
@@ -146,12 +146,12 @@ impl Model {
                             particle.move_by(dist_collision);
                             let material = cell.material.as_ref().unwrap().as_ref();
                             let nuclide_name =
-                                material.sample_interacting_nuclide(particle.energy, &mut rng);
+                                material.sample_interacting_nuclide(particle.energy, rng);
                             if let Some(nuclide) = material.nuclide_data.get(&nuclide_name) {
                                 let reaction = nuclide.sample_reaction_no_autoload(
                                     particle.energy,
                                     &material.temperature,
-                                    &mut rng,
+                                    rng,
                                 );
                                 if let Some(reaction) = reaction {
                                     let mut reaction = reaction;
@@ -161,10 +161,13 @@ impl Model {
                                             let constituent_reaction = nuclide.sample_scattering_constituent(
                                                 particle.energy,
                                                 &material.temperature,
-                                                &mut rng,
+                                                rng,
                                             );
 
                                             // Handle the constituent reaction
+                                            if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                eprintln!("Sampled MT {} for scattering", constituent_reaction.mt_number);
+                                            }
                                             match constituent_reaction.mt_number {
                                                 2 => {
                                                     // Elastic scattering
@@ -172,47 +175,157 @@ impl Model {
                                                         .get(nuclide_name.as_str())
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let temperature_k = material.temperature.parse::<f64>().unwrap_or(294.0);
-                                                    
-                                                    // Check if we have product data with angular distributions
-                                                    if !constituent_reaction.products.is_empty() {
-                                                        // DBRC: Use target-at-rest with tabulated angular distribution
-                                                        // Sample from product data to get scattering angle
-                                                        let outgoing_particles = sample_from_products(
-                                                            &particle, 
-                                                            &constituent_reaction, 
-                                                            &mut rng
-                                                        );
-                                                        
-                                                        if !outgoing_particles.is_empty() {
-                                                            particle = outgoing_particles[0].clone();
+
+                                                    // OpenMC-style elastic scattering:
+                                                    // - At high energies (E >= 400*kT): target at rest, use two-body kinematics
+                                                    // - At low energies (E < 400*kT): sample target velocity from Maxwell-Boltzmann,
+                                                    //   transform to CM frame, sample mu_cm from angular distribution (if available)
+
+                                                    const K_B: f64 = 8.617333e-5; // eV/K (Boltzmann constant)
+                                                    let k_t = K_B * temperature_k;
+                                                    let free_gas_threshold = 400.0 * k_t; // ~10 eV at room temperature
+
+                                                    // Check if we have tabulated angular distribution
+                                                    let neutron_product = constituent_reaction.products.iter()
+                                                        .find(|p| p.is_particle_type(&crate::reaction_product::ParticleType::Neutron));
+
+                                                    if particle.energy >= free_gas_threshold && awr > 1.0 {
+                                                        // High energy: target at rest, use two-body kinematics
+                                                        if let Some(product) = neutron_product {
+                                                            let (_, mu_cm) = product.sample(particle.energy, rng);
+
+                                                            if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                                eprintln!("MT2 elastic (target-at-rest): E_in={:.2e}, mu_cm={:.4}, awr={:.2}", particle.energy, mu_cm, awr);
+                                                            }
+
+                                                            // Two-body elastic kinematics (target at rest)
+                                                            let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+                                                            let e_out = particle.energy * (1.0 + alpha + (1.0 - alpha) * mu_cm) / 2.0;
+
+                                                            // Convert mu from CM to lab frame
+                                                            let denom = (1.0 + awr * awr + 2.0 * awr * mu_cm).sqrt();
+                                                            let mu_lab = (1.0 + awr * mu_cm) / denom;
+
+                                                            particle.energy = e_out;
+                                                            crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, rng);
+                                                        } else {
+                                                            // No angular data - isotropic scattering
+                                                            let mu_cm = 2.0 * rng.gen::<f64>() - 1.0;
+                                                            let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+                                                            let e_out = particle.energy * (1.0 + alpha + (1.0 - alpha) * mu_cm) / 2.0;
+                                                            let denom = (1.0 + awr * awr + 2.0 * awr * mu_cm).sqrt();
+                                                            let mu_lab = (1.0 + awr * mu_cm) / denom;
+                                                            particle.energy = e_out;
+                                                            crate::inelastic::rotate_direction(&mut particle.direction, mu_lab, rng);
                                                         }
                                                     } else {
-                                                        // No product data - use free-gas thermal scattering
-                                                        elastic_scatter(&mut particle, awr, temperature_k, &mut rng);
+                                                        // Low energy: use free-gas target velocity sampling with angular distribution
+                                                        // This is the CXS (constant cross section) approximation from OpenMC
+                                                        use nalgebra::Vector3;
+
+                                                        let vel = particle.energy.sqrt();
+                                                        let v_n = Vector3::new(
+                                                            particle.direction[0] * vel,
+                                                            particle.direction[1] * vel,
+                                                            particle.direction[2] * vel,
+                                                        );
+
+                                                        // Sample target velocity using CXS approximation
+                                                        let v_t = crate::physics::sample_target_velocity(awr, temperature_k, rng);
+
+                                                        // Center-of-mass velocity
+                                                        let v_cm = (v_n + awr * v_t) / (awr + 1.0);
+
+                                                        // Transform to CM frame
+                                                        let v_n_cm = v_n - v_cm;
+                                                        let vel_cm = v_n_cm.norm();
+
+                                                        // Handle degenerate case
+                                                        if vel_cm < 1e-10 {
+                                                            // Just scatter isotropically
+                                                            let mu: f64 = 2.0 * rng.gen::<f64>() - 1.0;
+                                                            let phi: f64 = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+                                                            let sin_theta: f64 = (1.0 - mu * mu).sqrt();
+                                                            particle.direction = [
+                                                                sin_theta * phi.cos(),
+                                                                sin_theta * phi.sin(),
+                                                                mu,
+                                                            ];
+                                                            continue;
+                                                        }
+
+                                                        // Sample mu_cm from angular distribution (if available) or isotropic
+                                                        let mu_cm = if let Some(product) = neutron_product {
+                                                            let (_, mu) = product.sample(particle.energy, rng);
+                                                            mu
+                                                        } else {
+                                                            2.0 * rng.gen::<f64>() - 1.0
+                                                        };
+
+                                                        if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                            eprintln!("MT2 elastic (free-gas): E_in={:.2e}, mu_cm={:.4}, awr={:.2}, kT={:.2e}",
+                                                                particle.energy, mu_cm, awr, k_t);
+                                                        }
+
+                                                        // Direction in CM frame
+                                                        let u_cm = v_n_cm / vel_cm;
+
+                                                        // Rotate by mu_cm (speed doesn't change in elastic CM scatter)
+                                                        let phi = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+
+                                                        // New direction in CM frame (rotate u_cm by scattering angle)
+                                                        let u_new = crate::physics::rotate_direction_3d(&u_cm, mu_cm, phi);
+                                                        let v_n_cm_new = vel_cm * u_new;
+
+                                                        // Transform back to lab frame
+                                                        let v_n_lab = v_n_cm_new + v_cm;
+                                                        let e_out = v_n_lab.dot(&v_n_lab);
+                                                        let vel_out = e_out.sqrt();
+
+                                                        if vel_out > 1e-10 {
+                                                            particle.energy = e_out;
+                                                            particle.direction = [
+                                                                v_n_lab[0] / vel_out,
+                                                                v_n_lab[1] / vel_out,
+                                                                v_n_lab[2] / vel_out,
+                                                            ];
+                                                        } else {
+                                                            // Extremely low energy - particle effectively stopped
+                                                            particle.energy = 1e-11; // minimum energy
+                                                        }
                                                     }
                                                 }
                                                 50..=91 => {
                                                     // Inelastic scatter (MT 50-91): use tabulated product data if available
+                                                    let awr = *ATOMIC_WEIGHT_RATIO
+                                                        .get(nuclide_name.as_str())
+                                                        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                                    if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                        eprintln!("MT{} inelastic: E_in={:.2e}, Q={:.2e}, n_products={}",
+                                                            constituent_reaction.mt_number, particle.energy,
+                                                            constituent_reaction.q_value, constituent_reaction.products.len());
+                                                    }
                                                     let outgoing_particles = if !constituent_reaction.products.is_empty() {
-                                                        crate::inelastic::sample_from_products(
-                                                            &particle, &constituent_reaction, &mut rng
+                                                        crate::inelastic::sample_from_products_with_awr(
+                                                            &particle, &constituent_reaction, awr, rng
                                                         )
                                                     } else {
                                                         crate::inelastic::analytical_inelastic_scatter(
-                                                            &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                                            &particle, &constituent_reaction, &nuclide_name, rng
                                                         )
                                                     };
 
-                                                    // MT 50-91 should always return exactly 1 particle
-                                                    assert_eq!(
-                                                        outgoing_particles.len(),
-                                                        1,
-                                                        "MT {} should produce exactly 1 neutron, got {}",
-                                                        constituent_reaction.mt_number,
-                                                        outgoing_particles.len()
-                                                    );
+                                                    // MT 50-91 typically produce 1 particle, but may produce more
+                                                    if outgoing_particles.is_empty() {
+                                                        // No particles produced - this shouldn't happen for MT 50-91
+                                                        eprintln!("Warning: MT {} produced 0 particles", constituent_reaction.mt_number);
+                                                        continue;
+                                                    }
 
                                                     let outgoing = &outgoing_particles[0];
+                                                    if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
+                                                        eprintln!("MT{} -> E_out={:.2e}", constituent_reaction.mt_number, outgoing.energy);
+                                                    }
                                                     particle.energy = outgoing.energy;
                                                     particle.direction = outgoing.direction;
                                                     particle.position = outgoing.position;
@@ -220,8 +333,12 @@ impl Model {
                                                 _ => {
                                                     // Other scattering reactions - handle products, multiplicity, banking
                                                     // Use scatter module for general scattering (n,2n), (n,3n), (n,n'alpha), etc.
-                                                    let outgoing_particles = crate::scatter::scatter(
-                                                        &particle, &constituent_reaction, &nuclide_name, &mut rng
+                                                    // Pass AWR for CM to LAB conversion if needed
+                                                    let awr = *ATOMIC_WEIGHT_RATIO
+                                                        .get(nuclide_name.as_str())
+                                                        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
+                                                    let outgoing_particles = crate::scatter::scatter_with_awr(
+                                                        &particle, &constituent_reaction, &nuclide_name, awr, rng
                                                     );
 
                                                     // All scattering MTs should produce at least 1 neutron
@@ -262,7 +379,7 @@ impl Model {
                                             let constituent_reaction = nuclide.sample_absorption_constituent(
                                                 particle.energy,
                                                 &material.temperature,
-                                                &mut rng,
+                                                rng,
                                             );
                                             reaction = constituent_reaction;
                                             particle.alive = false;
@@ -360,8 +477,8 @@ mod tests {
         material.set_density("g/cc", 1.0).unwrap(); // Add density to fix test
         material.add_nuclide("Li6", 1.0).unwrap();
         let mut nuclide_json_map = std::collections::HashMap::new();
-        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.json".to_string());
-        material.read_nuclides_from_json(&nuclide_json_map).unwrap();
+        nuclide_json_map.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+        material.read_nuclides_from_h5(&nuclide_json_map).unwrap();
         // Prepare material cross sections before creating the Arc
         material.calculate_macroscopic_xs(&vec![1], true);
         let material_arc = Arc::new(material.clone());

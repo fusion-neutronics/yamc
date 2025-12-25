@@ -123,7 +123,7 @@ class TestTallySimulation:
         material = mc.Material()
         material.add_nuclide("Li6", 1.0)
         material.set_density("g/cm3", 5.5)
-        material.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+        material.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
         
         # Create cell
         cell = mc.Cell(
@@ -255,7 +255,7 @@ class TestFluxTally:
         material = mc.Material()
         material.add_nuclide("Li6", 1.0)
         material.set_density("g/cm3", 0.46)
-        material.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+        material.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
         
         # Create cell
         cell = mc.Cell(
@@ -367,7 +367,7 @@ class TestTallyIntegration:
         material = mc.Material()
         material.add_nuclide("Li6", 1.0)
         material.set_density("g/cm3", 1.0)
-        material.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+        material.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
         cell = mc.Cell(cell_id=1, name="test", region=region, fill=material)
         geometry = mc.Geometry(cells=[cell])
         

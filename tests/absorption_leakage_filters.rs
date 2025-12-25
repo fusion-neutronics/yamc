@@ -61,16 +61,16 @@ fn test_absorption_leakage_filters() {
     let _ = material1.add_nuclide("Li6", 1.0);
     let _ = material1.set_density("g/cm3", 10.0);
     let mut nuclide_map1 = HashMap::new();
-    nuclide_map1.insert("Li6".to_string(), "tests/Li6.json".to_string());
-    material1.read_nuclides_from_json(&nuclide_map1).unwrap();
+    nuclide_map1.insert("Li6".to_string(), "tests/Li6.h5".to_string());
+    material1.read_nuclides_from_h5(&nuclide_map1).unwrap();
 
     let mut material2 = Material::new();
     material2.material_id = Some(2);
     let _ = material2.add_nuclide("Be9", 1.0);
     let _ = material2.set_density("g/cm3", 20.0);
     let mut nuclide_map2 = HashMap::new();
-    nuclide_map2.insert("Be9".to_string(), "tests/Be9.json".to_string());
-    material2.read_nuclides_from_json(&nuclide_map2).unwrap();
+    nuclide_map2.insert("Be9".to_string(), "tests/Be9.h5".to_string());
+    material2.read_nuclides_from_h5(&nuclide_map2).unwrap();
 
     // Wrap materials in Arc<Mutex<Material>>
     let mat1_arc = Arc::new(material1);

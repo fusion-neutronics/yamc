@@ -13,7 +13,7 @@ use std::collections::HashMap;
 ///
 /// Args:
 ///     name (Optional[str]): Optional nuclide identifier (e.g. "Li6", "Fe56"). If not
-///         supplied you must pass `path` to `read_nuclide_from_json` later.
+///         supplied you must pass `path` to `read_nuclide_from_h5` later.
 ///
 /// Notes:
 ///     Individual fields (e.g. `name`, `atomic_number`, `available_temperatures`,
@@ -159,7 +159,7 @@ impl PyNuclide {
     ///
     /// Args:
     ///     name (Optional[str]): Optional nuclide identifier (e.g. "Li6", "Fe56"). If not
-    ///         supplied you must pass `path` to `read_nuclide_from_json` later.
+    ///         supplied you must pass `path` to `read_nuclide_from_h5` later.
     ///
     /// Returns:
     ///     Nuclide: A nuclide object with no data loaded yet.
@@ -195,7 +195,7 @@ impl PyNuclide {
     ///
     /// Args:
     ///     path (Optional[str]): Optional path to the nuclide JSON file, keyword
-    ///         (e.g. "tendl-21", "fendl-3.2c"), or filesystem path. If provided,
+    ///         (e.g. "tendl-2019", "fendl-3.1d"), or filesystem path. If provided,
     ///         this overrides any global configuration for this nuclide. If omitted,
     ///         the constructor `name` is used to look up the path from global config.
     ///     temperatures (Optional[List[str]]): Temperature strings (e.g. ["293K"]).
@@ -213,21 +213,21 @@ impl PyNuclide {
     ///     Compare the same nuclide from different data sources:
     ///     
     ///     >>> # Set global default
-    ///     >>> yamc.Config.set_cross_sections("tendl-21")
+    ///     >>> yamc.Config.set_cross_sections("tendl-2019")
     ///     >>>
     ///     >>> # Load from global config (will use TENDL)
     ///     >>> li6_tendl = yamc.Nuclide("Li6")
-    ///     >>> li6_tendl.read_nuclide_from_json()
+    ///     >>> li6_tendl.read_nuclide_from_h5()
     ///     >>>
     ///     >>> # Override to use FENDL for comparison
     ///     >>> li6_fendl = yamc.Nuclide("Li6")
-    ///     >>> li6_fendl.read_nuclide_from_json("fendl-3.2c")
+    ///     >>> li6_fendl.read_nuclide_from_h5("fendl-3.1d")
     ///     >>>
     ///     >>> # Use custom local file
     ///     >>> li6_custom = yamc.Nuclide("Li6")
-    ///     >>> li6_custom.read_nuclide_from_json("path/to/custom_Li6.json")
+    ///     >>> li6_custom.read_nuclide_from_h5("path/to/custom_Li6.h5")
     #[pyo3(signature = (path=None, temperatures=None), text_signature = "(self, path=None, temperatures=None)")]
-    pub fn read_nuclide_from_json(
+    pub fn read_nuclide_from_h5(
         &mut self,
         path: Option<String>,
         temperatures: Option<Vec<String>>,
@@ -399,7 +399,7 @@ impl PyNuclide {
     ///
     /// Example:
     ///     >>> nuclide = Nuclide("Li6")
-    ///     >>> nuclide.read_nuclide_from_json()
+    ///     >>> nuclide.read_nuclide_from_h5()
     ///     >>> reaction = nuclide.sample_reaction(1e-3, "294", seed=42)
     ///     >>> if reaction:
     ///     ...     print(f"Sampled MT {reaction['mt_number']}")
@@ -499,7 +499,7 @@ impl From<PyNuclide> for Nuclide {
 /// Read a nuclide JSON file and return a `Nuclide` instance.
 ///
 /// Args:
-///     path (str): Path to nuclide JSON file or keyword like "tendl-21".
+///     path (str): Path to nuclide JSON file or keyword like "tendl-2019".
 ///
 /// Returns:
 ///     Nuclide: A fully populated `Nuclide` object with all available temperatures loaded.
@@ -507,7 +507,7 @@ impl From<PyNuclide> for Nuclide {
 /// Raises:
 ///     OSError: If the file cannot be opened or parsed.
 #[pyo3(text_signature = "(path)")]
-pub fn py_read_nuclide_from_json(path: &str) -> PyResult<PyNuclide> {
+pub fn py_read_nuclide_from_h5(path: &str) -> PyResult<PyNuclide> {
     let nuclide = crate::nuclide::load_nuclide_from_path_or_keyword(path)
         .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
     Ok(PyNuclide::from(nuclide))

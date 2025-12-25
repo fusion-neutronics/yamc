@@ -1,6 +1,7 @@
 pub mod bounding_box;
 pub mod bank;
 pub mod cell;
+pub mod fast_rng;
 pub mod geometry;
 pub mod inelastic;
 pub mod model;
@@ -55,6 +56,7 @@ mod config;
 mod element;
 mod material;
 pub mod nuclide;
+pub mod nuclide_hdf5;
 mod reaction;
 mod url_cache;
 mod utilities;

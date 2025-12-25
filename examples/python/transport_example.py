@@ -24,12 +24,12 @@ region2 = +sphere1 & -sphere2
 material1 = mc.Material()
 material1.add_nuclide("Li6", 1.0)
 material1.set_density("g/cm3", 10.0)  # Higher density for more absorption
-material1.read_nuclides_from_json({"Li6": "tests/Li6.json"})
+material1.read_nuclides_from_h5({"Li6": "tests/Li6.h5"})
 
 material2 = mc.Material()
 material2.add_nuclide("Li7", 1.0)
 material2.set_density("g/cm3", 20.0)  # Higher density for more absorption
-material2.read_nuclides_from_json({"Li7": "tests/Li7.json"})
+material2.read_nuclides_from_h5({"Li7": "tests/Li7.h5"})
 
 cell1 = mc.Cell(
     cell_id=1,

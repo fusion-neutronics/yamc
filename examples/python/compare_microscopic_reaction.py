@@ -9,7 +9,7 @@ openmc_xs=openmc_xs[0]
 
 
 nuc = yamc.Nuclide()
-nuc.read_nuclide_from_json('tests/Li6.json')
+nuc.read_nuclide_from_h5('tests/Li6.h5')
 xs = nuc.reactions['294'][2].cross_section
 energies = nuc.reactions['294'][2].energy_grid
 
