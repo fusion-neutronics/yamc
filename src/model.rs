@@ -410,10 +410,17 @@ impl Model {
                 } // end of particle transport while loop
                 } // end of particle queue processing while loop
             }); // end of parallel for_each
+        } // end of batch loop
 
-            for tally in tallies.iter() {
-                tally.update_statistics(self.settings.particles as u32);
-            }
+        // Update statistics once after all batches are complete
+        if std::env::var("YAMC_DEBUG").is_ok() {
+            println!("[DEBUG] About to call update_statistics after ALL {} batches complete", self.settings.batches);
+        }
+        for tally in tallies.iter() {
+            tally.update_statistics(self.settings.particles as u32);
+        }
+        if std::env::var("YAMC_DEBUG").is_ok() {
+            println!("[DEBUG] update_statistics completed");
         }
 
         let elapsed = start_time.elapsed();
