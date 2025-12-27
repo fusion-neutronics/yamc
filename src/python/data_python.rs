@@ -1,4 +1,4 @@
-use crate::data::{ATOMIC_MASSES, ELEMENT_NAMES, ELEMENT_NUCLIDES, NATURAL_ABUNDANCE};
+use crate::data::{ELEMENT_NAMES, ELEMENT_NUCLIDES, NATURAL_ABUNDANCE};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -27,15 +27,6 @@ pub fn element_names(py: Python) -> PyObject {
     let dict = PyDict::new(py);
     for (symbol, name) in ELEMENT_NAMES.iter() {
         dict.set_item(*symbol, *name).unwrap();
-    }
-    dict.into()
-}
-
-#[pyfunction]
-pub fn atomic_masses(py: Python) -> PyObject {
-    let dict = PyDict::new(py);
-    for (nuclide, mass) in ATOMIC_MASSES.iter() {
-        dict.set_item(*nuclide, *mass).unwrap();
     }
     dict.into()
 }

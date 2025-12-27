@@ -29,6 +29,7 @@ pub struct PyNuclide {
     pub atomic_number: Option<u32>,
     pub neutron_number: Option<u32>,
     pub mass_number: Option<u32>,
+    pub atomic_weight_ratio: Option<f64>,
     pub library: Option<String>,
     pub energy: Option<HashMap<String, Vec<f64>>>,
     pub reactions: HashMap<String, HashMap<i32, Reaction>>,
@@ -107,6 +108,15 @@ impl PyNuclide {
         result
     }
 
+    /// Atomic weight ratio (target mass / neutron mass) from nuclear data file.
+    ///
+    /// Returns:
+    ///     Optional[float]: Atomic weight ratio.
+    #[getter]
+    pub fn atomic_weight_ratio(&self) -> Option<f64> {
+        self.atomic_weight_ratio
+    }
+
     /// Originating nuclear data library identifier.
     ///
     /// Returns:
@@ -173,6 +183,7 @@ impl PyNuclide {
             atomic_number: None,
             neutron_number: None,
             mass_number: None,
+            atomic_weight_ratio: None,
             library: None,
             energy: None,
             reactions: HashMap::new(),
@@ -463,6 +474,7 @@ impl From<Nuclide> for PyNuclide {
             atomic_number: n.atomic_number,
             neutron_number: n.neutron_number,
             mass_number: n.mass_number,
+            atomic_weight_ratio: n.atomic_weight_ratio,
             library: n.library,
             energy: n.energy,
             reactions: n.reactions,
@@ -483,6 +495,7 @@ impl From<PyNuclide> for Nuclide {
             atomic_number: py.atomic_number,
             neutron_number: py.neutron_number,
             mass_number: py.mass_number,
+            atomic_weight_ratio: py.atomic_weight_ratio,
             library: py.library,
             energy: py.energy,
             reactions: py.reactions,

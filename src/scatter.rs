@@ -82,27 +82,13 @@ pub fn get_scatter_neutron_multiplicity(mt: i32) -> usize {
     }
 }
 
-/// Handle general scattering reactions (non-elastic, non-inelastic-level)
+/// Handle general scattering reactions with explicit AWR for CM to LAB conversion
 /// This includes reactions like (n,2n), (n,3n), (n,n'alpha), etc.
 /// Returns vector of outgoing neutrons based on reaction products or analytical models
-pub fn scatter<R: rand::Rng>(
-    particle: &Particle,
-    reaction: &Reaction,
-    nuclide_name: &str, // nuclide name for AWR lookup when needed
-    rng: &mut R,
-) -> Vec<Particle> {
-    use crate::data::ATOMIC_WEIGHT_RATIO;
-    let awr = *ATOMIC_WEIGHT_RATIO
-        .get(nuclide_name)
-        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
-    scatter_with_awr(particle, reaction, nuclide_name, awr, rng)
-}
-
-/// Handle general scattering reactions with explicit AWR for CM to LAB conversion
 pub fn scatter_with_awr<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
-    nuclide_name: &str,
+    _nuclide_name: &str,
     awr: f64,
     rng: &mut R,
 ) -> Vec<Particle> {
@@ -112,7 +98,7 @@ pub fn scatter_with_awr<R: rand::Rng>(
         sample_from_products_with_awr(particle, reaction, awr, rng)
     } else {
         // No product data available - use analytical approach based on Q-value and MT
-        analytical_scatter(particle, reaction, nuclide_name, rng)
+        analytical_scatter(particle, reaction, awr, rng)
     }
 }
 
@@ -121,22 +107,15 @@ pub fn scatter_with_awr<R: rand::Rng>(
 fn analytical_scatter<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
-    nuclide_name: &str,
+    awr: f64,
     rng: &mut R,
 ) -> Vec<Particle> {
-    use crate::data::ATOMIC_WEIGHT_RATIO;
-
     let e_in = particle.energy;
     let mt = reaction.mt_number;
     let q_value = reaction.q_value;
 
     // Determine neutron multiplicity based on reaction type
     let neutron_multiplicity = get_scatter_neutron_multiplicity(mt);
-
-    // Look up atomic weight ratio
-    let awr = *ATOMIC_WEIGHT_RATIO
-        .get(nuclide_name)
-        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
 
     // Calculate outgoing energy using Q-value
     let e_out = if q_value < 0.0 {
