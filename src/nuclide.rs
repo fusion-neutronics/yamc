@@ -24,7 +24,7 @@ const INELASTIC_CONSTITUENT_MTS: std::ops::Range<i32> = 50..92;
 
 /// Helper function to check if an MT number is a scattering reaction (excludes MT 4 synthetic)
 #[inline]
-fn is_scattering_mt(mt: i32) -> bool {
+pub fn is_scattering_mt(mt: i32) -> bool {
     // Inelastic constituent MTs (50-91)
     if (50..92).contains(&mt) {
         return true;
@@ -163,6 +163,9 @@ pub struct Nuclide {
     /// Fission nu-bar data (average neutrons per fission as function of energy)
     #[serde(skip, default)]
     pub fission_nu: Option<FissionNuData>,
+    /// Cached list of scattering MT numbers per temperature (optimization to avoid iterating all MTs)
+    #[serde(skip, default)]
+    pub scattering_mts: HashMap<String, Vec<i32>>,
 }
 
 impl Nuclide {
@@ -402,35 +405,54 @@ impl Nuclide {
         rng: &mut R,
     ) -> &Reaction {
         // Try temperature as given, then with 'K' appended, then any available
-        let temp_reactions = if let Some(r) = self.reactions.get(temperature) {
-            r
-        } else if let Some(r) = self.reactions.get(&format!("{}K", temperature)) {
-            r
-        } else if let Some((_, r)) = self.reactions.iter().next() {
-            r
+        // Also resolve the temp_key for looking up cached scattering_mts
+        let (temp_reactions, temp_key) = if let Some(r) = self.reactions.get(temperature) {
+            (r, temperature)
+        } else if self.reactions.contains_key(&format!("{}K", temperature)) {
+            // Can't use format! result directly due to lifetime, so we check first
+            let key_with_k = format!("{}K", temperature);
+            (self.reactions.get(&key_with_k).unwrap(), temperature) // Use original temp as key lookup
+        } else if let Some((temp, r)) = self.reactions.iter().next() {
+            (r, temp.as_str())
         } else {
             panic!(
                 "[sample_scattering_constituent] No reaction data available for any temperature."
             );
         };
 
+        // Use cached scattering MTs if available, otherwise fall back to full iteration
+        let cached_mts = self.scattering_mts.get(temp_key)
+            .or_else(|| self.scattering_mts.get(&format!("{}K", temperature)))
+            .or_else(|| self.scattering_mts.values().next());
+
         // Build list of available scattering reactions with their cross sections
-        // Single iteration through the HashMap instead of 50+ individual lookups
-        let mut available_reactions: Vec<(i32, &Reaction, f64)> = Vec::new();
+        let mut available_reactions: Vec<(&Reaction, f64)> = Vec::new();
         let mut total_scattering_xs = 0.0;
 
-        for (&mt, reaction) in temp_reactions.iter() {
-            // Skip MT 4 (synthetic inelastic) - only use constituent reactions
-            if mt == 4 || mt == 1 || mt == 18 || mt == 101 || mt == 1001 {
-                continue;
+        if let Some(scattering_mts) = cached_mts {
+            // Fast path: use pre-cached list of scattering MTs
+            for &mt in scattering_mts {
+                if let Some(reaction) = temp_reactions.get(&mt) {
+                    if let Some(xs) = reaction.cross_section_at(energy) {
+                        if xs > 0.0 {
+                            available_reactions.push((reaction, xs));
+                            total_scattering_xs += xs;
+                        }
+                    }
+                }
             }
-            
-            // Check if this is a scattering MT
-            if is_scattering_mt(mt) {
-                if let Some(xs) = reaction.cross_section_at(energy) {
-                    if xs > 0.0 {
-                        available_reactions.push((mt, reaction, xs));
-                        total_scattering_xs += xs;
+        } else {
+            // Fallback: iterate all reactions (for nuclides not loaded via HDF5)
+            for (&mt, reaction) in temp_reactions.iter() {
+                if mt == 4 || mt == 1 || mt == 18 || mt == 101 || mt == 1001 {
+                    continue;
+                }
+                if is_scattering_mt(mt) {
+                    if let Some(xs) = reaction.cross_section_at(energy) {
+                        if xs > 0.0 {
+                            available_reactions.push((reaction, xs));
+                            total_scattering_xs += xs;
+                        }
                     }
                 }
             }
@@ -448,7 +470,7 @@ impl Nuclide {
         let xi = rng.gen_range(0.0..total_scattering_xs);
         let mut accum = 0.0;
 
-        for (_, reaction, xs) in available_reactions {
+        for (reaction, xs) in available_reactions {
             accum += xs;
             if xi < accum {
                 return reaction;

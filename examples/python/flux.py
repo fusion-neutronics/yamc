@@ -19,7 +19,7 @@ h5_files = sorted(glob.glob(os.path.join(NUCLEAR_DATA_DIR, "*.h5")))
 isotopes = [os.path.splitext(os.path.basename(f))[0] for f in h5_files]
 avg_rel_diff_list = []
 # isotopes = yamc.natural_abundance().keys()#
-# isotopes = ['O16']
+isotopes = ['C12']#,'Ac225', 'Ac226', 'U234']
 for isotope in isotopes:
 # for isotope in ['S33', 'Er162',  'K39', 'K41', 'Ga71', 'Cd106']:
     # if isotope not in ['O16', 'Cr52']:
@@ -82,6 +82,9 @@ for isotope in isotopes:
         )
         geometry = mc.Geometry([cell1, cell2])
 
+        particles = 50000
+        batches = 20
+
         if code == 'openmc':
             source = mc.IndependentSource(
                 space=mc.stats.Point([0,0,0]),
@@ -89,8 +92,8 @@ for isotope in isotopes:
                 energy=mc.stats.Discrete([14060000.0], [1.0])
             )
             settings = mc.Settings(
-                particles=50000,
-                batches=20,
+                particles=particles,
+                batches=batches,
                 source=source,
                 seed=1,
                 run_mode='fixed source'
@@ -102,8 +105,8 @@ for isotope in isotopes:
                 energy=14.06e6
             )
             settings = mc.Settings(
-                particles=50000,
-                batches=20,
+                particles=particles,
+                batches=batches,
                 source=source,
                 seed=1
             )

@@ -163,6 +163,7 @@ fn parse_nuclide_from_hdf5_group(
         loaded_temperatures: Vec::new(),
         data_path: None,
         fission_nu: None,
+        scattering_mts: HashMap::new(),
     };
 
     // Read available temperatures from kTs group
@@ -311,6 +312,9 @@ fn parse_nuclide_from_hdf5_group(
 
     // Synthesize hierarchical MTs for each temperature
     synthesize_hierarchical_mts(&mut nuclide);
+
+    // Cache scattering MTs for each temperature (optimization for sample_scattering_constituent)
+    populate_scattering_mts_cache(&mut nuclide);
 
     // Set loaded temperatures
     nuclide.loaded_temperatures = nuclide.reactions.keys().cloned().collect();
@@ -473,6 +477,28 @@ fn synthesize_hierarchical_mts(nuclide: &mut Nuclide) {
         if let Some(temp_reactions) = nuclide.reactions.get_mut(&temp_key) {
             temp_reactions.insert(mt, reaction);
         }
+    }
+}
+
+/// Pre-populate the scattering_mts cache for each temperature.
+/// This caches which MTs are scattering reactions to avoid iterating all MTs
+/// during sample_scattering_constituent calls.
+fn populate_scattering_mts_cache(nuclide: &mut Nuclide) {
+    for (temp_key, temp_reactions) in nuclide.reactions.iter() {
+        let mut scattering_mts: Vec<i32> = temp_reactions
+            .keys()
+            .filter(|&&mt| {
+                // Skip synthetic MTs (1, 4, 18, 101, 1001) - same logic as sample_scattering_constituent
+                if mt == 4 || mt == 1 || mt == 18 || mt == 101 || mt == 1001 {
+                    return false;
+                }
+                crate::nuclide::is_scattering_mt(mt)
+            })
+            .copied()
+            .collect();
+        // Sort for deterministic iteration order
+        scattering_mts.sort();
+        nuclide.scattering_mts.insert(temp_key.clone(), scattering_mts);
     }
 }
 

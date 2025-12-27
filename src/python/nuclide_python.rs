@@ -507,6 +507,7 @@ impl From<PyNuclide> for Nuclide {
             loaded_temperatures: py.loaded_temperatures,
             data_path: py.data_path,
             fission_nu: py.fission_nu,
+            scattering_mts: std::collections::HashMap::new(), // Will be populated on first use if needed
         }
     }
 }
