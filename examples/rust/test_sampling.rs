@@ -19,7 +19,10 @@ fn main() {
     // Create an uncorrelated angle-energy distribution
     let angle_energy_dist = AngleEnergyDistribution::UncorrelatedAngleEnergy {
         angle: angle_dist,
-        energy: Some(EnergyDistribution::LevelInelastic {}),
+        energy: Some(EnergyDistribution::LevelInelastic {
+            threshold: 1.0e6,  // 1 MeV threshold
+            mass_ratio: 0.965, // (A/(A+1))^2 for A~56
+        }),
     };
     
     // Create a reaction product (neutron)

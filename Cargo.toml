@@ -75,3 +75,7 @@ path = "examples/rust/tbr.rs"
 [[example]]
 name = "flux_example"
 path = "examples/rust/flux_example.rs"
+
+
+[profile.release]
+debug = true

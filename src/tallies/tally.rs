@@ -478,7 +478,9 @@ impl Tally {
                 .map(|x| (x - mean_val).powi(2))
                 .sum::<f64>()
                 / (n - 1.0).max(1.0);
-            let std_dev_val = variance.sqrt();
+            // Standard error of the mean = std_dev / sqrt(n)
+            // OpenMC reports standard error, not standard deviation
+            let std_dev_val = (variance / n).sqrt();
             let rel_error_val = if mean_val > 0.0 {
                 std_dev_val / mean_val
             } else {

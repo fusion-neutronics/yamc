@@ -315,20 +315,37 @@ impl Model {
                                                         )
                                                     };
 
-                                                    // MT 50-91 typically produce 1 particle, but may produce more
+                                                    // MT 50-91 may produce multiple particles if yield > 1
                                                     if outgoing_particles.is_empty() {
                                                         // No particles produced - this shouldn't happen for MT 50-91
                                                         eprintln!("Warning: MT {} produced 0 particles", constituent_reaction.mt_number);
                                                         continue;
                                                     }
 
-                                                    let outgoing = &outgoing_particles[0];
                                                     if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
-                                                        eprintln!("MT{} -> E_out={:.2e}", constituent_reaction.mt_number, outgoing.energy);
+                                                        eprintln!("MT{} -> {} outgoing particles, E_out={:.2e}",
+                                                            constituent_reaction.mt_number, outgoing_particles.len(),
+                                                            outgoing_particles[0].energy);
                                                     }
-                                                    particle.energy = outgoing.energy;
-                                                    particle.direction = outgoing.direction;
-                                                    particle.position = outgoing.position;
+
+                                                    // Handle single or multiple outgoing particles
+                                                    if outgoing_particles.len() == 1 {
+                                                        let outgoing = &outgoing_particles[0];
+                                                        particle.energy = outgoing.energy;
+                                                        particle.direction = outgoing.direction;
+                                                        particle.position = outgoing.position;
+                                                    } else {
+                                                        // Multi-neutron reaction - bank secondary particles
+                                                        for (i, outgoing_particle) in outgoing_particles.into_iter().enumerate() {
+                                                            if i == 0 {
+                                                                particle.energy = outgoing_particle.energy;
+                                                                particle.direction = outgoing_particle.direction;
+                                                                particle.position = outgoing_particle.position;
+                                                            } else {
+                                                                particle_bank.bank_secondary(outgoing_particle);
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                                 _ => {
                                                     // Other scattering reactions - handle products, multiplicity, banking
@@ -410,10 +427,17 @@ impl Model {
                 } // end of particle transport while loop
                 } // end of particle queue processing while loop
             }); // end of parallel for_each
+        } // end of batch loop
 
-            for tally in tallies.iter() {
-                tally.update_statistics(self.settings.particles as u32);
-            }
+        // Update statistics once after all batches are complete
+        if std::env::var("YAMC_DEBUG").is_ok() {
+            println!("[DEBUG] About to call update_statistics after ALL {} batches complete", self.settings.batches);
+        }
+        for tally in tallies.iter() {
+            tally.update_statistics(self.settings.particles as u32);
+        }
+        if std::env::var("YAMC_DEBUG").is_ok() {
+            println!("[DEBUG] update_statistics completed");
         }
 
         let elapsed = start_time.elapsed();
