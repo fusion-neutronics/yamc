@@ -33,24 +33,109 @@ pub fn rotate_direction_3d(u_old: &Vector3<f64>, mu: f64, phi: f64) -> Vector3<f
     mu * u_old + sin_theta * phi.cos() * perp + sin_theta * phi.sin() * ortho
 }
 
-/// Sample target velocity from Maxwell-Boltzmann distribution
+/// Sample target velocity using the CXS (Constant Cross Section) approximation
+/// This matches OpenMC's sample_cxs_target_velocity function.
 /// Returns velocity in units consistent with neutron velocity (sqrt(eV))
-pub fn sample_target_velocity(awr: f64, temperature_k: f64, rng: &mut impl Rng) -> Vector3<f64> {
+///
+/// The CXS method uses rejection sampling to properly weight the target velocity
+/// distribution by the relative velocity (collision probability).
+pub fn sample_cxs_target_velocity(
+    awr: f64,
+    neutron_energy: f64,
+    neutron_direction: &[f64; 3],
+    temperature_k: f64,
+    rng: &mut impl Rng,
+) -> Vector3<f64> {
     // Boltzmann constant in eV/K
     const K_B: f64 = 8.617333e-5;
-    
+    let k_t = K_B * temperature_k;
+
+    // Reduced neutron velocity: beta_vn = sqrt(awr * E / kT)
+    let beta_vn = (awr * neutron_energy / k_t).sqrt();
+
+    // Probability weighting factor
+    let alpha = 1.0 / (1.0 + std::f64::consts::PI.sqrt() * beta_vn / 2.0);
+
+    let beta_vt_sq: f64;
+    let mu: f64;
+
+    loop {
+        // Sample two random numbers
+        let r1: f64 = rng.gen();
+        let r2: f64 = rng.gen();
+
+        let beta_vt_sq_candidate = if rng.gen::<f64>() < alpha {
+            // With probability alpha, sample from p(y) = y*e^(-y)
+            // Using sampling scheme: -log(r1 * r2)
+            -(r1.ln() + r2.ln())
+        } else {
+            // With probability 1-alpha, sample from p(y) = y^2 * e^(-y^2)
+            // Using sampling scheme: -log(r1) - log(r2)*cos^2(...)
+            let c = (std::f64::consts::PI / 2.0 * rng.gen::<f64>()).cos();
+            -r1.ln() - r2.ln() * c * c
+        };
+
+        // Determine beta * vt
+        let beta_vt = beta_vt_sq_candidate.sqrt();
+
+        // Sample cosine of angle between neutron and target velocity
+        let mu_candidate = 2.0 * rng.gen::<f64>() - 1.0;
+
+        // Determine rejection probability based on relative velocity
+        // accept_prob = |v_rel| / |v_rel_max| = sqrt(vn^2 + vt^2 - 2*vn*vt*mu) / (vn + vt)
+        let accept_prob = (beta_vn * beta_vn + beta_vt_sq_candidate
+            - 2.0 * beta_vn * beta_vt * mu_candidate)
+            .sqrt()
+            / (beta_vn + beta_vt);
+
+        // Perform rejection sampling
+        if rng.gen::<f64>() < accept_prob {
+            beta_vt_sq = beta_vt_sq_candidate;
+            mu = mu_candidate;
+            break;
+        }
+    }
+
+    // Determine speed of target nucleus
+    let vt = (beta_vt_sq * k_t / awr).sqrt();
+
+    // Determine velocity vector of target nucleus based on neutron's direction
+    // and the sampled angle between them
+    let u = Vector3::new(
+        neutron_direction[0],
+        neutron_direction[1],
+        neutron_direction[2],
+    );
+
+    // Rotate by angle mu around a random azimuthal angle
+    let phi = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+    vt * rotate_direction_3d(&u, mu, phi)
+}
+
+/// Legacy simple Maxwellian sampling (kept for reference/testing)
+/// This does NOT properly weight by relative velocity and should not be used
+/// for production simulations.
+#[allow(dead_code)]
+pub fn sample_target_velocity_simple(
+    awr: f64,
+    temperature_k: f64,
+    rng: &mut impl Rng,
+) -> Vector3<f64> {
+    // Boltzmann constant in eV/K
+    const K_B: f64 = 8.617333e-5;
+
     // Thermal energy of target nucleus
     let k_t = K_B * temperature_k;
-    
+
     // Mass of target in neutron masses
     let mass_target = awr;
-    
+
     // Sample velocity components from Gaussian distribution
     // v ~ N(0, sqrt(kT/m))
-    use rand_distr::{Normal, Distribution};
+    use rand_distr::{Distribution, Normal};
     let sigma = (k_t / mass_target).sqrt();
     let normal = Normal::new(0.0, sigma).unwrap();
-    
+
     Vector3::new(
         normal.sample(rng),
         normal.sample(rng),
@@ -65,8 +150,8 @@ pub fn elastic_scatter(particle: &mut Particle, awr: f64, temperature_k: f64, rn
     let vel = particle.energy.sqrt();
     let v_n = Vector3::from_row_slice(&particle.direction) * vel;
 
-    // Sample target velocity from Maxwell-Boltzmann distribution
-    let v_t = sample_target_velocity(awr, temperature_k, rng);
+    // Sample target velocity using CXS approximation (matches OpenMC)
+    let v_t = sample_cxs_target_velocity(awr, particle.energy, &particle.direction, temperature_k, rng);
 
     // Center-of-mass velocity
     let v_cm = (v_n + awr * v_t) / (awr + 1.0);
@@ -160,6 +245,113 @@ pub fn dbrc_elastic_scatter(
     let new_dir = mu_lab * old_dir + sin_theta * phi.cos() * perp + sin_theta * phi.sin() * ortho;
     
     particle.direction = [new_dir.x, new_dir.y, new_dir.z];
+}
+
+// =====================
+//   FISSION PHYSICS
+// =====================
+
+/// Sample fission neutron energy from Watt spectrum
+/// Uses the standard Watt fission spectrum: χ(E) = C * exp(-E/a) * sinh(sqrt(b*E))
+/// Default parameters are for U-235 thermal fission: a = 0.988 MeV, b = 2.249 MeV^-1
+/// Returns energy in eV
+pub fn sample_watt_spectrum(rng: &mut impl Rng) -> f64 {
+    // Watt spectrum parameters for U-235 (default, reasonable for actinides)
+    // a and b in MeV
+    let a = 0.988;
+    let b = 2.249;
+
+    // Rejection sampling for Watt spectrum
+    // Using the method from LA-UR-14-27694 (OpenMC theory manual)
+    let k = 1.0 + (b * a / 8.0);
+
+    loop {
+        let r1: f64 = rng.gen();
+        let r2: f64 = rng.gen();
+        let r3: f64 = rng.gen();
+
+        // Sample from g(E) = C * exp(-(E/a - sqrt(b*a/4))^2)
+        let w = a * k + (-(a * k * r1).ln()) * (r2.cos().powi(2));
+
+        // Rejection test
+        let eta = (b * w).sqrt();
+        if r3 <= (eta.sinh() / eta) {
+            // Convert from MeV to eV
+            return w * 1.0e6;
+        }
+    }
+}
+
+/// Sample fission neutrons and return them as a vector of particles
+///
+/// # Arguments
+/// * `particle` - The incident neutron particle
+/// * `nu_bar` - Average number of neutrons per fission at this energy
+/// * `fission_products` - Optional fission neutron products with energy distributions
+/// * `rng` - Random number generator
+///
+/// # Returns
+/// Vector of fission neutron particles (may be empty in rare cases)
+pub fn sample_fission_neutrons<R: Rng>(
+    particle: &crate::particle::Particle,
+    nu_bar: f64,
+    fission_products: Option<&[&crate::reaction_product::ReactionProduct]>,
+    rng: &mut R,
+) -> Vec<crate::particle::Particle> {
+    // Stochastic rounding to determine actual number of neutrons
+    let n_neutrons = {
+        let base = nu_bar.floor() as usize;
+        let frac = nu_bar - nu_bar.floor();
+        if rng.gen::<f64>() < frac {
+            base + 1
+        } else {
+            base
+        }
+    };
+
+    if n_neutrons == 0 {
+        return Vec::new();
+    }
+
+    let mut neutrons = Vec::with_capacity(n_neutrons);
+
+    // Check if we have product distributions to sample from
+    let use_products = fission_products
+        .map(|prods| !prods.is_empty())
+        .unwrap_or(false);
+
+    for _ in 0..n_neutrons {
+        let mut new_particle = particle.clone();
+
+        if use_products {
+            // Sample from product distributions (usually prompt neutron spectrum)
+            let products = fission_products.unwrap();
+            let prompt_product = products[0]; // First product is typically prompt neutrons
+
+            let (e_fission, mu) = prompt_product.sample(particle.energy, rng);
+            new_particle.energy = e_fission.max(1e-11); // Ensure positive energy
+
+            // Rotate direction by sampled mu
+            crate::inelastic::rotate_direction(&mut new_particle.direction, mu, rng);
+        } else {
+            // No product data - use Watt spectrum with isotropic emission
+            new_particle.energy = sample_watt_spectrum(rng);
+
+            // Isotropic direction
+            let mu = 2.0 * rng.gen::<f64>() - 1.0;
+            let phi = 2.0 * std::f64::consts::PI * rng.gen::<f64>();
+            let sin_theta = (1.0 - mu * mu).sqrt();
+            new_particle.direction = [
+                sin_theta * phi.cos(),
+                sin_theta * phi.sin(),
+                mu,
+            ];
+        }
+
+        neutrons.push(new_particle);
+    }
+
+    neutrons
 }
 
 // =====================

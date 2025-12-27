@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 
-use crate::nuclide::Nuclide;
+use crate::nuclide::{Nuclide, FissionNuData};
 use crate::reaction::Reaction;
 use crate::reaction_product::{
     ReactionProduct, AngleEnergyDistribution, AngleDistribution,
@@ -162,6 +162,7 @@ fn parse_nuclide_from_hdf5_group(
         available_temperatures: Vec::new(),
         loaded_temperatures: Vec::new(),
         data_path: None,
+        fission_nu: None,
     };
 
     // Read available temperatures from kTs group
@@ -284,6 +285,27 @@ fn parse_nuclide_from_hdf5_group(
 
         if !temp_reactions.is_empty() {
             nuclide.reactions.insert(temp_key.clone(), temp_reactions);
+        }
+    }
+
+    // Read total_nu (nu-bar) data if present (for fissionable nuclides)
+    if let Ok(total_nu_group) = group.group("total_nu") {
+        if let Ok(yield_ds) = total_nu_group.dataset("yield") {
+            // yield is shape (2, N) where row 0 is energy, row 1 is nu values
+            let yield_shape = yield_ds.shape();
+            if yield_shape.len() == 2 && yield_shape[0] == 2 {
+                let n = yield_shape[1];
+                let yield_data: Vec<f64> = yield_ds.read_raw::<f64>().unwrap_or_default();
+                if yield_data.len() == 2 * n {
+                    let energy: Vec<f64> = yield_data[0..n].to_vec();
+                    let nu: Vec<f64> = yield_data[n..2*n].to_vec();
+                    if std::env::var("YAMC_DEBUG_LOAD").is_ok() {
+                        eprintln!("  Loaded total_nu: {} points, nu range [{:.2}, {:.2}]",
+                            n, nu.first().unwrap_or(&0.0), nu.last().unwrap_or(&0.0));
+                    }
+                    nuclide.fission_nu = Some(FissionNuData { energy, nu });
+                }
+            }
         }
     }
 

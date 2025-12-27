@@ -1,4 +1,4 @@
-use crate::nuclide::Nuclide;
+use crate::nuclide::{Nuclide, FissionNuData};
 use crate::reaction::Reaction;
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
@@ -37,6 +37,7 @@ pub struct PyNuclide {
     pub available_temperatures: Vec<String>,
     pub loaded_temperatures: Vec<String>,
     pub data_path: Option<String>,
+    pub fission_nu: Option<FissionNuData>,
 }
 
 #[cfg(feature = "pyo3")]
@@ -191,6 +192,7 @@ impl PyNuclide {
             available_temperatures: Vec::new(),
             loaded_temperatures: Vec::new(),
             data_path: None,
+            fission_nu: None,
         }
     }
 
@@ -482,6 +484,7 @@ impl From<Nuclide> for PyNuclide {
             available_temperatures: n.available_temperatures,
             loaded_temperatures: n.loaded_temperatures,
             data_path: n.data_path,
+            fission_nu: n.fission_nu,
         }
     }
 }
@@ -503,6 +506,7 @@ impl From<PyNuclide> for Nuclide {
             available_temperatures: py.available_temperatures,
             loaded_temperatures: py.loaded_temperatures,
             data_path: py.data_path,
+            fission_nu: py.fission_nu,
         }
     }
 }
