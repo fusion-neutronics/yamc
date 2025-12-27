@@ -18,11 +18,12 @@ h5_files = sorted(glob.glob(os.path.join(NUCLEAR_DATA_DIR, "*.h5")))
 # Prepare to collect average relative differences for all isotopes
 isotopes = [os.path.splitext(os.path.basename(f))[0] for f in h5_files]
 avg_rel_diff_list = []
-isotopes = ['O16']
+isotopes = yamc.natural_abundance().keys()#
+# isotopes = ['O16']
 for isotope in isotopes:
 # for isotope in ['S33', 'Er162',  'K39', 'K41', 'Ga71', 'Cd106']:
     # if isotope not in ['O16', 'Cr52']:
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, (ax, ax_ratio) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[3, 1], sharex=True)
 
     # Energy bins: logarithmically spaced from 0.01 eV to 20 MeV
     energy_bins = np.logspace(np.log10(0.01), np.log10(20e6), 20)
@@ -139,22 +140,50 @@ for isotope in isotopes:
         # Store results
         if code == 'yamc':
             results['yamc'] = np.array(tally2.mean)
+            results['yamc_std'] = np.array(tally2.std_dev)
             ax.step(energy_bins[:-1], tally2.mean, where='post', label=code)
             bin_centers = np.sqrt(energy_bins[:-1] * energy_bins[1:])
             ax.errorbar(bin_centers, tally2.mean, yerr=tally2.std_dev, fmt='none', capsize=3, color=ax.lines[-1].get_color())
         elif code == 'openmc':
             results['openmc'] = tally2.mean.squeeze()
+            results['openmc_std'] = tally2.std_dev.squeeze()
             ax.step(energy_bins[:-1], tally2.mean.squeeze(), where='post', label=code)
             bin_centers = np.sqrt(energy_bins[:-1] * energy_bins[1:])
             ax.errorbar(bin_centers, tally2.mean.squeeze(), yerr=tally2.std_dev.squeeze(), fmt='none', capsize=3, color=ax.lines[-1].get_color())
 
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_xlabel('Energy (eV)')
     ax.set_ylabel('Flux (particles/cm²/source particle)')
     ax.set_title(f'Energy-dependent Flux Spectrum {isotope} {NUCLEAR_DATA_DIR}')
     ax.grid(True, alpha=0.3)
     ax.legend()
+
+    # Ratio subplot
+    openmc_flux = results.get('openmc', np.zeros(len(energy_bins)-1))
+    yamc_flux = results.get('yamc', np.zeros(len(energy_bins)-1))
+    openmc_std = results.get('openmc_std', np.zeros(len(energy_bins)-1))
+    yamc_std = results.get('yamc_std', np.zeros(len(energy_bins)-1))
+
+    # Calculate ratio (YAMC / OpenMC) avoiding division by zero
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = np.where(openmc_flux > 0, yamc_flux / openmc_flux, np.nan)
+        # Propagate uncertainties: sigma_ratio/ratio = sqrt((sigma_y/y)^2 + (sigma_o/o)^2)
+        rel_err_yamc = np.where(yamc_flux > 0, yamc_std / yamc_flux, 0)
+        rel_err_openmc = np.where(openmc_flux > 0, openmc_std / openmc_flux, 0)
+        ratio_std = ratio * np.sqrt(rel_err_yamc**2 + rel_err_openmc**2)
+
+    bin_centers = np.sqrt(energy_bins[:-1] * energy_bins[1:])
+
+    # Plot ratio with shaded std dev
+    ax_ratio.axhline(y=1.0, color='gray', linestyle='--', linewidth=1)
+    ax_ratio.step(energy_bins[:-1], ratio, where='post', color='C2', label='YAMC/OpenMC')
+    ax_ratio.fill_between(bin_centers, ratio - ratio_std, ratio + ratio_std,
+                          alpha=0.3, color='C2', step=None)
+    ax_ratio.set_xscale('log')
+    ax_ratio.set_xlabel('Energy (eV)')
+    ax_ratio.set_ylabel('Ratio')
+    ax_ratio.set_ylim(0.5, 1.5)
+    ax_ratio.grid(True, alpha=0.3)
 
     plt.tight_layout()
     plt.savefig(f'flux_spectrum_{isotope}.png', dpi=150)
