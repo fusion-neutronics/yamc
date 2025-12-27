@@ -228,8 +228,14 @@ impl Model {
                                                             particle.direction[2] * vel,
                                                         );
 
-                                                        // Sample target velocity using CXS approximation
-                                                        let v_t = crate::physics::sample_target_velocity(awr, temperature_k, rng);
+                                                        // Sample target velocity using CXS approximation (matches OpenMC)
+                                                        let v_t = crate::physics::sample_cxs_target_velocity(
+                                                            awr,
+                                                            particle.energy,
+                                                            &particle.direction,
+                                                            temperature_k,
+                                                            rng,
+                                                        );
 
                                                         // Center-of-mass velocity
                                                         let v_cm = (v_n + awr * v_t) / (awr + 1.0);
@@ -386,7 +392,47 @@ impl Model {
                                             reaction = constituent_reaction;
                                         }
                                         18 => {
-                                            particle.alive = false;
+                                            // Fission - produce fission neutrons
+                                            // Get nu-bar (average neutrons per fission) at this energy
+                                            let nu_bar = nuclide.fission_nu
+                                                .as_ref()
+                                                .map(|nu_data| nu_data.evaluate(particle.energy))
+                                                .unwrap_or(2.5);
+
+                                            // Get fission reaction products if available
+                                            let fission_rxn = nuclide.reactions
+                                                .get(&material.temperature)
+                                                .or_else(|| nuclide.reactions.get(&format!("{}K", material.temperature)))
+                                                .and_then(|temp_rxns| temp_rxns.get(&18));
+
+                                            let neutron_products: Vec<_> = fission_rxn
+                                                .map(|rxn| rxn.products.iter()
+                                                    .filter(|p| p.is_particle_type(&crate::reaction_product::ParticleType::Neutron))
+                                                    .collect::<Vec<_>>())
+                                                .unwrap_or_default();
+
+                                            let products_ref: Option<&[&crate::reaction_product::ReactionProduct]> =
+                                                if neutron_products.is_empty() { None }
+                                                else { Some(&neutron_products) };
+
+                                            // Sample fission neutrons
+                                            let fission_neutrons = crate::physics::sample_fission_neutrons(
+                                                &particle, nu_bar, products_ref, rng
+                                            );
+
+                                            if fission_neutrons.is_empty() {
+                                                particle.alive = false;
+                                            } else {
+                                                // First neutron continues as current particle
+                                                let first = &fission_neutrons[0];
+                                                particle.energy = first.energy;
+                                                particle.direction = first.direction;
+
+                                                // Bank remaining neutrons
+                                                for fission_n in fission_neutrons.into_iter().skip(1) {
+                                                    particle_bank.bank_secondary(fission_n);
+                                                }
+                                            }
                                         }
                                         101 => {
                                             let constituent_reaction = nuclide.sample_absorption_constituent(

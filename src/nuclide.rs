@@ -71,6 +71,48 @@ pub fn clear_nuclide_cache() {
     }
 }
 
+/// Data for fission neutron production (nu-bar)
+/// Stores the average number of neutrons produced per fission as a function of energy
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FissionNuData {
+    /// Incident neutron energies (eV)
+    pub energy: Vec<f64>,
+    /// Nu-bar values (average neutrons per fission)
+    pub nu: Vec<f64>,
+}
+
+impl FissionNuData {
+    /// Evaluate nu-bar at a given incident energy using linear interpolation
+    pub fn evaluate(&self, energy: f64) -> f64 {
+        if self.energy.is_empty() || self.nu.is_empty() {
+            return 2.5; // Default value
+        }
+
+        // Clamp to bounds
+        if energy <= self.energy[0] {
+            return self.nu[0];
+        }
+        if energy >= *self.energy.last().unwrap() {
+            return *self.nu.last().unwrap();
+        }
+
+        // Binary search for interpolation
+        let idx = self.energy.partition_point(|&e| e < energy);
+        if idx == 0 {
+            return self.nu[0];
+        }
+
+        let e0 = self.energy[idx - 1];
+        let e1 = self.energy[idx];
+        let nu0 = self.nu[idx - 1];
+        let nu1 = self.nu[idx];
+
+        // Linear interpolation
+        let f = (energy - e0) / (e1 - e0);
+        nu0 + f * (nu1 - nu0)
+    }
+}
+
 /// Core data model for a single nuclide and its reaction cross section data.
 ///
 /// A `Nuclide` mirrors (and is deserialized from) a JSON schema containing
@@ -118,6 +160,9 @@ pub struct Nuclide {
     /// Optional path the JSON was read from (None for in‑memory sources / WASM).
     #[serde(skip, default)]
     pub data_path: Option<String>, // Path JSON was loaded from (for potential future extension)
+    /// Fission nu-bar data (average neutrons per fission as function of energy)
+    #[serde(skip, default)]
+    pub fission_nu: Option<FissionNuData>,
 }
 
 impl Nuclide {
