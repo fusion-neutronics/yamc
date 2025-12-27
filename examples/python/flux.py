@@ -18,7 +18,7 @@ h5_files = sorted(glob.glob(os.path.join(NUCLEAR_DATA_DIR, "*.h5")))
 # Prepare to collect average relative differences for all isotopes
 isotopes = [os.path.splitext(os.path.basename(f))[0] for f in h5_files]
 avg_rel_diff_list = []
-isotopes = yamc.natural_abundance().keys()#
+# isotopes = yamc.natural_abundance().keys()#
 # isotopes = ['O16']
 for isotope in isotopes:
 # for isotope in ['S33', 'Er162',  'K39', 'K41', 'Ga71', 'Cd106']:

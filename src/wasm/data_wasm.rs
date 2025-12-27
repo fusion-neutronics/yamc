@@ -1,4 +1,4 @@
-use crate::data::{ATOMIC_MASSES, ELEMENT_NAMES, ELEMENT_NUCLIDES, NATURAL_ABUNDANCE};
+use crate::data::{ELEMENT_NAMES, ELEMENT_NUCLIDES, NATURAL_ABUNDANCE};
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen::prelude::*;
 
@@ -27,15 +27,6 @@ pub fn element_names() -> JsValue {
     let map: std::collections::HashMap<String, String> = ELEMENT_NAMES
         .iter()
         .map(|(symbol, name)| ((*symbol).to_string(), (*name).to_string()))
-        .collect();
-    to_value(&map).unwrap()
-}
-
-#[wasm_bindgen]
-pub fn atomic_masses() -> JsValue {
-    let map: std::collections::HashMap<String, f64> = ATOMIC_MASSES
-        .iter()
-        .map(|(nuclide, mass)| ((*nuclide).to_string(), *mass))
         .collect();
     to_value(&map).unwrap()
 }

@@ -98,6 +98,8 @@ pub struct Nuclide {
     pub neutron_number: Option<u32>,
     /// Mass number A.
     pub mass_number: Option<u32>,
+    /// Atomic weight ratio (target mass / neutron mass) from HDF5 file.
+    pub atomic_weight_ratio: Option<f64>,
     /// Origin / library identifier (e.g. JEFF, ENDF, custom tag).
     pub library: Option<String>,
     /// Top‑level energy grid per temperature (full grid; per‑reaction grids may be threshold‑truncated).

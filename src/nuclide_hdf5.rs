@@ -141,7 +141,7 @@ fn parse_nuclide_from_hdf5_group(
     // Read attributes
     let z: i32 = group.attr("Z")?.read_scalar()?;
     let a: i32 = group.attr("A")?.read_scalar()?;
-    let _awr: f64 = group.attr("atomic_weight_ratio")?.read_scalar()?;
+    let awr: f64 = group.attr("atomic_weight_ratio")?.read_scalar()?;
     let _metastable: i32 = group.attr("metastable")?.read_scalar()?;
 
     // Parse element symbol from name (e.g., "Li6" -> "Li")
@@ -154,6 +154,7 @@ fn parse_nuclide_from_hdf5_group(
         atomic_number: Some(z as u32),
         neutron_number: Some((a - z) as u32),
         mass_number: Some(a as u32),
+        atomic_weight_ratio: Some(awr),
         library: None,
         energy: None,
         reactions: HashMap::new(),

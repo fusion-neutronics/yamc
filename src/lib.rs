@@ -175,7 +175,6 @@ fn yamc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(data_python::natural_abundance, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::element_nuclides, m)?)?;
     m.add_function(wrap_pyfunction!(data_python::element_names, m)?)?;
-    m.add_function(wrap_pyfunction!(data_python::atomic_masses, m)?)?;
     use crate::python::surface_python;
     m.add_function(wrap_pyfunction!(surface_python::XPlane, m)?)?;
     m.add_function(wrap_pyfunction!(surface_python::YPlane, m)?)?;

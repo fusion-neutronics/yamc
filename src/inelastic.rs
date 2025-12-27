@@ -51,16 +51,16 @@ pub fn get_inelastic_neutron_multiplicity(mt: i32) -> usize {
 pub fn inelastic_scatter<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
-    nuclide_name: &str, // nuclide name for AWR lookup when needed
+    awr: f64,
     rng: &mut R,
 ) -> Vec<Particle> {
     // Check if reaction has product data
     if !reaction.products.is_empty() {
         // Sample from product distributions when available
-        sample_from_products(particle, reaction, rng)
+        sample_from_products_with_awr(particle, reaction, awr, rng)
     } else {
         // No product data available - use analytical approach based on Q-value and MT
-        analytical_inelastic_scatter(particle, reaction, nuclide_name, rng)
+        analytical_inelastic_scatter(particle, reaction, awr, rng)
     }
 }
 
@@ -167,23 +167,16 @@ pub fn sample_from_products_with_awr<R: rand::Rng>(
 pub fn analytical_inelastic_scatter<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
-    nuclide_name: &str,
+    awr: f64,
     rng: &mut R,
 ) -> Vec<Particle> {
-    use crate::data::ATOMIC_WEIGHT_RATIO;
-    
     let e_in = particle.energy;
     let mt = reaction.mt_number;
     let q_value = reaction.q_value;
-    
+
     // Determine neutron multiplicity based on reaction type
     // TODO: Replace with actual yield data from nuclear data files when available
     let neutron_multiplicity = get_inelastic_neutron_multiplicity(mt);
-    
-    // Look up atomic weight ratio only when needed for analytical calculations
-    let awr = *ATOMIC_WEIGHT_RATIO
-        .get(nuclide_name)
-        .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
 
     let e_out = if mt >= 51 && mt <= 90 {
         // Level inelastic scattering (MT 51-90) - OpenMC LevelInelastic approach

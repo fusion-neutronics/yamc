@@ -1,5 +1,4 @@
 use crate::bank::ParticleBank;
-use crate::data::ATOMIC_WEIGHT_RATIO;
 use crate::fast_rng::FastRng;
 use crate::geometry::Geometry;
 use crate::settings::Settings;
@@ -171,8 +170,7 @@ impl Model {
                                             match constituent_reaction.mt_number {
                                                 2 => {
                                                     // Elastic scattering
-                                                    let awr = *ATOMIC_WEIGHT_RATIO
-                                                        .get(nuclide_name.as_str())
+                                                    let awr = nuclide.atomic_weight_ratio
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let temperature_k = material.temperature.parse::<f64>().unwrap_or(294.0);
 
@@ -297,8 +295,7 @@ impl Model {
                                                 }
                                                 50..=91 => {
                                                     // Inelastic scatter (MT 50-91): use tabulated product data if available
-                                                    let awr = *ATOMIC_WEIGHT_RATIO
-                                                        .get(nuclide_name.as_str())
+                                                    let awr = nuclide.atomic_weight_ratio
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     if std::env::var("YAMC_DEBUG_SCATTER").is_ok() {
                                                         eprintln!("MT{} inelastic: E_in={:.2e}, Q={:.2e}, n_products={}",
@@ -311,7 +308,7 @@ impl Model {
                                                         )
                                                     } else {
                                                         crate::inelastic::analytical_inelastic_scatter(
-                                                            &particle, &constituent_reaction, &nuclide_name, rng
+                                                            &particle, &constituent_reaction, awr, rng
                                                         )
                                                     };
 
@@ -351,8 +348,7 @@ impl Model {
                                                     // Other scattering reactions - handle products, multiplicity, banking
                                                     // Use scatter module for general scattering (n,2n), (n,3n), (n,n'alpha), etc.
                                                     // Pass AWR for CM to LAB conversion if needed
-                                                    let awr = *ATOMIC_WEIGHT_RATIO
-                                                        .get(nuclide_name.as_str())
+                                                    let awr = nuclide.atomic_weight_ratio
                                                         .expect(&format!("No atomic weight ratio for nuclide {}", nuclide_name));
                                                     let outgoing_particles = crate::scatter::scatter_with_awr(
                                                         &particle, &constituent_reaction, &nuclide_name, awr, rng

@@ -23,8 +23,9 @@ fn test_inelastic_scatter_returns_particles() {
         scatter_in_cm: false,
     };
     
-    // Test the inelastic scatter function
-    let outgoing_particles = inelastic_scatter(&particle, &reaction, "Be9", &mut rng);
+    // Test the inelastic scatter function (AWR for Be9 ≈ 8.9)
+    let awr_be9 = 8.934;
+    let outgoing_particles = inelastic_scatter(&particle, &reaction, awr_be9, &mut rng);
     
     // For MT 16 (n,2n), we should get 2 neutrons back
     assert_eq!(outgoing_particles.len(), 2, "MT 16 (n,2n) should produce 2 neutrons");
@@ -65,8 +66,9 @@ fn test_single_neutron_reaction() {
         scatter_in_cm: false,
     };
     
-    // Test the inelastic scatter function  
-    let outgoing_particles = inelastic_scatter(&particle, &reaction, "Li6", &mut rng);
+    // Test the inelastic scatter function (AWR for Li6 ≈ 5.96)
+    let awr_li6 = 5.963;
+    let outgoing_particles = inelastic_scatter(&particle, &reaction, awr_li6, &mut rng);
     
     // For MT 51 (inelastic), we should get 1 neutron back
     assert_eq!(outgoing_particles.len(), 1, "MT 51 (inelastic) should produce 1 neutron");
