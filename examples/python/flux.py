@@ -9,11 +9,11 @@ import os
 # Update this to point to your nuclear data directory
 
 
-NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/fendl-3.2c-hdf5/"
+NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/tendl-2021-hdf5/tendl-2021-hdf5/"#fendl-3.2c-hdf5/"
+# NUCLEAR_DATA_DIR = "/home/jon/nuclear_data/fendl-3.2c-hdf5/neutron"
 # Find all HDF5 files in the neutron data directory and sort them alphabetically
 
-neutron_dir = os.path.join(NUCLEAR_DATA_DIR, "neutron")
-h5_files = sorted(glob.glob(os.path.join(neutron_dir, "*.h5")))
+h5_files = sorted(glob.glob(os.path.join(NUCLEAR_DATA_DIR, "*.h5")))
 
 # Prepare to collect average relative differences for all isotopes
 isotopes = [os.path.splitext(os.path.basename(f))[0] for f in h5_files]
@@ -65,7 +65,7 @@ for isotope in isotopes:
         if code == 'yamc':
             print(f"Reading nuclide data for {isotope}...")
             # Load from OpenMC-format HDF5 file
-            material1.read_nuclides_from_h5({isotope: f"{NUCLEAR_DATA_DIR}neutron/{isotope}.h5"})
+            material1.read_nuclides_from_h5({isotope: f"{NUCLEAR_DATA_DIR}/{isotope}.h5"})
 
         # Create cells
         cell1 = mc.Cell(

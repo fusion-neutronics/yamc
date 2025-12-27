@@ -206,7 +206,12 @@ impl AngleDistribution {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum EnergyDistribution {
-    LevelInelastic {},
+    LevelInelastic {
+        /// Threshold energy for this level
+        threshold: f64,
+        /// Mass ratio = (A/(A+1))^2 for two-body kinematics
+        mass_ratio: f64,
+    },
     Tabulated {
         energy: Vec<f64>,
         energy_out: Vec<Vec<f64>>,
@@ -221,7 +226,17 @@ pub enum EnergyDistribution {
 impl EnergyDistribution {
     pub fn sample<R: Rng>(&self, incoming_energy: f64, rng: &mut R) -> f64 {
         match self {
-            EnergyDistribution::LevelInelastic { .. } => incoming_energy,
+            EnergyDistribution::LevelInelastic { threshold, mass_ratio } => {
+                // OpenMC LevelInelastic: E_out = mass_ratio * (E_in - threshold)
+                // The threshold is stored such that E_out is valid when E_in > threshold
+                // mass_ratio = (A/(A+1))^2 accounts for two-body kinematics
+                if incoming_energy > *threshold {
+                    mass_ratio * (incoming_energy - threshold)
+                } else {
+                    // Below threshold - this shouldn't happen in valid physics
+                    0.0
+                }
+            }
             EnergyDistribution::Tabulated { energy, energy_out } => {
                 if energy.is_empty() || energy_out.is_empty() {
                     return incoming_energy;

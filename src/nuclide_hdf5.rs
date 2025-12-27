@@ -684,7 +684,19 @@ fn read_uncorrelated_distribution(group: &Group) -> Result<AngleEnergyDistributi
         let energy_type = read_string_attr(&energy_group, "type").unwrap_or_default();
         match energy_type.as_str() {
             "level" => {
-                Some(EnergyDistribution::LevelInelastic {})
+                // Read threshold and mass_ratio attributes (OpenMC LevelInelastic format)
+                let threshold: f64 = energy_group.attr("threshold")
+                    .and_then(|a| a.read_scalar())
+                    .unwrap_or(0.0);
+                let mass_ratio: f64 = energy_group.attr("mass_ratio")
+                    .and_then(|a| a.read_scalar())
+                    .unwrap_or(1.0);
+
+                if std::env::var("YAMC_DEBUG_LOAD").is_ok() {
+                    eprintln!("  level: threshold={:.4e}, mass_ratio={:.4}", threshold, mass_ratio);
+                }
+
+                Some(EnergyDistribution::LevelInelastic { threshold, mass_ratio })
             }
             "continuous" => {
                 // Read continuous tabular distribution
