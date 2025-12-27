@@ -155,50 +155,54 @@ pub struct AngleDistribution {
 }
 
 impl AngleDistribution {
+    /// Sample scattering cosine from angular distribution
+    /// Follows OpenMC's AngleDistribution::sample() approach with stochastic interpolation
     pub fn sample<R: Rng>(&self, incoming_energy: f64, rng: &mut R) -> f64 {
         if self.energy.is_empty() || self.mu.is_empty() {
+            // No distribution - return isotropic
             return 2.0 * rng.gen::<f64>() - 1.0;
         }
-        
-        let i = self.find_energy_index(incoming_energy);
-        
-        if i >= self.mu.len() {
-            let mu_sample = self.mu[self.mu.len() - 1].to_cdf().sample(rng);
-            return mu_sample.max(-1.0).min(1.0);
-        }
-        
-        if i < self.energy.len() && (incoming_energy - self.energy[i]).abs() < 1e-10 {
-            let mu_sample = self.mu[i].to_cdf().sample(rng);
-            return mu_sample.max(-1.0).min(1.0);
-        }
-        
-        if i > 0 && i < self.mu.len() {
-            let mu_sample = if i < self.energy.len() {
-                let f = (incoming_energy - self.energy[i - 1]) / (self.energy[i] - self.energy[i - 1]);
-                if f < 0.5 {
-                    self.mu[i - 1].to_cdf().sample(rng)
-                } else {
-                    self.mu[i].to_cdf().sample(rng)
-                }
-            } else {
-                self.mu[i - 1].to_cdf().sample(rng)
-            };
-            mu_sample.max(-1.0).min(1.0)
+
+        let n = self.energy.len();
+
+        // Find energy bin and calculate interpolation factor
+        // OpenMC: distribution_angle.cpp lines 74-83
+        let (i, r) = if incoming_energy < self.energy[0] {
+            (0, 0.0)
+        } else if incoming_energy > self.energy[n - 1] {
+            (n - 2, 1.0)
         } else {
-            let mu_sample = self.mu[i.min(self.mu.len() - 1)].to_cdf().sample(rng);
-            mu_sample.max(-1.0).min(1.0)
-        }
+            let idx = self.find_energy_index(incoming_energy);
+            let interp = if idx + 1 < n && self.energy[idx + 1] > self.energy[idx] {
+                (incoming_energy - self.energy[idx]) / (self.energy[idx + 1] - self.energy[idx])
+            } else {
+                0.0
+            };
+            (idx, interp)
+        };
+
+        // Stochastic interpolation: sample between the ith and (i+1)th bin
+        // OpenMC: distribution_angle.cpp lines 85-87
+        let bin = if r > rng.gen::<f64>() { i + 1 } else { i };
+
+        // Ensure bin is within bounds
+        let bin = bin.min(self.mu.len() - 1);
+
+        // Sample from the selected distribution
+        let mu_sample = self.mu[bin].to_cdf().sample(rng);
+
+        // Make sure mu is in range [-1, 1]
+        mu_sample.max(-1.0).min(1.0)
     }
-    
+
     fn find_energy_index(&self, energy: f64) -> usize {
-        if energy <= self.energy[0] {
-            return 0;
+        // Find lower bound index for interpolation
+        for i in 0..self.energy.len() - 1 {
+            if energy < self.energy[i + 1] {
+                return i;
+            }
         }
-        if energy >= self.energy[self.energy.len() - 1] {
-            return self.energy.len() - 1;
-        }
-        self.energy.binary_search_by(|&val| val.partial_cmp(&energy).unwrap())
-            .unwrap_or_else(|i| i)
+        self.energy.len() - 2
     }
 }
 

@@ -153,22 +153,25 @@ impl KalbachMann {
             (dist.r[k], dist.a[k])
         };
         // Mixture: with probability r, sample precompound; else compound
+        // OpenMC: if prn > r -> compound (arcsinh), else -> precompound (CDF inversion)
         let mu = if rng.gen::<f64>() > r_val {
-            // Compound: exp(a*mu) on [-1,1]
+            // Compound nucleus: sample from sinh distribution using arcsinh
+            // T = uniform(-1,1) * sinh(a), mu = arcsinh(T) / a
+            if a_val.abs() < 1e-6 {
+                2.0 * rng.gen::<f64>() - 1.0
+            } else {
+                let t = (2.0 * rng.gen::<f64>() - 1.0) * a_val.sinh();
+                (t + (t * t + 1.0).sqrt()).ln() / a_val
+            }
+        } else {
+            // Precompound: CDF inversion of exp(a*mu) distribution
+            // mu = ln(r*exp(a) + (1-r)*exp(-a)) / a
             if a_val.abs() < 1e-6 {
                 2.0 * rng.gen::<f64>() - 1.0
             } else {
                 let r = rng.gen::<f64>();
-                if a_val > 0.0 {
-                    ((1.0 - r) * (-a_val).exp() + r * a_val.exp()).ln() / a_val
-                } else {
-                    -((1.0 - r) * a_val.exp() + r * (-a_val).exp()).ln() / a_val
-                }
+                (r * a_val.exp() + (1.0 - r) * (-a_val).exp()).ln() / a_val
             }
-        } else {
-            // Precompound: sample as in OpenMC
-            let T = (2.0 * rng.gen::<f64>() - 1.0) * a_val.sinh();
-            (T + (T * T + 1.0).sqrt()).ln() / a_val
         };
         (e_out, mu.max(-1.0).min(1.0))
     }

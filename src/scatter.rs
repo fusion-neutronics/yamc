@@ -189,6 +189,7 @@ fn sample_from_products<R: rand::Rng>(
 }
 
 /// Sample outgoing particles with explicit AWR for CM to LAB conversion
+/// Follows OpenMC's approach: evaluate yield and create appropriate number of particles
 pub fn sample_from_products_with_awr<R: rand::Rng>(
     particle: &Particle,
     reaction: &Reaction,
@@ -213,34 +214,61 @@ pub fn sample_from_products_with_awr<R: rand::Rng>(
     let mut outgoing_neutrons = Vec::new();
 
     for neutron_product in neutron_products {
-        // Sample outgoing energy and scattering cosine from product distribution
-        let (mut e_out, mut mu) = neutron_product.sample(e_in, rng);
+        // Evaluate yield at incident energy (OpenMC: physics.cpp line 1157)
+        let yield_val = neutron_product
+            .product_yield
+            .as_ref()
+            .map(|y| y.evaluate(e_in))
+            .unwrap_or(1.0);
 
-        // If scattering is in center-of-mass frame, convert to LAB frame
-        // OpenMC: physics.cpp inelastic_scatter() lines 1131-1141
-        if reaction.scatter_in_cm {
-            let e_cm = e_out;
-            let a = awr;
+        // Determine number of particles to create based on yield
+        // OpenMC: if yield is integral, create that many particles
+        // If non-integral, use stochastic rounding
+        let n_particles = if (yield_val - yield_val.floor()).abs() < 1e-10 {
+            // Integral yield - create exactly that many
+            yield_val.round() as usize
+        } else {
+            // Non-integral yield - stochastic rounding
+            let base = yield_val.floor() as usize;
+            let frac = yield_val - yield_val.floor();
+            if rng.gen::<f64>() < frac {
+                base + 1
+            } else {
+                base
+            }
+        };
 
-            // Determine outgoing energy in lab frame
-            // E = E_cm + (E_in + 2*mu*(A+1)*sqrt(E_in*E_cm)) / ((A+1)^2)
-            e_out = e_cm + (e_in + 2.0 * mu * (a + 1.0) * (e_in * e_cm).sqrt())
-                    / ((a + 1.0) * (a + 1.0));
+        // Create n_particles neutrons from this product
+        for _ in 0..n_particles {
+            // Sample outgoing energy and scattering cosine from product distribution
+            let (mut e_out, mut mu) = neutron_product.sample(e_in, rng);
 
-            // Determine outgoing angle in lab frame
-            // mu = mu * sqrt(E_cm/E) + 1/(A+1) * sqrt(E_in/E)
-            mu = mu * (e_cm / e_out).sqrt() + 1.0 / (a + 1.0) * (e_in / e_out).sqrt();
+            // If scattering is in center-of-mass frame, convert to LAB frame
+            // OpenMC: physics.cpp inelastic_scatter() lines 1131-1141
+            if reaction.scatter_in_cm {
+                let e_cm = e_out;
+                let a = awr;
 
-            // Clamp mu to [-1, 1] due to floating point roundoff
-            mu = mu.max(-1.0).min(1.0);
+                // Determine outgoing energy in lab frame
+                // E = E_cm + (E_in + 2*mu*(A+1)*sqrt(E_in*E_cm)) / ((A+1)^2)
+                e_out = e_cm + (e_in + 2.0 * mu * (a + 1.0) * (e_in * e_cm).sqrt())
+                        / ((a + 1.0) * (a + 1.0));
+
+                // Determine outgoing angle in lab frame
+                // mu = mu * sqrt(E_cm/E) + 1/(A+1) * sqrt(E_in/E)
+                mu = mu * (e_cm / e_out).sqrt() + 1.0 / (a + 1.0) * (e_in / e_out).sqrt();
+
+                // Clamp mu to [-1, 1] due to floating point roundoff
+                mu = mu.max(-1.0).min(1.0);
+            }
+
+            // Create new neutron particle
+            let mut new_particle = particle.clone();
+            new_particle.energy = e_out;
+            crate::inelastic::rotate_direction(&mut new_particle.direction, mu, rng);
+
+            outgoing_neutrons.push(new_particle);
         }
-
-        // Create new neutron particle
-        let mut new_particle = particle.clone();
-        new_particle.energy = e_out;
-        crate::inelastic::rotate_direction(&mut new_particle.direction, mu, rng);
-
-        outgoing_neutrons.push(new_particle);
     }
 
     outgoing_neutrons
