@@ -1,0 +1,215 @@
+# Weight windows
+
+Weight windows are a variance-reduction technique for deep-penetration and
+streaming problems: places where an analog simulation almost never sends a
+particle, so the tally there is dominated by a handful of lucky histories (or
+stays zero). A weight window defines, per mesh voxel and energy group, a target
+weight band. A particle above the band is **split** into several lower-weight
+copies (more histories where the tally needs them); a particle below the band is
+**rouletted** (killed or promoted); a particle inside the band is left alone.
+Weight is conserved in expectation, so the tally means are unchanged, only the
+variance where it matters is reduced.
+
+Weight windows are applied at collisions and run on the **CPU only**
+(``compute='gpu'`` refuses ``variance_reduction``). They compose with the rest
+of the ``variance_reduction`` list; see [Models](models.md) for that list and
+for survival biasing.
+
+## Generating windows automatically (DeGVR)
+
+The usual workflow is to *generate* the windows from a cheap pre-pass rather
+than write bounds by hand. ``model.generate_weight_windows`` runs the
+density-extrapolation method (DeGVR): two short transport passes at reduced
+material density, then a per-(voxel, group) extrapolation to full density. It
+returns a [``WeightWindowBounds``](#applying-windows-directly) you pass into a
+production run.
+
+<!-- doctest: skip -->
+```python
+import yamc
+
+mesh = yamc.RegularRectangularMesh(
+    lower_left=[-1100, -1100, -1100], upper_right=[1100, 1100, 1100], shape=[50, 50, 50]
+)
+tally = yamc.Tally(scores=["flux"], name="flux", mesh=mesh, particle="neutron")
+model = yamc.Model(geometry=geometry, source=source, tallies=[tally])
+
+# 1. Generate windows on the same mesh you want to resolve.
+windows = model.generate_weight_windows(
+    yamc.WeightWindowGeneratorDeGVR(mesh=mesh, particle="neutron"),
+    total_particles=1_000_000,
+)
+
+# 2. Run production transport with the windows applied.
+prod = yamc.Model(
+    geometry=geometry, source=source, tallies=[tally], variance_reduction=[windows]
+)
+results = prod.simulate_transport(total_particles=2_000_000)
+```
+
+Generation is not free, so for an honest efficiency comparison charge its
+wall-clock time against the weight-window budget: time the generation and run
+the production pass for the remaining time (see
+[``max_runtime``](simulate_transport.md)).
+
+<!-- doctest: skip -->
+```python
+import time
+
+t0 = time.time()
+windows = model.generate_weight_windows(
+    yamc.WeightWindowGeneratorDeGVR(mesh=mesh, particle="neutron"),
+    total_particles=1_000_000,
+)
+t_gen = time.time() - t0
+
+prod = yamc.Model(geometry=geometry, source=source, tallies=[tally], variance_reduction=[windows])
+results = prod.simulate_transport(total_particles=10_000_000_000, max_runtime=(20, "min") )
+# analog baseline for the SAME total wall-clock (generation-inclusive):
+analog = model.simulate_transport(total_particles=10_000_000_000,
+                                  max_runtime=t_gen + results.elapsed)
+```
+
+``WeightWindowGeneratorDeGVR`` parameters (all optional except ``mesh``):
+
+| parameter | default | meaning |
+|---|---|---|
+| ``mesh`` | -- | the regular mesh the windows are defined on |
+| ``particle`` | ``"neutron"`` | particle type the windows act on |
+| ``energy_bins`` | ``None`` | energy group edges (eV); ``None`` is a single group |
+| ``density_reduction`` | ``None`` (auto) | reduced-density factor ``N`` for the extrapolation; ``None`` computes it from a particle-free optical-depth ray-trace (source to deepest voxel), ``N = tau / 7`` (continuous, clamped ``>= 2``). Pass a float to override. |
+| ``ratio`` | ``5`` | upper/lower bound ratio (window width) |
+| ``survival_factor`` | ``3`` | sets the roulette survival weight |
+| ``max_split`` | ``10`` | most copies one split may create |
+| ``weight_floor`` | ``1e-38`` | absolute weight below which a particle is killed |
+
+By default ``density_reduction`` is auto: ``N`` is derived, before the two
+generation passes, from the problem's optical thickness ``tau`` (a particle-free
+ray-trace from the source to the deepest mesh voxel at the source energy) as
+``N = tau / 7`` (continuous, clamped to ``>= 2``; ``tau`` is taken as a high
+percentile of the per-voxel optical depth so a single oblique corner voxel does
+not skew it). The empirical sweet spot
+``tau / N ~ 7`` mean free paths balances fiducial penetration against
+extrapolation error: a smaller ``N`` leaves the fiducial too thick to resolve
+the deep region, a larger ``N`` over-splits on a noise-amplified
+``G = F*(H/F)^(N-1)`` extrapolation. ``model.estimate_density_reduction(gen)``
+returns the ``(N, tau)`` it would pick without running generation. Pass an
+explicit float to ``density_reduction`` to override.
+
+## Applying windows directly
+
+If you already have bounds (e.g. from a previous generation, via
+``windows.lower_bounds`` / ``windows.upper_bounds``, or an analytic importance
+map) you can build a ``WeightWindowBounds`` yourself. Bounds are flat, indexed
+``group * num_voxels + voxel``; pass ``lower_bounds`` and either ``upper_bounds``
+or a ``ratio`` that fills them in. A negative lower bound marks a "no window"
+voxel that is skipped.
+
+<!-- doctest: skip -->
+```python
+windows = yamc.WeightWindowBounds(
+    mesh=mesh,
+    lower_bounds=[...],        # length n_groups * num_voxels
+    upper_bounds=None,         # or omit and pass ratio=
+    ratio=5.0,
+    particle="neutron",
+    survival_factor=3.0,       # > 1
+    max_split=10,
+    weight_floor=1e-38,
+)
+```
+
+## Photon sources
+
+Weight windows are **per particle type**: set ``particle=`` on both the
+generator and the bounds, and the collision handler applies each window only to
+matching particles. For a **photon source** ([``PhotonSource``](sources.md)),
+build the window with ``particle="photon"`` and run exactly as above -- the
+photon transport path splits/rouletts photons at their collisions and the tally
+means stay unbiased.
+
+<!-- doctest: skip -->
+```python
+src = yamc.PhotonSource(position=(0, 0, 0), energy=yamc.sources.Discrete([2e6], [1.0]))
+model = yamc.Model(geometry=geom, source=src, tallies=[flux],
+                   transport_secondary_photons=True)
+photon_ww = model.generate_weight_windows(
+    yamc.WeightWindowGeneratorDeGVR(mesh=mesh, particle="photon"),
+    total_particles=200_000, seed=1)
+prod = yamc.Model(geometry=geom, source=src, tallies=[flux],
+                  transport_secondary_photons=True, variance_reduction=[photon_ww])
+results = prod.simulate_transport(total_particles=..., seed=7)
+```
+
+### Secondary and decay photons (coupled)
+
+Photons produced *inside* the run -- secondary photons from neutron collisions
+(``transport_secondary_photons=True``) and D1S decay photons
+(``use_decay_photons=True``) -- travel the same photon transport path, so a
+``particle="photon"`` window acts on them at their collisions too.
+
+To generate a neutron window **and** a photon window for a coupled
+neutron -> gamma problem in a single call, pass a **list** of particle types.
+One coupled pair of reduced-density passes tallies both fields and returns one
+window per particle, in the requested order; apply them together:
+
+<!-- doctest: skip -->
+```python
+mesh = yamc.RegularRectangularMesh(lower_left=[-3, -3, 0], upper_right=[3, 3, 40],
+                                   shape=[1, 1, 8])
+src = yamc.NeutronSource(position=(0, 0, 0.5),
+                         energy=yamc.sources.Discrete([14.1e6], [1.0]))
+model = yamc.Model(geometry=geom, source=src, tallies=[n_flux, p_flux],
+                   transport_secondary_photons=True)
+
+neutron_ww, photon_ww = model.generate_weight_windows(
+    yamc.WeightWindowGeneratorDeGVR(mesh=mesh, particle=["neutron", "photon"]),
+    total_particles=200_000, seed=1)
+
+prod = yamc.Model(geometry=geom, source=src, tallies=[n_flux, p_flux],
+                  transport_secondary_photons=True,
+                  variance_reduction=[neutron_ww, photon_ww])
+results = prod.simulate_transport(total_particles=..., seed=7)
+```
+
+A single-string ``particle`` still returns one ``WeightWindowBounds`` (unchanged);
+a list returns a ``list`` in the same order. See
+``examples/python/coupled_np_degvr.py``.
+
+**Auto density reduction for photons.** The auto ``density_reduction`` ray-trace
+uses a *photon* energy for a photon window, not the driving 14 MeV neutron energy
+(photon attenuation at 14 MeV is nothing like at ~1 MeV). For neutron-driven
+secondary / decay photons it defaults to ~1 MeV, a typical gamma energy; override
+with ``photon_energy=`` on the generator if your spectrum is harder or softer.
+This only affects generation efficiency, never bias.
+
+### D1S decay photons
+
+A shutdown-dose (D1S, ``use_decay_photons=True``) run is just a coupled run whose
+photon field is the *decay* photons emitted at activation sites, so the same
+``particle="photon"`` (or coupled ``["neutron", "photon"]``) generation produces a
+window that resolves the deep decay-photon dose. Tally the decay dose as usual
+with ``parent_nuclides=model.radionuclides()``; the window shapes transport, and
+the pulse-schedule time-correction is applied afterwards unchanged (it is a linear
+post-scaling and does not interact with the window). See
+``examples/python/decay_photon_degvr.py``.
+
+One caveat: reducing material density for the DeGVR passes lowers the *activation
+rate* as well as the attenuation, so the decay-photon *source* scales with density
+and the log-linear-in-density extrapolation is more approximate than for pure
+attenuation. The window stays unbiased regardless (windows are unbiased for any
+bounds); only its efficiency is affected. Use a modest generation budget (the D1S
+activation path runs twice at reduced density).
+
+## Notes
+
+- **Unbiased.** With or without windows the tally means agree within statistics;
+  only the variance (and the run cost) differ. Judge the benefit by coverage and
+  the per-tally relative error in the deep region, or the per-tally FOM.
+- **Best for exponential attenuation** (thick shields, ~many decades of flux
+  drop) where analog cannot reach at all. For pure void streaming (an air duct),
+  analog already fills the domain and the gain is smaller.
+- **A weight-window history is expensive** (it can process thousands of split
+  copies), so a timed run stops on ``max_runtime`` at the end of a chunk and may
+  overrun the budget by up to one chunk; read the run's measured ``elapsed``.
+- **CPU only.** ``compute='gpu'`` rejects a model with weight windows.

@@ -1,0 +1,6 @@
+dist/
+site/
+__pycache__/
+# Written by the executed code blocks in the docs (results.md, models.md, ...).
+*.vtkhdf
+*.h5
