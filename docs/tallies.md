@@ -174,7 +174,108 @@ tally = yamc.Tally(scores=["flux"], cells=cell, energy_bins=[0, 0.625, 1e5, 20e6
 tally = yamc.Tally(scores=["flux"], cells=cell, energy_group_structure="VITAMIN-J-175")
 ```
 
-Available group structures: ``"VITAMIN-J-175"`` (175 neutron groups), ``"VITAMIN-J-42"`` (42 photon groups), ``"CCFE-24-PHOTON"`` (24 photon groups).
+#### The built-in group structures
+
+| name | groups | range | bin holding 14.1 MeV |
+| --- | ---: | --- | --- |
+| ``XMAS-172`` | 172 | 1.00001e-5 eV to 19.6403 MeV | 13.84 to 14.92 MeV |
+| ``VITAMIN-J-175`` | 175 | 1e-5 eV to 19.64 MeV | 13.84 to 14.19 MeV |
+| ``SCALE-252`` | 252 | 0 eV to 20 MeV | 13.84 to 14.55 MeV |
+| ``TRIPOLI-315`` | 315 | 1e-5 eV to 19.64 MeV | 13.84 to 14.19 MeV |
+| ``SHEM-361`` | 361 | 0 eV to 19.6403 MeV | 13.84 to 14.92 MeV |
+| ``LLNL-616`` | 616 | 1e-5 eV to 20 MeV | 13.80 to 14.45 MeV |
+| ``CCFE-709`` | 709 | 1e-5 eV to 1 GeV | 14.00 to 14.20 MeV |
+| ``SCALE-999`` | 999 | 1e-5 eV to 20 MeV | 13.84 to 14.19 MeV |
+| ``UKAEA-1102`` | 1102 | 1e-5 eV to 1 GeV | 14.00 to 14.20 MeV |
+| ``ECCO-1968`` | 1968 | 1.00001e-5 eV to 19.64033 MeV | 14.07 to 14.19 MeV |
+| ``CCFE-24-PHOTON`` | 24 | 1 keV to 20 MeV | photon structure |
+| ``VITAMIN-J-42`` | 42 | 1 keV to 50 MeV | photon structure |
+
+Two of them, ``SCALE-252`` and ``SHEM-361``, have a lowest boundary of exactly 0 eV. That is OpenMC's value and is kept, but it sits below the 1e-5 eV floor of the transport data, so treat their bottom bin as open-ended rather than as a real energy range.
+
+Passing a name that is not in the table raises with the list of the ones that are, so a typo never silently becomes something else. Every name except ``CCFE-24-PHOTON`` carries the same boundaries as OpenMC's ``openmc.mgxs.GROUP_STRUCTURES`` entry of that name, so a spectrum tabulated for one code can be handed to the other without re-binning.
+
+The names are also readable as data, which is what lets a multigroup result be plotted or folded against the energies it was scored on:
+
+<!-- doctest: skip -->
+```python
+yamc.group_structure_names()          # every name in the table above
+edges = yamc.group_structure("UKAEA-1102")
+len(edges)                            # 1103, one more than the group count
+edges[0], edges[-1]                   # 1e-05, 1000000000.0
+```
+
+``Tally.energy_bins`` returns the same list once a group structure has been set on a tally.
+
+#### What the choice of structure costs
+
+Choosing a structure is a resolution trade, and it is easier to see than to argue about. Below, a 14.06 MeV point source sits at the centre of a 50 cm sphere of one homogenized mixture of tungsten, water, steel, lithium and beryllium, and the same cell flux is tallied ten times over, once per neutron structure in the table. Flux is divided by bin width in lethargy, so that structures with different bin widths land on one axis.
+
+The left panel is the whole slowing-down spectrum: all ten agree on it, but the coarse ones step over the resonance dips and the thermal end that the fine ones resolve. The right panel is the source line itself, which each structure smears across whichever bin contains 14.06 MeV: the wider the bin, the lower and flatter the peak, from ``XMAS-172`` at the bottom to ``ECCO-1968`` at the top. This figure is rendered live when these docs are built.
+
+```python exec="1" html="1" source="above"
+import base64
+from io import BytesIO
+
+import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+import yamc
+
+yamc.cross_section_data = "endf-b8.1"
+
+RADIUS = 50.0
+mixture = yamc.Material(
+    composition={"W": 0.10, "Fe": 0.20, "Cr": 0.05, "Ni": 0.03,
+                 "H2O": 0.30, "Li": 0.20, "Be": 0.12},
+    density=4.0, temperature=294, name="mixture",
+)
+sphere = yamc.Sphere(radius=RADIUS, boundary="vacuum")
+cell = yamc.Cell(region=sphere.below, material=mixture, name="blanket")
+geometry = yamc.Geometry([cell])            # before the tallies: filtering needs the cell id
+source = yamc.NeutronSource(energy=14.06e6, position=(0, 0, 0))
+
+names = [n for n in yamc.group_structure_names() if "PHOTON" not in n and n != "VITAMIN-J-42"]
+tallies = [yamc.Tally(scores=["flux"], cells=cell, energy_group_structure=n, name=n)
+           for n in names]
+results = yamc.Model(
+    geometry=geometry, source=source, tallies=tallies, verbose=[]
+).simulate_transport(total_particles=500_000, seed=1)
+
+volume = 4 / 3 * np.pi * RADIUS**3
+fig, (ax, axz) = plt.subplots(1, 2, figsize=(11, 4.4), gridspec_kw={"width_ratios": [1.9, 1]})
+for color, name, tally in zip(plt.cm.viridis(np.linspace(0, 0.9, len(names))), names, tallies):
+    edges = np.array(tally.energy_bins)
+    # SCALE-252 and SHEM-361 start at 0 eV, which has no lethargy; widen that
+    # bottom bin to the 1e-5 eV transport floor instead.
+    lethargy = np.diff(np.log(np.maximum(edges, 1e-5)))
+    flux = np.array(results[tally].mean) / volume / lethargy
+    flux[flux <= 0] = np.nan                # bins no particle reached, not zero flux
+    ax.stairs(flux, edges, color=color, lw=1.1, label=f"{name} ({len(edges) - 1})")
+    axz.stairs(flux, edges, color=color, lw=1.4)
+
+ax.set(xscale="log", yscale="log", xlim=(1e-3, 3e7), ylim=(1e-10, 5e-3),
+       xlabel="Energy [eV]",
+       ylabel=r"Flux per unit lethargy [cm$^{-2}$ per source neutron]",
+       title="Cell-averaged spectrum, one tally per group structure")
+ax.legend(fontsize=7, ncol=2, loc="upper left", framealpha=0.9)
+ax.grid(alpha=0.25)
+axz.set(xlim=(1.30e7, 1.50e7), xlabel="Energy [eV]", title="The 14.06 MeV source peak")
+axz.ticklabel_format(axis="x", style="sci", scilimits=(6, 6))
+axz.grid(alpha=0.25)
+fig.tight_layout()
+
+buf = BytesIO()
+fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+print(
+    '<img alt="the same spectrum tallied on ten group structures" '
+    f'src="data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}" '
+    'style="max-width:100%">'
+)
+```
 
 ### Nuclide binning
 

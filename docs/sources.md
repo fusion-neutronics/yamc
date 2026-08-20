@@ -58,7 +58,9 @@ energy = yamc.sources.Discrete([1.1732e6, 1.3325e6], [0.5, 0.5])
 energy = yamc.sources.Histogram([0.0, 1e6, 20e6], [0.3, 0.7])
 
 # The bin edges can also be a built-in group structure name instead of a list
-# (e.g. "CCFE-709", "VITAMIN-J-175"); pass one weight per group.
+# (e.g. "CCFE-709", "UKAEA-1102"); pass one weight per group. yamc.group_structure()
+# returns the edges of any of them, and yamc.group_structure_names() lists them;
+# see the table under Tallies > Energy binning.
 energy = yamc.sources.Histogram("CCFE-709", flux_per_group)   # 709 weights
 
 # Uniform range
