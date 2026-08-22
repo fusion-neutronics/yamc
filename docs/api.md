@@ -9,3 +9,14 @@ does not appear.
     options:
       show_root_heading: false
       show_root_toc_entry: false
+
+## Source distributions
+
+The spatial, energy and angular distributions live in the `yamc.sources`
+submodule, along with the fusion-spectrum and parametric tokamak plasma
+builders. Usage examples are under [Sources](sources.md).
+
+::: yamc.sources
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false

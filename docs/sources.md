@@ -29,7 +29,9 @@ you can also ``from yamc import sources`` and write ``sources.Discrete(...)``.
 # Fixed point -- the (x, y, z) tuple shorthand
 source = yamc.NeutronSource(position=(0, 0, 0), energy=14.06e6)
 
-# Cylindrical ring source (e.g. tokamak plasma)
+# Cylindrical ring source -- a bare ring. For a real tokamak plasma, with
+# its shape and its density/temperature profiles, see
+# "Parametric tokamak plasma source" below.
 import math
 source = yamc.NeutronSource(
     position=yamc.sources.CylindricalRing(
@@ -81,6 +83,213 @@ energy = yamc.sources.fusion_neutron_spectrum(ion_temp=20000.0, reactants='DD')
 direction = yamc.sources.Isotropic()                 # default -- usually omitted
 direction = yamc.sources.Monodirectional([0, 0, 1])  # beam in +z
 ```
+
+### Parametric tokamak plasma source
+
+`yamc.sources.tokamak_source()` builds a tokamak's neutron source from the
+plasma itself -- its shape, its confinement mode, and its ion density and
+temperature profiles -- rather than from a hand-placed ring.
+
+```python
+import yamc
+
+plasma = dict(
+    # Shape (cm, dimensionless)
+    major_radius=906.0,
+    minor_radius=292.258,
+    elongation=1.557,
+    triangularity=0.270,
+    shafranov_factor=0.44789,
+    # Confinement mode: "L", "H" or "A"
+    mode="H",
+    # Ion density profile (m^-3, cm for the pedestal radius)
+    ion_density_centre=1.09e20,
+    ion_density_peaking_factor=1,
+    ion_density_pedestal=1.09e20,
+    ion_density_separatrix=3e19,
+    pedestal_radius=0.8 * 292.258,
+    # Ion temperature profile (eV)
+    ion_temperature_centre=45.9e3,
+    ion_temperature_peaking_factor=8.06,
+    ion_temperature_beta=6.0,
+    ion_temperature_pedestal=6.09e3,
+    ion_temperature_separatrix=0.1e3,
+)
+
+sources = yamc.sources.tokamak_source(**plasma)
+model = yamc.Model(geometry=geometry, source=sources, tallies=tallies)
+```
+
+Lengths are in cm, ion densities in m^-3, ion temperatures in eV and angles in
+radians. The full argument list is in the [API reference](api.md).
+
+The return is a **list** of `NeutronSource` ring sources -- the plasma is
+discretised onto a cylindrical (R, phi, Z) mesh and each non-empty voxel
+becomes one source per reaction, carrying the Ballabio spectrum at that voxel's
+emission-weighted ion temperature. Strengths are normalised to sum to 1, so the
+absolute neutron rate comes from the simulation's source rate, not from here.
+Pass the list straight to `Model(source=...)`, exactly as under
+"Multiple sources and strength weighting" below.
+
+The mesh defaults to `(100, 100)`, which is about 15000 sources for D-T fuel.
+Every non-empty voxel costs one source, so pass a coarser
+`mesh_resolution=(50, 50)` when a smoother source is not worth the memory.
+
+#### Toroidal sectors
+
+A wedge model only needs the matching wedge of plasma. `start_angle` and
+`rotation_angle` are in radians; a negative `rotation_angle` sweeps the other
+way.
+
+```python
+import math
+
+sources = yamc.sources.tokamak_source(
+    **plasma,
+    start_angle=0.0,
+    rotation_angle=math.pi / 4,   # a 45 degree sector
+)
+```
+
+#### Fuel
+
+`fuel` takes atom fractions that sum to 1, and defaults to 50:50 D-T. The
+supported species are `"D"` and `"T"`, giving D(d,n)3He and T(d,n)4He neutrons.
+
+```python
+sources = yamc.sources.tokamak_source(**plasma, fuel={"D": 1.0})          # D-D only
+sources = yamc.sources.tokamak_source(**plasma, fuel={"D": 0.4, "T": 0.6})
+```
+
+T(t,2n)4He is not included -- yamc has no T-T neutron spectrum model -- so
+D-D and D-T carry the whole yield. For 50:50 D-T fuel at reactor temperatures
+the T-T channel is well under a percent of the total (0.7% for the parameters
+above), and pure-tritium fuel is rejected rather than silently returning no
+neutrons.
+
+#### Plasma profiles
+
+The profiles the source is built from are exposed on their own, for plotting
+and for sanity-checking a parameter set. They depend only on the minor radius,
+and each accepts a float or a sequence of floats.
+
+```python
+densities = yamc.sources.tokamak_ion_density(
+    mode="H",
+    ion_density_centre=1.09e20,
+    ion_density_peaking_factor=1,
+    ion_density_pedestal=1.09e20,
+    ion_density_separatrix=3e19,
+    minor_radius=292.258,
+    pedestal_radius=0.8 * 292.258,
+    r=[0.0, 100.0, 292.258],           # cm
+)
+
+temperatures = yamc.sources.tokamak_ion_temperature(
+    r=[0.0, 100.0, 292.258],
+    mode="H",
+    ion_temperature_centre=45.9e3,
+    ion_temperature_peaking_factor=8.06,
+    ion_temperature_beta=6.0,
+    ion_temperature_pedestal=6.09e3,
+    ion_temperature_separatrix=0.1e3,
+    minor_radius=292.258,
+    pedestal_radius=0.8 * 292.258,
+)
+```
+
+Two more helpers complete the set: `tokamak_convert_a_alpha_to_r_z()` maps
+plasma `(a, alpha)` coordinates onto `(R, Z)` with the elongation,
+triangularity and Shafranov shift applied, and
+`tokamak_neutron_source_density()` gives the Bosch-Hale reaction rate density
+in neutrons/s/m^3.
+
+Plotting the two profiles across the plasma:
+
+```python
+import matplotlib.pyplot as plt
+import yamc
+
+minor_radius = 292.258
+profile = dict(mode="H", minor_radius=minor_radius, pedestal_radius=0.8 * minor_radius)
+radii = [i * minor_radius / 200 for i in range(201)]
+
+densities = yamc.sources.tokamak_ion_density(
+    **profile,
+    ion_density_centre=1.09e20,
+    ion_density_peaking_factor=1,
+    ion_density_pedestal=1.09e20,
+    ion_density_separatrix=3e19,
+    r=radii,
+)
+temperatures = yamc.sources.tokamak_ion_temperature(
+    **profile,
+    r=radii,
+    ion_temperature_centre=45.9e3,
+    ion_temperature_peaking_factor=8.06,
+    ion_temperature_beta=6.0,
+    ion_temperature_pedestal=6.09e3,
+    ion_temperature_separatrix=0.1e3,
+)
+
+fig, (top, bottom) = plt.subplots(2, 1, sharex=True, figsize=(8, 6))
+top.plot(radii, densities)
+top.set_ylabel("Ion density [m$^{-3}$]")
+bottom.plot(radii, temperatures)
+bottom.set_xlabel("Minor radius [cm]")
+bottom.set_ylabel("Ion temperature [eV]")
+for axis in (top, bottom):
+    axis.axvline(0.8 * minor_radius, ls="--", c="grey", lw=1, label="pedestal")
+    axis.grid(True, alpha=0.3)
+top.legend()
+plt.show()
+```
+
+#### Plotting the emission
+
+Sampling the sources shows the plasma's poloidal cross-section directly -- the
+D-shape from the triangularity, the elongation, and the emission concentrated
+near the magnetic axis where the plasma is hottest.
+
+```python
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
+import yamc
+
+sources = yamc.sources.tokamak_source(**plasma, mesh_resolution=(60, 60))
+
+# Share the points out between the sources by strength, the way the transport
+# picks them. Sampling every source equally would instead give each voxel the
+# same weight, hiding both the peaked emission and the true D-D fraction.
+n_points = 40_000
+strengths = np.array([source.strength for source in sources])
+counts = np.random.default_rng(1).multinomial(n_points, strengths / strengths.sum())
+
+radii, heights, energies = [], [], []
+for source, n in zip(sources, counts):
+    if n == 0:
+        continue
+    positions, sampled = source.sample_n(int(n))
+    for (x, y, z), energy in zip(positions, sampled):
+        radii.append(math.hypot(x, y))
+        heights.append(z)
+        energies.append(energy / 1e6)
+
+fig, ax = plt.subplots(figsize=(7, 7))
+scatter = ax.scatter(radii, heights, c=energies, s=2, alpha=0.4, cmap="plasma")
+ax.set_xlabel("R [cm]")
+ax.set_ylabel("Z [cm]")
+ax.set_aspect("equal")
+ax.set_title("Neutron birth sites, coloured by energy")
+fig.colorbar(scatter, ax=ax, label="Birth energy [MeV]")
+plt.show()
+```
+
+Emission crowds towards the magnetic axis, where the plasma is hottest, and
+the sparse 2.5 MeV points are the D-D component -- about 0.5% of the yield for
+50:50 D-T fuel at these temperatures.
 
 ### Multiple sources and strength weighting
 
