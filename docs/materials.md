@@ -377,8 +377,9 @@ schedule = yamc.PulseSchedule(
 )
 results = material.transmute(schedule=schedule)
 
-# results is a list[Material], one per timestep
-for i, mat in enumerate(results):
+# results is a TransmutationResults. step_materials() gives one Material per
+# schedule step, in order.
+for i, mat in enumerate(results.step_materials(material.id or 0)):
     print(f"Step {i+1}: {len(mat.nuclides)} nuclides")
 ```
 

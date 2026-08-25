@@ -77,8 +77,8 @@ summed exactly.
 
 <!-- doctest: skip -->
 ```python
-dt = yamc.NeutronSource(energy=yamc.sources.fusion_neutron_spectrum(reactants="DT"))
-dd = yamc.NeutronSource(energy=yamc.sources.fusion_neutron_spectrum(reactants="DD"))
+dt = yamc.NeutronSource(energy=yamc.sources.fusion_neutron_spectrum(ion_temp=20000.0, reactants="DT"))
+dd = yamc.NeutronSource(energy=yamc.sources.fusion_neutron_spectrum(ion_temp=20000.0, reactants="DD"))
 
 schedule = yamc.PulseSchedule([
     yamc.Pulse(source=dt, rate=1e18, duration=(1, "a")),
@@ -87,8 +87,13 @@ schedule = yamc.PulseSchedule([
     yamc.Cooldown(duration=(7, "d")),
 ])
 
-results_dt = yamc.Model(..., source=dt, ...).simulate_transport(total_particles=1_000_000)
-results_dd = yamc.Model(..., source=dd, ...).simulate_transport(total_particles=1_000_000)
+# One transport run per source, the same model otherwise.
+model_dt = yamc.Model(geometry=geometry, tallies=[dose_tally], source=dt,
+                      transport_secondary_photons=True, use_decay_photons=True)
+model_dd = yamc.Model(geometry=geometry, tallies=[dose_tally], source=dd,
+                      transport_secondary_photons=True, use_decay_photons=True)
+results_dt = model_dt.simulate_transport(total_particles=1_000_000)
+results_dd = model_dd.simulate_transport(total_particles=1_000_000)
 dose = schedule.time_correct_tally({dt: results_dt[dose_tally],
                                     dd: results_dd[dose_tally]})
 ```

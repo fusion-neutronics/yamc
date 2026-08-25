@@ -42,9 +42,11 @@ print(results.times)  # cumulative times including t=0
 # Density at a specific step
 density = results.get_nuclide_density(material_id=1, nuclide="Co60", step=2)
 
-# Full material at a step
+# Full material at a step. The getters answer None for a material_id or step
+# the run does not have, so a real script checks before using the result.
 mat = results.get_material(material_id=1, step=2)
-print(mat.nuclides)
+if mat is not None:
+    print(mat.nuclides)
 
 # All nuclides at a step
 nuclides = results.get_material_nuclides(material_id=1, step=2)
@@ -93,8 +95,10 @@ The solve computes the rate of every individual production edge to build its bur
 
 <!-- doctest: skip -->
 ```python
-rates = results.get_reaction_rates(material_id=1, step=0)   # step indexes timesteps
-rates["Fe58"]["(n,2n)"]        # [('Fe57', 1.205e-09)]      # rate in 1/s
+# None for a material_id or step the run does not have; `or {}` keeps the rest
+# of the page working on a plain dict.
+rates = results.get_reaction_rates(material_id=1, step=0) or {}   # step indexes timesteps
+rates["Fe58"]["(n,2n)"]        # [('Fe57', 1.205e-09)]            # rate in 1/s
 ```
 
 ``parent -> reaction kind -> [(target, rate [1/s])]``. A ``target`` of ``None`` is a channel naming no single product, which in practice means fission, whose products come from the yields rather than from an edge. A decay-only step drove no reaction and reports an empty map.
