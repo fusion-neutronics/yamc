@@ -379,12 +379,101 @@ results = material.transmute(schedule=schedule)
 
 # results is a TransmutationResults. step_materials() gives one Material per
 # schedule step, in order.
-for i, mat in enumerate(results.step_materials(material.id or 0)):
+for i, mat in enumerate(results.step_materials(material_id=material.id or 0)):
     print(f"Step {i+1}: {len(mat.nuclides)} nuclides")
 ```
 
 Parameters:
 - ``schedule``: a ``PulseSchedule`` of ``Pulse`` / ``Cooldown`` steps. Each irradiation ``Pulse`` carries a duration (seconds, or a ``(value, unit)`` tuple), a ``rate`` (the total flux magnitude [n/cm²/s]), and a ``source`` -- a ``NeutronSource`` whose energy is a ``Histogram`` giving the multigroup spectrum (its boundaries may be a named group structure such as ``"CCFE-709"``). The source's position/direction are ignored (no transport runs). ``Cooldown`` is decay-only. Different pulses may carry different spectra.
 The transmutation network is assembled from the configured per-subsection sources (``yamc.transmutation_decay_data``, ``yamc.transmutation_reactions``, ``yamc.transmutation_fission_yields``, and optionally ``yamc.transmutation_branch_ratios``).
+
+#### Nuclear-data uncertainty
+
+Pass a ``DataUncertainty`` and every nuclide density comes back with a standard
+deviation beside it:
+
+<!-- doctest: skip -->
+```python
+results = material.transmute(
+    schedule=schedule,
+    data_uncertainty=yamc.DataUncertainty(seed=42),
+)
+
+mid = material.id or 0
+# Both answer None for a nuclide, material or step the run does not have, so a
+# real script checks rather than formatting None into the output.
+mean = results.get_nuclide_density(material_id=mid, nuclide="Mn56", step=1)
+sigma = results.get_nuclide_uncertainty(material_id=mid, nuclide="Mn56", step=1)
+if mean is not None and sigma is not None:
+    print(f"Mn56: {mean:.3e} +/- {sigma:.3e}  ({100 * sigma / mean:.1f}%)")
+```
+
+The activation cross sections are resampled from their ENDF MF=33 covariance,
+folded against this material's own spectrum, and the schedule is re-solved for
+each sample. That is exact to all orders in the matrix exponential: nothing is
+linearized, and the solver itself is untouched -- only its input changes.
+
+``DataUncertainty(seed=...)`` is reproducible: a nuclide's perturbation in a
+given sample is a pure function of ``(seed, sample, nuclide)``, so the same seed
+gives the same answer whatever the sample count or iteration order. Leave
+``samples`` unset and the solver adds samples until the reported sigmas settle;
+setting it bounds cost or reproduces a specific run, but it is not an accuracy
+dial.
+
+Omitting the argument costs nothing. No covariance is read from disk, no matrix
+is folded or factorized, and the inventories are bit-identical.
+
+##### What it covers, and what it does not
+
+Only the **activation cross sections**. Half-lives, decay branching ratios,
+fission yields and the isomeric-branching overlay are held at their evaluated
+values, and they carry uncertainties of their own that this does not propagate.
+There is no statistical component either, because ``Material.transmute`` runs no
+transport: the flux you supply is taken as exact.
+
+Because a reported sigma of zero can mean "well known" or "nothing published",
+the two are kept apart in ``data_uncertainty_info``:
+
+<!-- doctest: skip -->
+```python
+info = results.data_uncertainty_info
+if info is not None:            # None unless data_uncertainty was passed
+    info["perturbed"]           # nuclides that had usable MF=33 covariance
+    info["no_covariance_data"]  # nuclides whose evaluation carries none
+    info["rate_fraction_covered"]  # per channel, the share of the rate the
+                                   # covariance grid actually spans
+    info["not_perturbed"]       # the sources this does not propagate at all
+    info["has_gaps"]            # True if anything above was left out
+```
+
+A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
+claim of certainty. It means the evaluation says nothing.
+
+The report also carries ``matrices_clipped`` and ``worst_relative_clip``:
+evaluated covariance matrices are not always positive semi-definite, and one
+that is not has no square root to sample from. The negative eigenvalues are set
+to zero, which is the standard repair, and how large a repair it was is recorded
+rather than absorbed. ``rates_floored`` counts samples whose cross section went
+negative and was truncated at zero; a large share means the Gaussian is being
+used past the point where it describes the quantity.
+
+##### Uncertainty on activity and decay heat
+
+Activity, decay heat and the decay-photon spectrum are all functions of a whole
+inventory, so their uncertainty has to be taken over the ensemble rather than
+built from per-nuclide sigmas. ``get_uncertainty_inventories`` gives every
+sample's full inventory for that:
+
+<!-- doctest: skip -->
+```python
+import statistics
+
+inventories = results.get_uncertainty_inventories(material_id=mid, step=1)
+# evaluate the quantity once per sample, then take its spread
+```
+
+Summing per-nuclide sigmas in quadrature instead would assume the nuclides vary
+independently, and they do not: a parent and its daughter move together, because
+every daughter atom came out of a parent atom.
 
 See also [Model.simulate_transmutation()](simulate_transmutation.md) for coupled transport-transmutation.
