@@ -17,11 +17,11 @@ import yamc
 yamc.cross_section_data = "endf-b8.1"
 
 steel = yamc.Material({"Fe56": 1.0}, density=7.87)
-sphere = yamc.Sphere(r=10.0)
-cell = yamc.Cell(region=-sphere, fill=steel)
+sphere = yamc.Sphere(radius=10.0, boundary="vacuum")
+cell = yamc.Cell(region=sphere.below, material=steel)
 geometry = yamc.Geometry([cell])
 
-source = yamc.NeutronSource(energy=yamc.Discrete([14.06e6], [1.0]))
+source = yamc.NeutronSource(energy=yamc.sources.Discrete([14.06e6], [1.0]))
 tally = yamc.Tally(scores=["flux"])
 
 model = yamc.Model(geometry=geometry, source=source, tallies=[tally])
