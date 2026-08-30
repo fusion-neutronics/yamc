@@ -381,11 +381,102 @@ results = material.transmute(schedule=schedule)
 # schedule step, in order.
 for i, mat in enumerate(results.step_materials(material_id=material.id or 0)):
     print(f"Step {i+1}: {len(mat.nuclides)} nuclides")
+
+# The end state on its own, without walking the steps.
+final = results.get_final_material(material_id=material.id or 0)
+if final is not None:
+    print(f"Final: {len(final.nuclides)} nuclides")
 ```
 
 Parameters:
 - ``schedule``: a ``PulseSchedule`` of ``Pulse`` / ``Cooldown`` steps. Each irradiation ``Pulse`` carries a duration (seconds, or a ``(value, unit)`` tuple), a ``rate`` (the total flux magnitude [n/cm²/s]), and a ``source`` -- a ``NeutronSource`` whose energy is a ``Histogram`` giving the multigroup spectrum (its boundaries may be a named group structure such as ``"CCFE-709"``). The source's position/direction are ignored (no transport runs). ``Cooldown`` is decay-only. Different pulses may carry different spectra.
 The transmutation network is assembled from the configured per-subsection sources (``yamc.transmutation_decay_data``, ``yamc.transmutation_reactions``, ``yamc.transmutation_fission_yields``, and optionally ``yamc.transmutation_branch_ratios``).
+
+#### Repeated calls, and letting the data go
+
+``transmute()`` loads the cross sections it needs **into the material** and keeps
+them there, so calling it again on the same material does no file reading at all.
+On a steel against ENDF/B-8.1 that is 1.8 s of a 2.3 s call. The composition is
+not modified.
+
+That is the right trade for a material transmuted more than once, and the wrong
+one for a sweep over thousands of *distinct* compositions, where every material
+would hold a few hundred nuclides' data for as long as it lives.
+``release_nuclear_data()`` drops it. The material stays usable, and the next call
+that needs the data loads it again.
+
+<!-- doctest: skip -->
+```python
+for composition in many_compositions:
+    scan_mat = yamc.Material(composition=composition, density=7.9)
+    scan_mat.transmute(schedule=schedule)
+    scan_mat.release_nuclear_data()
+```
+
+#### Resonance self-shielding
+
+The spectrum handed to ``transmute()`` is the flux *outside* the material. Inside
+a lump the flux is depressed at the energies where the material's own total cross
+section is large, so a resonance absorber shields itself and its reaction rates
+come out lower than a dilute fold predicts.
+
+Give ``transmute()`` a lump size and that depression is computed and applied:
+
+<!-- doctest: skip -->
+```python
+from yamc.shapes import FoilLump
+
+results = material.transmute(
+    schedule=schedule,
+    self_shielding_shape=FoilLump(thickness=0.1),   # cm
+)
+```
+
+The shape decides how much surface a volume hides behind, since the mean chord is
+``4V/S``. ``SphereLump()`` and ``CubeLump()`` take no arguments because
+``Material(volume=...)`` already fixes them; ``FoilLump(thickness=)``,
+``CylinderLump(radius=)`` and ``WireLump(radius=)`` carry the one dimension a
+volume cannot imply. A sphere has the least surface for its volume, so it has the
+longest chord and shields more than any other shape of the same size: an upper
+bound rather than a safe default, which is why there is no default at all.
+
+``self_shielding_chord`` takes the mean chord ``4V/S`` in cm directly, for a lump
+none of the five shapes describes. Give one or the other, not both.
+
+Omit both and nothing is shielded: the rates are bit-identical to a run without
+the argument, and no shape is inferred from a geometry this material does not
+have.
+
+The flux inside the lump comes from a slowing-down solve, which assumes nothing
+about resonances being narrow. The cheaper narrow-resonance approximation is
+deliberately not offered, because it over-shields strong elastic scatterers badly
+enough to be worse than applying no correction at all. W186(n,gamma) in FNG-tung
+measures 1.29 b, where the slowing-down solve gives C/E 0.80, no correction gives
+0.86 and narrow resonance gives 0.46.
+
+``self_shielding_info`` reports what was done, and is always present:
+
+<!-- doctest: skip -->
+```python
+shielding = results.self_shielding_info
+if shielding is not None:
+    shielding["method"]            # how the depression was computed
+    shielding["chord_cm"]          # None if the run was dilute
+    shielding["shielded"]          # nuclides the correction reached
+    shielding["not_shielded"]      # the ones it did not, and why
+    shielding["strongest_factor"]  # smallest factor any group average was scaled by
+```
+
+A ``strongest_factor`` of ``1.0`` means the run shielded nothing in practice,
+which is a different statement from not having tried.
+
+A **dilute** run fills ``would_shield`` instead: the nuclides whose own resonances
+could have suppressed a reaction, each mapped to the strongest suppression it
+could have seen. That is a bound computed from the one reaction alone, ignoring
+the rest of the material and the geometry, both of which push the real factor back
+toward one. So it says "this answer may be high, and here is by how much at the
+very most", which is the warning a dilute run of a resonance absorber should carry
+rather than silence.
 
 #### Nuclear-data uncertainty
 
@@ -423,13 +514,49 @@ dial.
 Omitting the argument costs nothing. No covariance is read from disk, no matrix
 is folded or factorized, and the inventories are bit-identical.
 
-##### What it covers, and what it does not
+##### Choosing what to perturb
 
-Only the **activation cross sections**. Half-lives, decay branching ratios,
-fission yields and the isomeric-branching overlay are held at their evaluated
-values, and they carry uncertainties of their own that this does not propagate.
-There is no statistical component either, because ``Material.transmute`` runs no
-transport: the flux you supply is taken as exact.
+Two sources can be perturbed, and by default both are:
+
+<!-- doctest: skip -->
+```python
+yamc.DataUncertainty.available_sources()   # ['cross_sections', 'flux_spectrum']
+
+# isolate one contribution
+xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
+```
+
+Restricting ``sources`` is how a run isolates one contribution, so that adding a
+source and watching the inventory sigma grow is a measurement rather than a guess.
+Naming a source this build cannot perturb raises rather than being ignored: a
+source that has not landed yet must not look like one that contributed nothing.
+
+``flux_spectrum`` propagates the error bar on the spectrum you supplied, which
+means the pulse has to carry one. ``Pulse(flux_std_dev=...)`` takes the per-bin
+standard deviation, in the same units and the same order as the ``Histogram``
+values; from a yamc run that is ``results[tally].standard_deviation``.
+
+<!-- doctest: skip -->
+```python
+pulse = yamc.Pulse(
+    rate=total_flux,
+    duration=(1, "h"),
+    source=spectrum,
+    flux_std_dev=flux_sigma,   # per bin, same order as the Histogram values
+)
+```
+
+Omitting it is the common case: a spectrum taken from a published reference set
+carries no stated error. The ``flux_spectrum`` source then contributes nothing and
+says so in ``data_uncertainty_info["spectra_without_flux_sigma"]``, rather than
+reading as a flux known exactly.
+
+##### What it does not cover
+
+Half-lives, decay branching ratios, fission yields and the isomeric-branching
+overlay are held at their evaluated values, and they carry uncertainties of their
+own that this does not propagate. ``data_uncertainty_info["not_perturbed"]`` names
+them for the run in hand.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
 the two are kept apart in ``data_uncertainty_info``:
@@ -457,19 +584,69 @@ rather than absorbed. ``rates_floored`` counts samples whose cross section went
 negative and was truncated at zero; a large share means the Gaussian is being
 used past the point where it describes the quantity.
 
-##### Uncertainty on activity and decay heat
+##### Uncertainty on activity, decay heat and dose
 
-Activity, decay heat and the decay-photon spectrum are all functions of a whole
-inventory, so their uncertainty has to be taken over the ensemble rather than
-built from per-nuclide sigmas. ``get_uncertainty_inventories`` gives every
-sample's full inventory for that:
+Activity, decay heat, contact dose and the decay-photon spectrum are all functions
+of a *whole* inventory, so their spread has to be taken over the ensemble rather
+than built from per-nuclide sigmas. Each has a getter that does exactly that,
+evaluating the quantity once per replica and taking the spread of the result:
 
 <!-- doctest: skip -->
 ```python
-import statistics
+activity = results.get_activity_uncertainty(material_id=mid, step=1)   # Bq
+heat = results.get_decay_heat_uncertainty(material_id=mid, step=1)     # W
+dose = results.get_contact_dose_uncertainty(material_id=mid, step=1)   # Gy/h
 
+if activity is not None:
+    print(f"{activity.nominal:.4g} +/- {activity.std_dev:.2g} Bq "
+          f"({activity.relative_std_dev:.1%}, {activity.replicas} replicas)")
+```
+
+Each returns an ``Estimate``. ``nominal`` is the unperturbed run and is there
+whether or not uncertainty was asked for, while ``mean``, ``std_dev`` and
+``relative_std_dev`` are ``None`` below two replicas, because a spread over fewer
+than two samples is unmeasured rather than zero. Comparing ``mean`` against
+``nominal`` is worth doing: activity and decay heat are linear in the atom
+densities, so the two agree to within the sampling error, and a gap between them
+says the perturbation is biased rather than merely wide.
+
+``by_nuclide=True`` returns a ``dict[str, Estimate]`` instead of one total. Those
+do not add up to the total in quadrature, and are not meant to.
+
+Activity, decay heat and the photon spectrum need the material's ``volume``, since
+a quantity in becquerel does. Contact dose does not, because the estimate takes
+the material for a half-space.
+
+Contact dose is also the one quantity here that is **not** linear in the atom
+densities: the material attenuates its own decay photons, so the emitters sit in
+the numerator and the whole inventory in the denominator, and a replica that makes
+more of an emitter also absorbs more of it. Scaling the nominal dose by the
+density spread would report the activity's uncertainty, which is wrong by the
+whole value; evaluating per replica gets the cancellation for free.
+
+The decay-photon spectrum comes back line by line:
+
+<!-- doctest: skip -->
+```python
+lines = results.get_decay_photon_spectrum_uncertainty(material_id=mid, step=1)
+for line in (lines or [])[:5]:
+    print(f"{line.energy:10.1f} eV  {line.nominal:.3e} photons/s  "
+          f"emitted in {line.emitting}/{line.replicas} replicas")
+```
+
+The set of lines is not the same in every replica: a nuclide that falls below the
+density floor in one draw takes its lines out of that draw. The spectrum is
+reported over the union, a line missing from a replica counts as a zero in it, and
+``emitting`` says how many replicas emitted it at all, which is the difference
+between a line that is dim and a line that is sometimes not there.
+
+For any other quantity, ``get_uncertainty_inventories`` hands back every replica's
+full inventory to evaluate over:
+
+<!-- doctest: skip -->
+```python
 inventories = results.get_uncertainty_inventories(material_id=mid, step=1)
-# evaluate the quantity once per sample, then take its spread
+# evaluate the quantity once per replica, then take its spread
 ```
 
 Summing per-nuclide sigmas in quadrature instead would assume the nuclides vary
