@@ -20,3 +20,13 @@ builders. Usage examples are under [Sources](sources.md).
     options:
       show_root_heading: false
       show_root_toc_entry: false
+
+## Self-shielding shapes
+
+The lump shapes `Material.transmute()` takes for its resonance self-shielding
+correction. Usage is under [Materials](materials.md#resonance-self-shielding).
+
+::: yamc.shapes
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false

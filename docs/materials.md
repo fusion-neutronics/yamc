@@ -424,16 +424,15 @@ Give ``transmute()`` a lump size and that depression is computed and applied:
 
 <!-- doctest: skip -->
 ```python
-from yamc.shapes import FoilLump
-
 results = material.transmute(
     schedule=schedule,
-    self_shielding_shape=FoilLump(thickness=0.1),   # cm
+    self_shielding_shape=yamc.shapes.FoilLump(thickness=0.1),   # cm
 )
 ```
 
-The shape decides how much surface a volume hides behind, since the mean chord is
-``4V/S``. ``SphereLump()`` and ``CubeLump()`` take no arguments because
+The five shapes live in ``yamc.shapes``. The shape decides how much surface a
+volume hides behind, since the mean chord is ``4V/S``.
+``SphereLump()`` and ``CubeLump()`` take no arguments because
 ``Material(volume=...)`` already fixes them; ``FoilLump(thickness=)``,
 ``CylinderLump(radius=)`` and ``WireLump(radius=)`` carry the one dimension a
 volume cannot imply. A sphere has the least surface for its volume, so it has the

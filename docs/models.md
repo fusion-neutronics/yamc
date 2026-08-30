@@ -53,6 +53,7 @@ Less-frequently-tuned ``Model`` constructor kwargs. Defaults are usually fine; r
 - ``free_gas_threshold`` (default ``400.0``) -- the threshold, in multiples of ``k_B·T``, above which elastic scattering treats the target nuclide as a stationary scatterer rather than sampling its thermal velocity from the free-gas Maxwell-Boltzmann distribution. The default of 400 kT is the standard convention; lowering it widens the energy range where thermal motion of the target is sampled (slightly slower, marginally more physical at low energies); raising it skips the sampling earlier (slightly faster, slightly less accurate near the threshold).
 - ``max_lost_particles`` (default ``10``) -- abort ``simulate_transport`` after this many particles have been lost (no valid cell found at a step). A lost particle indicates a geometry problem (overlapping cells, an uncovered region, a numerical-precision edge case); aborting early avoids running a long simulation against a broken model. See [Lost particles and geometry debugging](simulate_transport.md#lost-particles-and-geometry-debugging) for diagnosing them.
 - ``max_steps_per_particle`` (default ``100000``) -- hard cap on transport steps per particle on the **GPU** path. Ignored by CPU transport, which terminates particles naturally via absorption, leakage, and the lost-particle diagnostics; the GPU kernel has no concept of "lost" and needs an explicit cap to bound shader runtime. Setting it and then running on the CPU emits a warning, since the request has no effect there. The default is deliberately high so the GPU matches the CPU on strong scatterers (a ``1000`` cap cost ~10% of the integral flux on a pure-H2 sphere). Raise it if a deep-penetration GPU run terminates particles prematurely; lower it to bound worst-case kernel time on a pathological geometry.
+- ``gpu_fission_bank`` (default ``True``) -- whether the GPU banks fission progeny on the device. Inert without fissile material and on the CPU. Turn it off to run a fissile model with a mesh tally on the GPU, which the dispatch otherwise refuses: the combination of per-source accumulation across fission generations and direct mesh scoring is not wired up. The cost is that fission progeny are not banked on the device, so the run takes the non-fissile loop, which is what makes the mesh path work.
 
 <!-- doctest: skip -->
 ```python
@@ -62,7 +63,10 @@ model = yamc.Model(
     free_gas_threshold=400.0,        # default
     max_lost_particles=10,           # default
     max_steps_per_particle=100000,   # default; GPU path only
+    gpu_fission_bank=True,           # default; GPU path only
 )
+
+model.gpu_fission_bank = False       # also settable after construction
 ```
 
 ### Tracking mode (Woodcock / delta tracking)
