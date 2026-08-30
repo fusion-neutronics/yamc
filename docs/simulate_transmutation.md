@@ -31,6 +31,42 @@ Methods:
 - ``"coupled"`` -- transport runs every step with updated compositions
 - ``"independent"`` -- transport runs once; reaction rates scaled by source rate per step (faster for low-burnup / fusion)
 
+``simulate_transmutation`` accepts a ``compute`` argument for symmetry with
+``simulate_transport``, but ``"cpu"`` (the default) is the only value it takes.
+The transmutation solve has no GPU backend, and the per-step transport would
+have to hand its rates back to a CPU solve every step even if it ran on the
+device. Anything else raises ``ValueError`` saying that, rather than a
+``TypeError`` about an unexpected keyword.
+
+### Cooling curves
+
+A decay curve wants points at *cumulative* times, but ``Cooldown`` takes the
+duration of its own step, so writing one by hand means differencing the times
+first. ``cooldown_steps`` does that:
+
+<!-- doctest: skip -->
+```python
+schedule = yamc.PulseSchedule(
+    [yamc.Pulse(rate=1e14, duration=(1, "d"), source=source)]
+    + yamc.cooldown_steps((1, "h"), (10, "a"), 12)
+)
+```
+
+Twelve cooling points from one hour to ten years after shutdown. The step
+durations sum to ``stop`` exactly: the first one runs from the end of the
+irradiation to ``start``, rather than the steps spanning ``stop - start``.
+
+Log spacing is the default because decay is exponential, so a linear sweep is
+wrong twice over: it wastes steps in the flat tail and misses the early fall
+entirely. Activity and decay heat are plotted on log-log axes, so evenly spaced
+*plotted* points means log-spaced times. ``spacing="linear"`` gives the even
+sweep in time that a fixed-interval measurement campaign looks like.
+
+``start`` and ``stop`` take the same forms as a ``Cooldown`` duration: seconds,
+or a ``(value, unit)`` tuple. ``n`` is the number of points and must be at least
+2. Log spacing needs a positive ``start``, since the first point is a ratio from
+it and zero has no logarithm.
+
 ### TransmutationResults
 
 <!-- doctest: skip -->

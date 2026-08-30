@@ -81,6 +81,27 @@ nuclides = yamc.data.element_nuclides()
 print(nuclides["Li"])  # ["Li6", "Li7"]
 ```
 
+The element symbol table is bound too, so a script naming files or directories
+from ENDF data does not need its own copy of the periodic table.
+
+```python
+yamc.data.atomic_symbol(26)         # 'Fe'
+yamc.data.atomic_number("Fe")       # 26
+yamc.data.split_nuclide("Fe56")     # ('Fe', 56, 0)
+yamc.data.split_nuclide("Ta180_m1") # ('Ta', 180, 1)
+```
+
+``split_nuclide`` returns ``(symbol, mass number, isomeric state)``, the state
+being 0 for a ground state and 1 for the first metastable. Splitting a name by
+stripping its trailing digits does not do this: that leaves ``"Ta180_m"`` with a
+mass number of 1, and natural tantalum really does contain Ta180m, so a
+composition built from ``natural_abundance()`` will hand you that name.
+
+``atomic_symbol`` takes Z = 0 and answers ``'n'`` for the neutron rather than
+raising, because ENDF libraries really do ship a neutron material (JENDL is one)
+and a caller walking a sublibrary will meet it. ``atomic_number`` is case
+sensitive and takes the symbol alone: ``"fe"`` and ``"iron"`` are both refused.
+
 ### Options for setting nuclear data source
 
 User control over the source of nuclear data for each on a nuclide, material and program level is facilitated in a few ways.
@@ -222,6 +243,21 @@ yamc.transmutation_decay_data = "/path/to/transmutation-endf-b8.1-sfr.arrow"
 ```
 
 See the library-keyword table above for which library provides which subsection. Setting a part to a library that does not publish it fails fast with a message listing that library's available subsections.
+
+A part can also be turned **off** outright, which is the honest setting for a
+decay-only calculation, or for a material nothing in which fissions:
+
+<!-- doctest: skip -->
+```python
+yamc.set_transmutation_reactions(False)       # decay only, no reaction topology
+yamc.set_transmutation_fission_yields(False)  # nothing here fissions
+```
+
+``False`` is not the same as leaving a part unset, which falls back to the default
+library. A rate that then needs the part that was switched off is refused when the
+burnup matrix is built, naming the nuclide and the reaction, rather than being
+solved as though the reaction produced nothing, or losing its fission products
+while still burning the nuclide.
 
 The transmutation APIs and the decay-photon post-processing (``PulseSchedule.time_correct_tally``) read these settings; there is no per-call override.
 

@@ -212,4 +212,8 @@ activation path runs twice at reduced density).
 - **A weight-window history is expensive** (it can process thousands of split
   copies), so a timed run stops on ``max_runtime`` at the end of a chunk and may
   overrun the budget by up to one chunk; read the run's measured ``elapsed``.
-- **CPU only.** ``compute='gpu'`` rejects a model with weight windows.
+- **CPU only**, for applying windows and for generating them. ``compute='gpu'``
+  rejects a model carrying weight windows, and ``generate_weight_windows`` takes
+  a ``compute`` argument that accepts only ``'cpu'`` (the default). Generation is
+  ordinary transport under a window, so it cannot move to the GPU before the
+  kernels honour windows at all; asking for it raises ``ValueError`` saying so.
