@@ -114,24 +114,12 @@ The simplest method is to configure the package to use a single source of nuclea
 yamc.cross_section_data = "fendl-3.2d"
 ```
 
-The recognized library keywords, and what each one publishes:
+There are six recognized keywords: ``endf-b8.1``, ``jeff-4.0``, ``jendl-5.0``,
+``tendl-2025``, ``tendl-2017`` and ``fendl-3.2d``.
+[Nuclear data libraries](nuclear_data_libraries.md) has what each one publishes,
+how big each one is, and which can serve as a photon source.
 
-| library | cross sections | ``decay`` | ``reactions`` | ``fission_yields`` | ``branching`` |
-| --- | --- | :---: | :---: | :---: | :---: |
-| ``endf-b8.1`` | neutron + photon | yes | yes | yes | yes |
-| ``jeff-4.0`` | neutron | yes | yes | yes | yes |
-| ``tendl-2025`` | neutron | -- | yes | -- | yes |
-| ``tendl-2017`` | neutron | -- | yes | -- | yes |
-| ``fendl-3.2d`` | neutron + photon | -- | -- | -- | -- |
-
-The ``cross sections`` column is what ``yamc.cross_section_data`` can be set to for
-transport; the four remaining columns are the transmutation subsections, each set
-independently through its own ``yamc.transmutation_*`` setting. A library with no
-subsections still works for transport, it just cannot supply a chain.
-
-TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from ``endf-b8.1`` while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
-
-``jeff-4.0`` has its own decay and fission-yield sublibraries, so it is the one alternative to ``endf-b8.1`` that supplies a complete, single-library transmutation chain. It ships no photoatomic data (JEFF's photon sublibrary is photonuclear), so photons still come from ``endf-b8.1``.
+TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from a library that has them while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
 
 Whenever nuclear data is needed this will check the users ```.cache/yamc``` folder to see if the JSON file for the required nuclide exists.
 If the file is found then it will be used and if not the JSON file will be downloaded to the cache and then used.
@@ -225,13 +213,13 @@ The network is assembled from four independently sourced parts, each set globall
 # decay / reactions / fission_yields default to the endf-b8.1 library when
 # unset; set any part independently (keyword or path). Parts may come from
 # different libraries.
-yamc.transmutation_decay_data     = "endf-b8.1"   # decay: endf-b8.1 only (TENDL has none)
-yamc.transmutation_reactions      = "endf-b8.1"   # reactions: endf-b8.1, tendl-2025 or tendl-2017
-yamc.transmutation_fission_yields = "endf-b8.1"   # fission_yields: endf-b8.1 only (TENDL has none)
+yamc.transmutation_decay_data     = "endf-b8.1"
+yamc.transmutation_reactions      = "endf-b8.1"
+yamc.transmutation_fission_yields = "endf-b8.1"
 
 # Isomeric branching is a separate overlay part; sourced (when available) from a
 # TENDL release. Unset means no branching overlay is applied.
-yamc.transmutation_branch_ratios  = "tendl-2025"  # branching: endf-b8.1, tendl-2025 or tendl-2017
+yamc.transmutation_branch_ratios  = "tendl-2025"
 
 # The reactions network topology + Q values can also come from a TENDL release,
 # which covers far more parent nuclides than endf-b8.1:
@@ -242,7 +230,7 @@ yamc.transmutation_reactions      = "tendl-2017"
 yamc.transmutation_decay_data = "/path/to/transmutation-endf-b8.1-sfr.arrow"
 ```
 
-See the library-keyword table above for which library provides which subsection. Setting a part to a library that does not publish it fails fast with a message listing that library's available subsections.
+See [Nuclear data libraries](nuclear_data_libraries.md) for which library provides which subsection. Setting a part to a library that does not publish it fails fast with a message listing that library's available subsections.
 
 A part can also be turned **off** outright, which is the honest setting for a
 decay-only calculation, or for a material nothing in which fissions:
