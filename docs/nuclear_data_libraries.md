@@ -17,8 +17,11 @@ yamc.cross_section_data = "endf-b8.1"
 | ``tendl-2017`` | TENDL-2017, for comparing a result against the older release. |
 | ``fendl-3.2d`` | FENDL-3.2d. Cross sections only, no transmutation data. |
 
-Every setting also takes a path, a directory or a per-nuclide dict instead of a
-keyword. See [Options for setting nuclear data source](nuclear_data.md#options-for-setting-nuclear-data-source).
+Every setting also takes a path instead of a keyword, and ``cross_section_data``
+additionally takes a directory or a dict keyed by nuclide; the four
+``transmutation_*`` parts take one value each, since a network is assembled per
+subsection rather than per nuclide. Which setting does what, and what each does
+when left alone, is in [Nuclear data settings](nuclear_data.md#nuclear-data-settings).
 
 ## What each library publishes
 
@@ -31,10 +34,13 @@ keyword. See [Options for setting nuclear data source](nuclear_data.md#options-f
 | ``tendl-2025`` | neutron | -- | yes | -- | yes |
 | ``tendl-2017`` | neutron | -- | yes | -- | yes |
 
-The ``cross sections`` column is what ``yamc.cross_section_data`` can be set to for
-transport; the four remaining columns are the transmutation subsections, each set
-independently through its own ``yamc.transmutation_*`` setting. A library with no
-subsections still works for transport, it just cannot supply a chain.
+The ``cross sections`` column is what ``yamc.cross_section_data`` can be set to.
+That setting is not transport-only: ``Material.transmute()`` and
+``Model.simulate_transmutation()`` fold the same cross sections against the
+spectrum to get their reaction rates, so an activation run needs it as much as a
+transport run does. The four remaining columns are the transmutation subsections,
+each set independently through its own ``yamc.transmutation_*`` setting. A library
+with no subsections still works for transport, it just cannot supply a chain.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations. Take
 those from a library that has them and source ``reactions`` and ``branching`` from
@@ -58,6 +64,11 @@ Only three libraries can serve as a photon source at all:
   fluorescence is silently suppressed if you point photons at it.
 - ``jeff-4.0`` and both TENDL releases publish no photoatomic data at all. JEFF's
   photon sublibrary is photonuclear, which is a different quantity.
+
+There is no global photon setting to move photons with. The only way off the
+default is per material, through ``photon_data`` on
+[read_nuclear_data](materials.md#loading-nuclear-data), whose values may be
+library keywords as well as paths.
 
 ## How big each library is
 

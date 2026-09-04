@@ -11,6 +11,44 @@ This is the simplest option other config options are covered in the nuclear data
 yamc.cross_section_data = "endf-b8.1"
 ```
 
+### Nuclear data settings
+
+Five module-level settings, read and written like attributes. Each takes a library
+keyword or a path, and each can point somewhere different, so a run can mix
+libraries by subsection.
+
+| setting | supplies | decides | left unset |
+| --- | --- | --- | --- |
+| ``cross_section_data`` | continuous-energy cross sections per nuclide | every reaction rate, in transport and in transmutation alike | nothing at all: there is no data to transport with, and every transmutation ``sigma * phi`` is zero |
+| ``transmutation_reactions`` | which reaction on which nuclide gives which product, and its Q | which activation products exist to be made | ``endf-b8.1`` |
+| ``transmutation_decay_data`` | half-lives, decay modes, mean decay energies, decay photon lines | how the inventory decays, and the photon source a shutdown dose rate transports | ``endf-b8.1`` |
+| ``transmutation_fission_yields`` | fission product yields | what a fission makes | ``endf-b8.1`` |
+| ``transmutation_branch_ratios`` | isomeric branching against incident energy | which product is left in a metastable state | no overlay, so every product lands in its ground state |
+
+Note which way the last column goes. Four of the five have a default and answer
+something without being set. ``cross_section_data`` has none, and every
+transmutation and shutdown-dose example on these pages assumes you have set it.
+
+Photons are chosen separately and default to ``endf-b8.1`` whatever the neutron
+library is. See
+[Nuclear data libraries](nuclear_data_libraries.md#photon-data-is-chosen-separately).
+
+#### The two that both say reactions
+
+``cross_section_data`` and ``transmutation_reactions`` are halves of one
+calculation rather than alternatives. For each nuclide the network lists the
+channels it has, each channel's name is mapped to an MT number, and the cross
+sections are what that MT is priced with. So the network decides **which channels
+are considered at all** and the cross sections decide **how fast each one runs**.
+Swap the library behind ``transmutation_reactions`` and products appear or
+disappear; swap the one behind ``cross_section_data`` and the same products
+arrive at different rates.
+
+They also fail differently, which is the practical tell. A missing
+``cross_section_data`` is silent: the inventory comes back as it went in. A
+network pointed at the wrong material is refused before the solve, naming what
+the material holds against what the network drives.
+
 ### Nuclide properties and cross sections
 
 Nuclides can be created and their properties inspected.
