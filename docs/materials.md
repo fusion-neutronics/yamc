@@ -396,7 +396,7 @@ The transmutation network is assembled from the configured per-subsection source
 
 ``transmute()`` loads the cross sections it needs **into the material** and keeps
 them there, so calling it again on the same material does no file reading at all.
-On a steel against ENDF/B-8.1 that is 1.8 s of a 2.3 s call. The composition is
+On a steel against ENDF/B-VIII.1 that is 1.8 s of a 2.3 s call. The composition is
 not modified.
 
 That is the right trade for a material transmuted more than once, and the wrong

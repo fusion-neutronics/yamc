@@ -40,6 +40,7 @@ PAGES = [
     "docs/quick_start.md",
     "docs/usage_guide.md",
     "docs/materials.md",
+    "docs/nuclear_data_libraries.md",
     "docs/nuclear_data.md",
     "docs/simulate_transmutation.md",
     "docs/simulate_shutdown_dose.md",

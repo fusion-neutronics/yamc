@@ -18,6 +18,9 @@ A single library keyword downloads the required data automatically:
 yamc.cross_section_data = "endf-b8.1"
 ```
 
+There are six to choose between, and they differ by more than a name:
+[Nuclear data libraries](nuclear_data_libraries.md).
+
 ## Create a material
 
 Lithium breeds tritium, so use it as the breeder material (`"Li"` expands to natural Li6 + Li7):

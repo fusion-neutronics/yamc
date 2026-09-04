@@ -46,6 +46,7 @@ while keeping the whole stack open source.
 - [Installation](installation.md): install with `pip`, no compilation step
 - [Quick start](quick_start.md): a minimal simulation end to end
 - [Usage guide](usage_guide.md): materials, geometry, sources, tallies, transmutation, CAD
+- [Nuclear data libraries](nuclear_data_libraries.md): the six you can choose between, and how much is in each
 - [Python API](api.md): the type-annotated reference, generated from the package's stubs
 
 To ask questions or get support, try the

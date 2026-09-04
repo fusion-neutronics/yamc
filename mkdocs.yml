@@ -89,6 +89,7 @@ nav:
   - Quick start: quick_start.md
   - Usage guide:
     - Overview: usage_guide.md
+    - Nuclear data libraries: nuclear_data_libraries.md
     - Nuclear data: nuclear_data.md
     - Materials: materials.md
     - PNNL material list: pnnl_materials.md
