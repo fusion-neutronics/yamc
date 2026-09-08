@@ -128,10 +128,13 @@ headline.
 The two halves of the code treat that differently, which is worth knowing before
 reading a result. In transport a particle above a nuclide's ceiling finds no
 cross section up there, and that reads as a rate too low rather than as an
-error. In a transmutation collapse it is refused: a group spectrum whose flux
-reaches past an evaluation's last energy point is rejected before the fold,
-naming the nuclide and the energy its evaluation stops at, because there is
-nothing up there to fold against and any answer would be invented. Groups above
+error. In a transmutation collapse, from yamc-core 0.11.0, it is refused: a group
+spectrum whose flux reaches past an evaluation's last energy point is rejected
+before the fold, naming the nuclide and the energy its evaluation stops at,
+because there is nothing up there to fold against and any answer would be
+invented. Before that release it folded against the last tabulated value,
+carrying it forward, which is a different and wrong answer whenever the top
+groups are populated. Groups above
 the ceiling carrying no flux cost nothing, which is what makes a padded
 spectrum safe.
 
@@ -150,7 +153,9 @@ decay against the 0.69 MeV JENDL-5 evaluates from its decay scheme. The counts
 are 1144 records for `endf-b8.1`, 1529 for `jeff-4.0` and 375 for
 `jendl-5.0`. They are exotic nuclides, but early decay heat is carried by
 exactly the short-lived products that tend to be unevaluated. Every one is
-named in the decay subsection's `provenance.json`.
+named in the decay subsection's `provenance.json`, in data converted by
+yamc-core 0.10.0 or newer; libraries published before that carry the numbers
+without the record that says which of them are placeholders.
 
 **Reactions that do not list the isomer they make.** A reaction that can leave
 its product in a metastable state has to say so, one entry per final state. One
