@@ -73,12 +73,12 @@ pdf.tail_slope    # the fitted large-score tail slope
 
 #### Stopping on a precision target
 
-A ``ConvergenceTarget`` ends a (single-process) run early once a tally is precise enough:
+A ``ConvergenceTarget`` ends a run early once a tally is precise enough. It works on the CPU (under MPI the decision is made on the rank-combined statistics) and on the GPU, where it is decided between kernel launches, so the run overshoots the target by at most one launch chunk:
 
 <!-- doctest: skip -->
 ```python
 model.convergence_targets = [yamc.ConvergenceTarget("relative_error", 0.02, tally="flux")]
-# the run stops once flux relative error <= 2% (or total_particles is reached)
+# the run stops once flux relative error <= 2% (or total_particles / max_runtime is reached)
 ```
 
 The metric is one of ``"relative_error"``, ``"std_dev"``, or ``"variance_of_variance"``; omit ``tally=`` to require the threshold for every tally.
