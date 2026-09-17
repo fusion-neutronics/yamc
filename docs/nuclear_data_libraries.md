@@ -121,10 +121,52 @@ uniform. Counting evaluations by the ceiling they were converted to:
 | ``tendl-2017`` | 200 MeV throughout |
 
 ENDF/B-VIII.1 is the only one that is mostly a 20 MeV library, and even its Fe56
-and W186 reach 150 MeV. A source with particles above a nuclide's ceiling finds
-no cross section up there, which reads as a rate that is too low rather than as
-an error, so for a high-energy source it is worth checking the ceiling of the
-nuclides that carry the reaction rather than the library's headline.
+and W186 reach 150 MeV. So for a high-energy source it is worth checking the
+ceiling of the nuclides that carry the reaction rather than the library's
+headline.
+
+The two halves of the code treat that differently, which is worth knowing before
+reading a result. In transport a particle above a nuclide's ceiling finds no
+cross section up there, and that reads as a rate too low rather than as an
+error. In a transmutation collapse, from yamc-core 0.11.0, it is refused: a group
+spectrum whose flux reaches past an evaluation's last energy point is rejected
+before the fold, naming the nuclide and the energy its evaluation stops at,
+because there is nothing up there to fold against and any answer would be
+invented. Before that release it folded against the last tabulated value,
+carrying it forward, which is a different and wrong answer whenever the top
+groups are populated. Groups above
+the ceiling carrying no flux cost nothing, which is what makes a padded
+spectrum safe.
+
+### What a library can quietly lack
+
+Two things a library can be missing that neither the tables above nor its cross
+sections reveal. Both matter for decay heat and shutdown dose rather than for
+transport.
+
+**Mean decay energies that are placeholders.** A nuclide whose decay scheme
+nobody has evaluated still gets a decay file, with a third of each beta or
+electron-capture branch's Q booked to the light particles and a third to the
+photons. For an electron-capture emitter that is meaningless, since the
+neutrino carries almost all of Q: ENDF/B-VIII.1 books Sn111 at 1.63 MeV per
+decay against the 0.69 MeV JENDL-5 evaluates from its decay scheme. The counts
+are 1144 records for `endf-b8.1`, 1529 for `jeff-4.0` and 375 for
+`jendl-5.0`. They are exotic nuclides, but early decay heat is carried by
+exactly the short-lived products that tend to be unevaluated. Every one is
+named in the decay subsection's `provenance.json`, in data converted by
+yamc-core 0.10.0 or newer; libraries published before that carry the numbers
+without the record that says which of them are placeholders.
+
+**Reactions that do not list the isomer they make.** A reaction that can leave
+its product in a metastable state has to say so, one entry per final state. One
+that lists the ground state alone puts the isomer outside the network
+altogether, so no code can make it. `Os190 (n,n')` to Os190m at 1706 keV and
+`Ir191 (n,2n)` to Ir190m2 at 377 keV are both carried by `jeff-4.0` and
+`tendl-2025` and both absent from `tendl-2017`, which is why an osmium foil's
+heat five minutes after a 14 MeV irradiation comes out at a third of the
+measured value on that library. Nothing about such a channel looks wrong from
+outside: it is present, its cross section is reasonable, and only the state
+list is short.
 
 ### Temperatures and size
 
