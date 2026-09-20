@@ -333,8 +333,10 @@ Typical uses:
 
 <!-- doctest: skip -->
 ```python
-# Minimal: writes geometry / source / tallies; XS data fetched
-# at runtime from yamc-data.xsplot.com (requires network).
+# Minimal: writes geometry / source / tallies; XS data fetched at
+# runtime from yamc-data.xsplot.com (requires network), one temperature
+# per nuclide: the byte ranges of the batches each material's
+# temperature needs, not the whole file.
 model.to_html("demo.html")
 
 # Fully offline: embed every nuclide the current materials use.
@@ -364,6 +366,6 @@ model.to_html(
 )
 ```
 
-Embedded XS data inflates the HTML size by roughly the raw byte count × 1.33 (base64). ENDF/B-VIII.1 nuclides range from ~2 MB (Li6) to ~150 MB (Fe56), so embedding everything in a heavy-element material can produce a multi-hundred-MB HTML; pick ``embed_cross_sections`` accordingly.
+Embedded XS data inflates the HTML size by roughly the raw byte count × 1.33 (base64), and embeds every temperature. ENDF/B-VIII.1 nuclides range from ~1.2 MB (Li6) to ~56 MB (Fe56) whole, so embedding everything in a heavy-element material can produce a multi-hundred-MB HTML; pick ``embed_cross_sections`` accordingly. The fetch-at-runtime path is lighter: it brings one temperature of each nuclide's reactions and energy grids (about 22 MB for Fe56 rather than 56), because the published data is written one Arrow batch per (MT, temperature) with a byte-range index in each nuclide's ``version.json``.
 
 The ``show_*`` flags are presentation-only -- the recipient can still inspect (or open devtools and edit) the embedded model JSON. Use them to declutter the UI, not as a security boundary.
