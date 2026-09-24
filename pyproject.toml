@@ -10,13 +10,12 @@ version = "0.13.0"
 description = "Yet Another Monte Carlo: neutron and photon transport with mesh geometry support"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-license-files = ["LICENSE"]
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
 keywords = ["nuclear", "monte-carlo", "neutronics", "transport", "fusion", "shielding"]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Physics",
 ]
@@ -43,4 +42,4 @@ Issues = "https://github.com/fusion-neutronics/yamc/issues"
 bypass-selection = true
 
 [tool.hatch.build.targets.sdist]
-include = ["README.md", "LICENSE", "pyproject.toml"]
+include = ["README.md", "LICENSE-MIT", "LICENSE-APACHE", "pyproject.toml"]
