@@ -392,6 +392,43 @@ Parameters:
 - ``schedule``: a ``PulseSchedule`` of ``Pulse`` / ``Cooldown`` steps. Each irradiation ``Pulse`` carries a duration (seconds, or a ``(value, unit)`` tuple), a ``rate`` (the total flux magnitude [n/cm²/s]), and a ``source`` -- a ``NeutronSource`` whose energy is a ``Histogram`` giving the multigroup spectrum (its boundaries may be a named group structure such as ``"CCFE-709"``). The source's position/direction are ignored (no transport runs). ``Cooldown`` is decay-only. Different pulses may carry different spectra.
 The transmutation network is assembled from the configured per-subsection sources (``yamc.transmutation_decay_data``, ``yamc.transmutation_reactions``, ``yamc.transmutation_fission_yields``, and optionally ``yamc.transmutation_branch_ratios``).
 
+#### Clearance
+
+A transmuted material can be checked against the regulatory clearance,
+exemption and disposal limits directly, from yamc-core 0.14.0.
+``clearance_index()`` divides each radionuclide's activity by its limit in a set
+and sums the ratios; the material meets the limits when the sum is below the
+set's threshold, normally 1. The sets cover the UK (EPR 2016, IRR 2017),
+Germany (StrlSchV), the US (NRC 10 CFR 61, Fetter), the EU Basic Safety
+Standards and IAEA GSR Part 3, and come from the
+[radiological-material-clearance-finder](https://github.com/fusion-energy/radiological_material_clearance_finder)
+crate, whose documentation describes each one and where its numbers come from.
+
+The half-lives are the configured transmutation chain's, the same ones
+``activity()`` and ``decay_heat()`` use. The composition is enough for the Bq/g
+and Ci/m3 sets; only the total activity sets need ``material.volume``. Stable
+isotopes have to stay in the material, since they are most of its mass and so
+most of the Bq/g denominator.
+
+<!-- doctest: skip -->
+```python
+if final is not None:
+    result = final.clearance_index("UK_EPR16_out_of_scope")
+    result.index        # float, sum of activity-to-limit ratios
+    result.clearable    # bool, index below the set's threshold
+    result.by_nuclide   # dict[str, float], each nuclide's ratio, largest first
+    result.uncovered    # dict[str, float], activity no limit in the set covers
+    print(result)       # a short report of the dominant nuclides
+
+    results = final.clearance_indices()   # dict[str, ClearanceResult], every set
+    routes = [name for name, r in results.items() if r.clearable]
+```
+
+``metal=True`` applies the NRC's activated metal rows, ``apply_default_limit``
+and ``exclude_daughters`` switch off the catch-all limit and the secular
+equilibrium credit that some tables define, and ``uncovered_fraction`` is the
+number to check before trusting a comfortable index.
+
 #### Repeated calls, and letting the data go
 
 ``transmute()`` loads the cross sections it needs **into the material** and keeps
