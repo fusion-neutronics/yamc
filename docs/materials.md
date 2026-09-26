@@ -500,11 +500,12 @@ if mean is not None and sigma is not None:
 ```
 
 Each sample redraws the inputs listed under [Choosing what to
-perturb](#choosing-what-to-perturb) from their stated uncertainties (the
+perturb](#choosing-what-to-perturb) from their stated uncertainties: the
 activation cross sections from their ENDF MF=33 covariance, folded against this
-material's own spectrum, the half-lives and decay energies from the decay data's
-own standard deviations, and the flux from the error you give it), and the
-schedule is re-solved with the drawn values. That is exact to all orders in the
+material's own spectrum; the half-lives and decay energies from the decay data's
+own standard deviations; and the flux from the error you give it. The schedule is
+re-solved with the drawn rates, flux and half-lives, and the drawn decay energies
+are applied where decay heat is evaluated. That is exact to all orders in the
 matrix exponential: nothing is linearized, and the solver itself is untouched,
 only its input changes.
 
@@ -535,22 +536,26 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
 - ``cross_sections``: the activation cross sections, from the evaluation's MF=33
   covariance folded against the spectrum the rates are collapsed with.
 - ``flux_spectrum``: the error on the spectrum you supplied, described below.
-  ``Material.transmute`` only.
+  The spectrum calls (``Material.transmute`` and ``yamc.transmute``) only.
 - ``half_life``: each reachable unstable nuclide's half-life, from the decay
   data's standard deviation on it. A sample's half-lives are used in its solve
   and again in the activity, decay heat and dose evaluated from its inventory.
   That keeps a saturated activity (``lambda N = R``) insensitive to its own
   half-life, where using the nominal value in either place would hand it the
-  density's whole spread.
+  density's whole spread. It is the only source a shutdown-dose
+  ``PulseSchedule.time_correct_tally`` applies.
 - ``statistical``: the Monte Carlo uncertainty of transport-tallied reaction
   rates, from their per-history covariance, so rates scored by the same
   histories move together.
-  [Model.simulate_transmutation()](simulate_transmutation.md) with
-  ``method="independent"`` only.
-- ``decay_energy``: each nuclide's mean decay energy, from the sigma the decay
-  data gives each recoverable-heat component (beta, gamma, alpha), or the
-  total's where it gives no split. A decay energy never enters the solve, so
-  this moves decay heat and nothing else.
+  [Model.simulate_transmutation()](simulate_transmutation.md) only, which
+  accepts ``data_uncertainty`` with ``method="independent"`` alone:
+  ``method="coupled"`` raises.
+- ``decay_energy``: each nuclide's mean decay energy, from the sigmas the decay
+  data gives its recoverable-heat components (beta, gamma, alpha), or from the
+  total's where the converted data carries only the total. The components are
+  drawn independently, and the total's sigma is their quadrature sum, because
+  the evaluation states no correlation between them. A decay energy never
+  enters the solve, so this moves decay heat and nothing else.
 
 A call ignores the sources that do not apply to it, and ``sources`` in the report
 below lists the ones that did.
@@ -597,9 +602,10 @@ flux known exactly.
 ##### How a sample is drawn
 
 A cross-section channel's rate is multiplied by a lognormal factor with mean one
-and that channel's variance from the folded covariance, driven by the channel's
-correlated Gaussian deviate. So each channel keeps its mean and variance exactly
-and cannot go negative. Between channels the draw keeps the rank correlation; the
+and that channel's variance in the matrix it samples from (the folded covariance,
+or the repaired one described below), driven by the channel's correlated Gaussian
+deviate. So each channel keeps that mean and variance exactly and cannot go
+negative. Between channels the draw keeps the rank correlation; the
 linear correlation shifts, by an amount that vanishes as the sigmas go to zero
 and grows with them.
 
@@ -766,9 +772,15 @@ Each returns an ``Estimate``. ``nominal`` is the unperturbed run and is there
 whether or not uncertainty was asked for, while ``mean``, ``std_dev`` and
 ``relative_std_dev`` are ``None`` below two replicas, because a spread over fewer
 than two samples is unmeasured rather than zero. Comparing ``mean`` against
-``nominal`` is worth doing: activity and decay heat are linear in the atom
-densities, so the two agree to within the sampling error, and a gap between them
-says the perturbation is biased rather than merely wide.
+``nominal`` is worth doing, with care over what a gap means. With the cross
+sections alone and little burnup, the inventory is close to linear in the drawn
+rates, whose mean is the nominal rate, so the two agree to within the sampling
+error. With half-lives perturbed they need not: a nuclide's activity after a long
+cooling is convex in its drawn half-life, so its mean sits above nominal although
+the draw itself is unbiased, by nearly 20% for a 3% half-life sigma thirty
+half-lives into cooling. Where neither applies, a gap says the perturbation is
+biased rather than merely wide, and the floored counters above say where a draw
+was cut.
 
 ``by_nuclide=True`` returns a ``dict[str, Estimate]`` instead of one total. Those
 do not add up to the total in quadrature, and are not meant to.
