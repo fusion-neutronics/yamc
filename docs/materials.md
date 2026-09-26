@@ -453,11 +453,12 @@ enough to be worse than applying no correction at all. W186(n,gamma) in FNG-tung
 measures 1.29 b, where the slowing-down solve gives C/E 0.80, no correction gives
 0.86 and narrow resonance gives 0.46.
 
-``self_shielding_info`` reports what was done, and is always present:
+``get_self_shielding_info`` reports what was done, and is present for every
+material a ``transmute()`` call solved, shielded or not:
 
 <!-- doctest: skip -->
 ```python
-shielding = results.self_shielding_info
+shielding = results.get_self_shielding_info(material_id=material.id or 0)
 if shielding is not None:
     shielding["method"]            # how the depression was computed
     shielding["chord_cm"]          # None if the run was dilute
@@ -676,11 +677,11 @@ energy when ``sources`` leaves them out. The rest of this list is held whether o
 not the report names it.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
-the two are kept apart in ``data_uncertainty_info``:
+the two are kept apart in the report, ``get_data_uncertainty_info``:
 
 <!-- doctest: skip -->
 ```python
-info = results.data_uncertainty_info
+info = results.get_data_uncertainty_info(material_id=mid)
 if info is not None:            # None unless data_uncertainty was passed
     info["sources"]             # the sources that applied to this run
     info["perturbed"]           # nuclides that had usable MF=33 covariance
