@@ -471,12 +471,16 @@ A ``strongest_factor`` of ``1.0`` means the run shielded nothing in practice,
 which is a different statement from not having tried.
 
 A **dilute** run fills ``would_shield`` instead: the nuclides whose own resonances
-could have suppressed a reaction, each mapped to the strongest suppression it
-could have seen. That is a bound computed from the one reaction alone, ignoring
-the rest of the material and the geometry, both of which push the real factor back
-toward one. So it says "this answer may be high, and here is by how much at the
-very most", which is the warning a dilute run of a resonance absorber should carry
-rather than silence.
+are structured enough to have suppressed a reaction, each mapped to how strongly.
+It is an indicator, not a correction and not a bound. It is computed from the one
+reaction and that nuclide's own density, with no geometry in it, so it can sit
+either side of the real factor: a lump thinner than a centimetre of chord shields
+less, and a material whose other nuclides dominate the total at the resonance dips
+the flux further. On the FNS tungsten foil it reads 0.634 for W186, where the
+slowing-down correction on the same foil and spectrum gives 0.730. So it says
+"this answer may be high, and this is a resonance absorber", which is the warning
+a dilute run should carry rather than silence. Read the size of the effect off a
+shielded run.
 
 #### Nuclear-data uncertainty
 
