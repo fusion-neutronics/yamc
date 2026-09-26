@@ -544,7 +544,10 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
 - ``cross_sections``: the activation cross sections, from the evaluation's MF=33
   covariance folded against the spectrum the rates are collapsed with.
 - ``flux_spectrum``: the error on the spectrum you supplied, described below.
-  The spectrum calls (``Material.transmute`` and ``yamc.transmute``) only.
+  The spectrum calls (``Material.transmute`` and ``yamc.transmute``) only. It
+  moves every rate collapsed from the spectrum's groups, which leaves out the
+  ``(n,n')`` channels the isomeric overlay adds (see [What it does not
+  cover](#what-it-does-not-cover)).
 - ``half_life``: each reachable unstable nuclide's half-life, from the decay
   data's standard deviation on it. A sample's half-lives are used in its solve
   and again in the activity, decay heat and dose evaluated from its inventory.
@@ -642,18 +645,31 @@ does not mean the channel that matters kept its evaluated sigma.
 Every input below is held at its evaluated or nominal value in every sample, or
 drawn without a correlation the data states. Some carry published uncertainties
 the converted data does not hold yet, some have none to read, and some are a
-property of the model rather than of the data. Either way the reported spread
-leaves them out.
+property of the model rather than of the data. Most leave a term out of the
+reported spread, so the sigma is too small by it. Two can go either way, because
+holding them also removes a feedback that narrows the spread: self-shielding,
+and the flux's response to the data. Their items say which way each goes, and
+where.
 
 - **Decay branching ratios.** The decay data states a sigma on many of them, and
   it is not in the converted data yet.
 - **Fission yields.** The evaluations state a sigma on each yield, and it is not
   in the converted data yet.
 - **Isomeric branching.** The split between a product's ground and metastable
-  states is held. Its uncertainty is the radionuclide-production covariance
-  (MF=40) of the evaluations that publish one, which is parsed but not yet in the
-  converted data ([Covariance is presence, not
+  states is held. The evaluations that publish radionuclide-production
+  covariance (MF=40) give the covariance of each state's production cross
+  section, which is parsed but not yet in the converted data ([Covariance is
+  presence, not
   coverage](nuclear_data_libraries.md#covariance-is-presence-not-coverage)).
+  ENDF/B-VIII.1, FENDL-3.2d and TENDL state no correlation there between a
+  product's states, or with the reaction's MF=33, so even once it is stored the
+  split's uncertainty is only partly stated. With
+  ``transmutation_branch_ratios`` configured, the ``(n,n')`` channels the
+  overlay adds to reach a metastable state, In115 to In115m among them, come
+  from its MF=10 partials with no group-averaged cross section behind them. They
+  draw no cross-section covariance, and on the spectrum calls no
+  ``flux_spectrum`` perturbation either, so they are missing from
+  ``rate_fraction_covered``.
 - **Resonance-parameter covariance (MF=32).** It is not read. Many evaluations
   keep the resolved-resonance uncertainty on capture, elastic and fission there
   and leave MF=33 at zero over that range, which reaches down to thermal. A
@@ -664,7 +680,7 @@ leaves them out.
   W186's is, the report does not flag it yet: a block stated as zero counts as
   covered, so the nuclide is listed under ``perturbed`` and that channel's
   ``rate_fraction_covered`` reads 1.
-- **MF=33 blocks that are not used.** Three kinds are left out. Blocks that
+- **MF=33 blocks that are not used.** Four kinds are left out. Blocks that
   correlate with another evaluation (``MAT1 != 0``, the links to the standards
   among them) are skipped, so each nuclide's cross sections are drawn
   independently of every other nuclide's; the same test also skips some blocks
@@ -675,27 +691,56 @@ leaves them out.
   are skipped too, so their components draw none of it. Tungsten's ``(n,2n)``,
   the channel behind most of a tungsten first wall's decay heat, is one:
   ENDF/B-VIII.1, JEFF-4.0 and FENDL-3.2d state its covariance only lumped with
-  ``(n,2np)``. ``skipped_cross_material`` and ``skipped_nc`` count the first two
-  kinds, per spectrum folded and including blocks for reactions the run does not
-  drive. The lumps are not counted, and show only as a channel missing from
+  ``(n,2np)``. Blocks stated on partial levels (MT=600 to 849 and 875 to 891)
+  are not used either, since the chain drives the total, so a reaction whose
+  covariance is given only per level draws none: ENDF/B-VIII.1 Ca40 states its
+  ``(n,p)`` and ``(n,a)`` only on MT=600 and 800, and is listed under
+  ``perturbed`` through its capture alone. ``skipped_cross_material`` and
+  ``skipped_nc`` count the first two kinds, per spectrum folded and including
+  blocks for reactions the run does not drive. The lumps and the partial levels
+  are not counted, and show only as a channel missing from
   ``rate_fraction_covered`` and a lower ``rate_fraction_covered_total``.
+- **MF=33 blocks read in part.** The ENDF parser splits an LB=0 to 4 block's
+  table in the wrong place, so an LB=0 to 2 block is used over only the lower
+  half of its energy grid, and a channel whose uncertainty is stated above that
+  draws little or none of it. 773 ENDF/B-VIII.1 blocks are affected: at 14 MeV
+  Ni58 ``(n,a)`` draws 0.0% where the evaluation gives 19.8%, and Cr52 ``(n,p)``
+  0.4% against 17.1%. The LB=4 expansion also swaps its two tables, which
+  affects one block, FENDL-3.2d Ni58 ``(n,p)``, whose 14 MeV sigma reads 20.6%
+  against the evaluation's 18.3%. The report does not flag either:
+  ``rate_fraction_covered`` is taken from the grid as read, so the dropped part
+  shows at most as rate outside the evaluation's grid, and not at all where
+  another block on the same reaction spans the whole range, as one of Cr52's
+  ``(n,p)`` blocks does.
 - **Self-shielding.** With ``self_shielding_shape`` or ``self_shielding_chord``
   set, every sample uses the flux depression computed from the evaluated cross
-  sections, so a perturbed cross section neither deepens nor relieves its own
-  dip. The covariance fold also still uses the dilute partial rates while the
-  rate itself is shielded, which overstates the relative sigma of a channel that
-  shields strongly: 4.61% against 1.70% for ENDF/B-VIII.1 Au197 capture in a
-  0.1 mm foil under a 1/E spectrum on VITAMIN-J-175.
+  sections, and that pulls two ways. A perturbed capture cross section neither
+  deepens nor relieves its own dip, and that feedback narrows the spread, since
+  a larger capture then absorbs from a smaller flux. The elastic and total
+  covariance never reaches the depression either, and that term widens the
+  spread where the evaluation states a resonance-range elastic uncertainty.
+  Which wins depends on the evaluation. For Au197 capture in a 0.1 mm foil under
+  a 1/E spectrum on VITAMIN-J-175, ENDF/B-VIII.1 states no such elastic
+  uncertainty, and the held sigma is too large: 1.70% held against 0.96% with
+  the feedback. TENDL-2017 states one, and there the held sigma is too small:
+  5.34% held against 6.07% with the feedback and the elastic term together.
+  Those figures fold the shielded partial rates. The covariance fold does not
+  yet: it uses the dilute partial rates while the rate itself is shielded, which
+  overstates the relative sigma of a channel that shields strongly, on top of
+  the above: 4.61% against the 1.70% for the ENDF/B-VIII.1 foil.
 - **The flux's response to the data.** A perturbed cross section does not change
   the flux it is folded against. In ``Material.transmute`` the flux is your
   input, and in ``Model.simulate_transmutation`` the covariance is folded against
   the one tallied spectrum without re-running transport per sample. The term
   left out is the flux's first-order response to each perturbed channel, which
   grows with how much that channel shapes the flux. It is negligible for a trace
-  nuclide or a weak channel, and not for a breeder's Li6(n,t) or the main
-  constituents of a shield, whose effect reaches every product in the flux they
-  shape, however trace. Elastic scattering, which shapes the flux without
-  transmuting anything, is not drawn at all.
+  nuclide or a weak channel, and not for a material that shapes its own flux or
+  for the main constituents of a shield. A larger Li6(n,t) cross section in a
+  breeder depresses the flux it sees, the same narrowing feedback as
+  self-shielding, so holding the flux overstates that rate's sigma. A shield's
+  cross sections move the flux of every product behind it, however trace, and
+  leaving that out understates those products' sigmas. Elastic scattering, which
+  shapes the flux without transmuting anything, is not drawn at all.
 - **Decay photon line intensities.** Each line's emission probability per decay
   is held; a sample's half-life still scales its emission rate. The decay data
   states a sigma on nearly every line, and it is not in the converted data yet,
@@ -711,8 +756,10 @@ leaves them out.
   the same abundances in every sample. The published isotopic-composition tables
   state an uncertainty or a range of natural variation on every isotope of a
   multi-isotope element, above 1% of the value for about a third of them (Li6's
-  stated range spans a factor of four), and the bundled table carries the central
-  values only.
+  stated range spans a factor of four). The bundled table carries one value per
+  isotope and no uncertainty or range: the tables' representative value, or for
+  the twelve elements they give as an interval, a single best measurement, which
+  for Li6 (0.07589) sits near the top of its range.
 - **Element fractions and density.** These are your input and start every sample
   at the values you gave. There is no argument to give their uncertainty, so it
   is not perturbed, and propagating it means sampling compositions yourself, one
@@ -725,13 +772,14 @@ leaves them out.
 The report's ``not_perturbed`` names decay branching, fission yields, isomeric
 branching and cross-material covariance (``MAT1 != 0``) in every run, and
 half-life and decay energy when ``sources`` leaves them out. The rest of this list
-is held whether or not the report names it.
+applies whether or not the report names it.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
-the report, ``get_data_uncertainty_info``, keeps a nuclide whose evaluation
-carries no MF=33 at all (``no_covariance_data``) apart from one that states it.
-It does not yet separate a channel whose stated covariance is zero, as in the
-MF=32 case above:
+the report, ``get_data_uncertainty_info``, keeps a nuclide with no usable MF=33
+(``no_covariance_data``: none in the evaluation, or none this run could use,
+such as blocks all skipped as above or all for reactions the run does not drive)
+apart from one that states it. It does not yet separate a channel whose stated
+covariance is zero, as in the MF=32 case above:
 
 <!-- doctest: skip -->
 ```python
@@ -739,7 +787,7 @@ info = results.get_data_uncertainty_info(material_id=mid)
 if info is not None:            # None unless data_uncertainty was passed
     info["sources"]             # the sources that applied to this run
     info["perturbed"]           # nuclides that had usable MF=33 covariance
-    info["no_covariance_data"]  # nuclides whose evaluation carries none
+    info["no_covariance_data"]  # nuclides with none usable, absent or skipped
     info["rate_fraction_covered"]  # per channel, the share of the rate the
                                    # covariance grid spans, zero blocks included
     info["rate_fraction_covered_total"]  # ... over the run, by production
@@ -757,8 +805,9 @@ if info is not None:            # None unless data_uncertainty was passed
 ```
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
-claim of certainty. It means the evaluation says nothing, and the same goes for
-a half-life or decay energy listed as having no stated sigma.
+claim of certainty. It means the evaluation says nothing this run could use,
+and the same goes for a half-life or decay energy listed as having no stated
+sigma.
 
 ##### Uncertainty on activity, decay heat and dose
 

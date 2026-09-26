@@ -103,14 +103,19 @@ Fe56 covers 56 channels against ENDF/B-VIII.1's 7.
 
 Cross sections (MF=33) are also the only covariance family that reaches the
 converted data. The ENDF parser reads angular-distribution covariance (MF=34) and
-radionuclide-production covariance (MF=40, the uncertainty behind the
-isomeric-branching split) as well, but neither is written to the converted data
-yet, so nothing samples them. Resonance-parameter covariance (MF=32) is not read
-at all. An evaluation that keeps its resolved-resonance uncertainty there and
-leaves MF=33 at zero over that range arrives with no capture, elastic or fission
-uncertainty below the top of its resolved resonances, and that range reaches down
-to thermal. Where that MF=33 block is stated as zero rather than left out, the
-uncertainty report does not flag it yet: a block stated as zero counts as covered.
+radionuclide-production covariance (MF=40, the covariance of each product
+state's production cross section) as well, but neither is written to the
+converted data yet, so nothing samples them. ENDF/B-VIII.1, FENDL-3.2d and TENDL
+state no correlation in MF=40 between a product's states, or with MF=33, so even
+once it is stored the isomeric-branching split's uncertainty is only partly
+stated. Resonance-parameter covariance (MF=32) is not read at all. An evaluation
+that keeps its resolved-resonance uncertainty there and leaves MF=33 at zero over
+that range arrives with no capture, elastic or fission uncertainty below the top
+of its resolved resonances, and that range reaches down to thermal. Where that
+MF=33 block is stated as zero rather than left out, the uncertainty report does
+not flag it yet: a block stated as zero counts as covered. MF=33 blocks stated
+with LB=0 to 2 are also used today over only the lower half of their energy grid,
+as [MF=33 blocks read in part](materials.md#what-it-does-not-cover) describes.
 
 Beyond covariance, the decay data carries each nuclide's half-life with the
 standard deviation its evaluation states, and its decay energy with a standard
