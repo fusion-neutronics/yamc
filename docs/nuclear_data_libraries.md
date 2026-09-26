@@ -101,10 +101,23 @@ not the same as covariance landing where a given run needs it. Depth varies as
 much as presence: JENDL-5 carries covariance for 13% of its evaluations, and its
 Fe56 covers 56 channels against ENDF/B-VIII.1's 7.
 
-Cross sections are also the only covariance family that reaches the converted
-data. The ENDF parser reads angular-distribution and radionuclide-production
-covariance too (MF=34 and MF=40, against MF=33 for cross sections), and nothing
-consumes them.
+Cross sections (MF=33) are also the only covariance family that reaches the
+converted data. The ENDF parser reads angular-distribution covariance (MF=34) and
+radionuclide-production covariance (MF=40, the uncertainty behind the
+isomeric-branching split) as well, but neither is written to the converted data
+yet, so nothing samples them. Resonance-parameter covariance (MF=32) is not read
+at all. An evaluation that keeps its resolved-resonance uncertainty there and
+leaves MF=33 at zero over that range arrives with no capture, elastic or fission
+uncertainty below the top of its resolved resonances, and that range reaches down
+to thermal.
+
+Beyond covariance, the decay data carries each nuclide's half-life and decay
+energy with the standard deviations its evaluation states, which the
+``half_life`` and ``decay_energy`` uncertainty sources draw from. The sigmas the
+evaluations state on decay branching ratios, fission yields and decay photon lines
+are not in the converted data yet. [What it does not
+cover](materials.md#what-it-does-not-cover) lists everything a nuclear-data
+uncertainty run holds at nominal.
 
 ### Energy range
 
