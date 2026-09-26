@@ -513,12 +513,16 @@ are applied where decay heat is evaluated. That is exact to all orders in the
 matrix exponential: nothing is linearized, and the solver itself is untouched,
 only its input changes.
 
-``DataUncertainty(seed=...)`` is reproducible: a nuclide's perturbation in a
-given sample is a pure function of ``(seed, sample, nuclide)``, so the same seed
-gives the same answer whatever the sample count or iteration order. Leave
-``samples`` unset and the solver adds samples until the reported sigmas settle;
-setting it bounds cost or reproduces a specific run, but it is not an accuracy
-dial.
+``DataUncertainty(seed=...)`` is reproducible. A nuclide's cross-section,
+half-life and decay-energy draws in a given sample are a pure function of
+``(seed, sample, nuclide)``, and the flux draw of ``(seed, sample, spectrum)``,
+the spectrum's place among the schedule's spectra. The statistical draw is keyed
+on ``(seed, sample)`` and made jointly over the material's tallied rates, so
+adding or removing a tallied rate changes the draws of the others. In every case
+the same seed gives the same answer whatever the sample count or iteration
+order. Leave ``samples`` unset and the solver adds samples until the reported
+sigmas settle; setting it bounds cost or reproduces a specific run, but it is
+not an accuracy dial.
 
 Omitting the argument costs nothing. No covariance is read from disk, no matrix
 is folded or factorized, and the inventories are bit-identical.
@@ -556,10 +560,10 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
   ``method="coupled"`` raises.
 - ``decay_energy``: each nuclide's mean decay energy, from the sigmas the decay
   data gives its recoverable-heat components (beta, gamma, alpha), or from the
-  total's where the converted data carries only the total. The components are
-  drawn independently, and the total's sigma is their quadrature sum, because
-  the evaluation states no correlation between them. A decay energy never
-  enters the solve, so this moves decay heat and nothing else.
+  total's where the converted data carries only the total. The evaluation
+  states no correlation between the components, so they are drawn as
+  independent and the total's sigma is taken as their quadrature sum. A decay
+  energy never enters the solve, so this moves decay heat and nothing else.
 
 A call ignores the sources that do not apply to it, and ``sources`` in the report
 below lists the ones that did.
@@ -615,11 +619,13 @@ and grows with them.
 
 The other sources draw from a Gaussian on the stated sigma or covariance. A flux
 bin, tallied rate or decay energy drawn below zero is set to zero, and a
-half-life drawn at or below zero is set to a millionth of its nominal value. The
-report counts the flux, tallied-rate and half-life cases (``flux_bins_floored``,
-``statistical_floored`` and ``half_lives_floored``, each beside its ``_sampled``
-total). A count well above zero says the sigma is a large enough share of the
-value that a Gaussian no longer describes it.
+half-life drawn at or below zero is set to a millionth of its nominal value.
+``get_data_uncertainty_info`` counts the flux, tallied-rate and half-life cases
+(``flux_bins_floored``, ``statistical_floored`` and ``half_lives_floored``, each
+beside its ``_sampled`` total). A count well above zero says the sigma is a large
+enough share of the value that a Gaussian no longer describes it. A shutdown-dose
+``time_correct_tally`` floors its half-life draws the same way and does not count
+them.
 
 Evaluated covariance matrices are not always positive semi-definite, and one that
 is not has no square root to sample from. The negative eigenvalues of the folded
