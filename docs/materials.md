@@ -563,7 +563,11 @@ source that has not landed yet must not look like one that contributed nothing.
 ``flux_spectrum`` propagates the error bar on the spectrum you supplied, which
 means the pulse has to carry one. ``Pulse(flux_std_dev=...)`` takes the per-bin
 standard deviation, in the same units and the same order as the ``Histogram``
-values; from a yamc run that is ``results[tally].standard_deviation``.
+values; from a yamc run that is ``results[tally].standard_deviation``, scaled by
+whatever factor the mean was. The error is taken relative to the ``Histogram``
+values as given, so a mean multiplied by the source strength beside an unscaled
+standard deviation reads a flux error smaller by that factor, and nothing flags
+it.
 
 <!-- doctest: skip -->
 ```python
@@ -579,8 +583,11 @@ A per-bin sigma treats the bins as independent, and the bins of a Monte Carlo
 tally are not: the same histories score them, so they move together, and their
 standard deviations alone understate the error of every rate that sums over a
 band. ``Pulse(flux_covariance=...)`` takes the full covariance of the
-``Histogram`` values instead, which a tally built with ``Tally(covariance=True)``
-reports as ``results[tally].covariance``. Give one or the other.
+``Histogram`` values instead, in the square of their units, which a tally built
+with ``Tally(covariance=True)`` reports as ``results[tally].covariance``. It
+scales with the square of the factor the mean was scaled by: a mean multiplied by
+the source strength ``S`` needs the covariance multiplied by ``S**2``. Give one or
+the other.
 
 Omitting both is the common case: a spectrum taken from a published reference set
 carries no stated error. The ``flux_spectrum`` source then contributes nothing and
