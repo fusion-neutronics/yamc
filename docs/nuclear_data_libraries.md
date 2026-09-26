@@ -109,14 +109,17 @@ yet, so nothing samples them. Resonance-parameter covariance (MF=32) is not read
 at all. An evaluation that keeps its resolved-resonance uncertainty there and
 leaves MF=33 at zero over that range arrives with no capture, elastic or fission
 uncertainty below the top of its resolved resonances, and that range reaches down
-to thermal.
+to thermal. Where that MF=33 block is stated as zero rather than left out, the
+uncertainty report does not flag it yet: a block stated as zero counts as covered.
 
-Beyond covariance, the decay data carries each nuclide's half-life and decay
-energy with the standard deviations its evaluation states, which the
-``half_life`` and ``decay_energy`` uncertainty sources draw from. The sigmas the
-evaluations state on decay branching ratios, fission yields and decay photon lines
-are not in the converted data yet. [What it does not
-cover](materials.md#what-it-does-not-cover) lists everything a nuclear-data
+Beyond covariance, the decay data carries each nuclide's half-life with the
+standard deviation its evaluation states, and its decay energy with a standard
+deviation built from the evaluation's sigmas on the beta, gamma and alpha
+components: their quadrature sum, because the evaluation states no correlation
+between them. The ``half_life`` and ``decay_energy`` uncertainty sources draw
+from these. The sigmas the evaluations state on decay branching ratios, fission
+yields and decay photon lines are not in the converted data yet. [What it does
+not cover](materials.md#what-it-does-not-cover) lists what a nuclear-data
 uncertainty run holds at nominal.
 
 ### Energy range

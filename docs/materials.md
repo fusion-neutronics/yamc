@@ -616,10 +616,11 @@ does not mean the channel that matters kept its evaluated sigma.
 
 ##### What it does not cover
 
-Every input below is held at its evaluated or nominal value in every sample. Some
-carry published uncertainties the converted data does not hold yet, some have none
-to read, and some are a property of the model rather than of the data. Either way
-the reported spread leaves them out.
+Every input below is held at its evaluated or nominal value in every sample, or
+drawn without a correlation the data states. Some carry published uncertainties
+the converted data does not hold yet, some have none to read, and some are a
+property of the model rather than of the data. Either way the reported spread
+leaves them out.
 
 - **Decay branching ratios.** The decay data states a sigma on many of them, and
   it is not in the converted data yet.
@@ -636,22 +637,42 @@ the reported spread leaves them out.
   product made by capture at thermal or resonance energies then draws little or
   none of its cross section's uncertainty. ENDF/B-VIII.1 W186 is one: its
   resonance parameters carry about 1.5% on capture below 10 keV, where its MF=33
-  gives zero.
-- **Covariance between evaluations.** MF=33 blocks that name a second material
-  (``MAT1 != 0``) are not consumed, so each nuclide's cross sections are drawn
-  independently of every other nuclide's. ``skipped_cross_material`` counts the
-  blocks left out.
+  gives zero. Where the MF=33 block is stated as zero over that range, as
+  W186's is, the report does not flag it yet: a block stated as zero counts as
+  covered, so the nuclide is listed under ``perturbed`` and that channel's
+  ``rate_fraction_covered`` reads 1.
+- **MF=33 blocks that are not used.** Three kinds are left out. Blocks that
+  correlate with another evaluation (``MAT1 != 0``, the links to the standards
+  among them) are skipped, so each nuclide's cross sections are drawn
+  independently of every other nuclide's; the same test also skips some blocks
+  whose ``MAT1`` names the evaluation itself, which loses correlations within one
+  nuclide. Blocks stated through other reactions' covariances (NC) are skipped,
+  so a reaction whose covariance is given only that way draws none. Lumped
+  reactions (MT=851 to 870), which state the uncertainty of a sum of reactions,
+  are skipped too, so their components draw none of it. Tungsten's ``(n,2n)``,
+  the channel behind most of a tungsten first wall's decay heat, is one:
+  ENDF/B-VIII.1, JEFF-4.0 and FENDL-3.2d state its covariance only lumped with
+  ``(n,2np)``. ``skipped_cross_material`` and ``skipped_nc`` count the first two
+  kinds, per spectrum folded and including blocks for reactions the run does not
+  drive. The lumps are not counted, and show only as a channel missing from
+  ``rate_fraction_covered`` and a lower ``rate_fraction_covered_total``.
 - **Self-shielding.** With ``self_shielding_shape`` or ``self_shielding_chord``
   set, every sample uses the flux depression computed from the evaluated cross
   sections, so a perturbed cross section neither deepens nor relieves its own
-  dip.
+  dip. The covariance fold also still uses the dilute partial rates while the
+  rate itself is shielded, which overstates the relative sigma of a channel that
+  shields strongly: 4.61% against 1.70% for ENDF/B-VIII.1 Au197 capture in a
+  0.1 mm foil under a 1/E spectrum on VITAMIN-J-175.
 - **The flux's response to the data.** A perturbed cross section does not change
   the flux it is folded against. In ``Material.transmute`` the flux is your
   input, and in ``Model.simulate_transmutation`` the covariance is folded against
-  the one tallied spectrum without re-running transport per sample. That is exact
-  to first order for a trace activation product, and not for a material that
-  shapes its own flux, such as a breeder's Li6(n,t), or a product deep in a
-  shield.
+  the one tallied spectrum without re-running transport per sample. The term
+  left out is the flux's first-order response to each perturbed channel, which
+  grows with how much that channel shapes the flux. It is negligible for a trace
+  nuclide or a weak channel, and not for a breeder's Li6(n,t) or the main
+  constituents of a shield, whose effect reaches every product in the flux they
+  shape, however trace. Elastic scattering, which shapes the flux without
+  transmuting anything, is not drawn at all.
 - **Decay photon line intensities.** Each line's emission probability per decay
   is held; a sample's half-life still scales its emission rate. The decay data
   states a sigma on nearly every line, and it is not in the converted data yet,
@@ -663,21 +684,31 @@ the reported spread leaves them out.
   build-up factor (``build_up``, 2.0 by default). A shutdown dose tally is scored
   with fluence-to-dose coefficients. None of these tables publishes a per-value
   uncertainty and the build-up factor is a model constant, so none is perturbed.
-- **Composition.** Element and impurity fractions, density and the natural
-  isotopic abundances an element is expanded with start every sample at their
-  nominal values. The abundance table carries central values only, and the
-  uncertainty on a composition can only come from you. For dose from a trace
-  impurity it can outweigh everything above: in a 316L-type steel with 0.1 wt%
-  cobalt, whose contact dose at ten years is almost all Co60, a 30% uncertainty
-  on the cobalt content is about 21% on the dose.
+- **Natural isotopic abundances.** An element is expanded into its isotopes with
+  the same abundances in every sample. The published isotopic-composition tables
+  state an uncertainty or a range of natural variation on every isotope of a
+  multi-isotope element, above 1% of the value for about a third of them (Li6's
+  stated range spans a factor of four), and the bundled table carries the central
+  values only.
+- **Element fractions and density.** These are your input and start every sample
+  at the values you gave. There is no argument to give their uncertainty, so it
+  is not perturbed, and propagating it means sampling compositions yourself, one
+  run per composition. For dose from a trace impurity it can outweigh everything
+  above: in a 316L-type steel with 0.1 wt% cobalt, irradiated for five years at
+  1e14 n/cm^2/s in an illustrative first-wall spectrum, the contact dose at ten
+  years' cooling is almost all Co60, about 70% of it made from the cobalt itself,
+  so a 30% uncertainty on the cobalt content is about 21% on the dose.
 
 The report's ``not_perturbed`` names decay branching, fission yields, isomeric
-branching and cross-evaluation covariance in every run, and half-life and decay
-energy when ``sources`` leaves them out. The rest of this list is held whether or
-not the report names it.
+branching and cross-material covariance (``MAT1 != 0``) in every run, and
+half-life and decay energy when ``sources`` leaves them out. The rest of this list
+is held whether or not the report names it.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
-the two are kept apart in the report, ``get_data_uncertainty_info``:
+the report, ``get_data_uncertainty_info``, keeps a nuclide whose evaluation
+carries no MF=33 at all (``no_covariance_data``) apart from one that states it.
+It does not yet separate a channel whose stated covariance is zero, as in the
+MF=32 case above:
 
 <!-- doctest: skip -->
 ```python
@@ -687,16 +718,19 @@ if info is not None:            # None unless data_uncertainty was passed
     info["perturbed"]           # nuclides that had usable MF=33 covariance
     info["no_covariance_data"]  # nuclides whose evaluation carries none
     info["rate_fraction_covered"]  # per channel, the share of the rate the
-                                   # covariance grid actually spans
-    info["skipped_cross_material"]    # MF=33 blocks naming another material
+                                   # covariance grid spans, zero blocks included
+    info["rate_fraction_covered_total"]  # ... over the run, by production
+    info["skipped_cross_material"]    # MF=33 blocks with MAT1 != 0, not used
+    info["skipped_nc"]                # MF=33 blocks stated as NC, not used
     info["half_lives_perturbed"]      # nuclides whose half-life was drawn
     info["no_half_life_uncertainty"]  # ... and those whose data states no sigma
     info["decay_energies_perturbed"]  # nuclides whose decay energy was drawn
     info["no_decay_energy_uncertainty"]  # ... and those whose data states none
     info["not_perturbed"]       # held inputs the report names, as above
     info["has_gaps"]            # True if a nuclide, covariance block or spectrum
-                                # had no usable uncertainty; the held inputs
-                                # listed above never set it
+                                # had no usable uncertainty; of the held inputs
+                                # above only the blocks in skipped_cross_material
+                                # and skipped_nc set it
 ```
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
