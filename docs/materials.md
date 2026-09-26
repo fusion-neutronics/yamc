@@ -498,10 +498,14 @@ if mean is not None and sigma is not None:
     print(f"Mn56: {mean:.3e} +/- {sigma:.3e}  ({100 * sigma / mean:.1f}%)")
 ```
 
-The activation cross sections are resampled from their ENDF MF=33 covariance,
-folded against this material's own spectrum, and the schedule is re-solved for
-each sample. That is exact to all orders in the matrix exponential: nothing is
-linearized, and the solver itself is untouched -- only its input changes.
+Each sample redraws the inputs listed under [Choosing what to
+perturb](#choosing-what-to-perturb) from their stated uncertainties (the
+activation cross sections from their ENDF MF=33 covariance, folded against this
+material's own spectrum, the half-lives and decay energies from the decay data's
+own standard deviations, and the flux from the error you give it), and the
+schedule is re-solved with the drawn values. That is exact to all orders in the
+matrix exponential: nothing is linearized, and the solver itself is untouched,
+only its input changes.
 
 ``DataUncertainty(seed=...)`` is reproducible: a nuclide's perturbation in a
 given sample is a pure function of ``(seed, sample, nuclide)``, so the same seed
@@ -515,15 +519,40 @@ is folded or factorized, and the inventories are bit-identical.
 
 ##### Choosing what to perturb
 
-Two sources can be perturbed, and by default both are:
+Five sources can be perturbed, and by default every one that applies to the call
+is:
 
 <!-- doctest: skip -->
 ```python
-yamc.DataUncertainty.available_sources()   # ['cross_sections', 'flux_spectrum']
+yamc.DataUncertainty.available_sources()
+# ['cross_sections', 'flux_spectrum', 'half_life', 'statistical', 'decay_energy']
 
 # isolate one contribution
 xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
 ```
+
+- ``cross_sections``: the activation cross sections, from the evaluation's MF=33
+  covariance folded against the spectrum the rates are collapsed with.
+- ``flux_spectrum``: the error on the spectrum you supplied, described below.
+  ``Material.transmute`` only.
+- ``half_life``: each reachable unstable nuclide's half-life, from the decay
+  data's standard deviation on it. A sample's half-lives are used in its solve
+  and again in the activity, decay heat and dose evaluated from its inventory.
+  That keeps a saturated activity (``lambda N = R``) insensitive to its own
+  half-life, where using the nominal value in either place would hand it the
+  density's whole spread.
+- ``statistical``: the Monte Carlo uncertainty of transport-tallied reaction
+  rates, from their per-history covariance, so rates scored by the same
+  histories move together.
+  [Model.simulate_transmutation()](simulate_transmutation.md) with
+  ``method="independent"`` only.
+- ``decay_energy``: each nuclide's mean decay energy, from the sigma the decay
+  data gives each recoverable-heat component (beta, gamma, alpha), or the
+  total's where it gives no split. A decay energy never enters the solve, so
+  this moves decay heat and nothing else.
+
+A call ignores the sources that do not apply to it, and ``sources`` in the report
+below lists the ones that did.
 
 Restricting ``sources`` is how a run isolates one contribution, so that adding a
 source and watching the inventory sigma grow is a measurement rather than a guess.
@@ -545,17 +574,106 @@ pulse = yamc.Pulse(
 )
 ```
 
-Omitting it is the common case: a spectrum taken from a published reference set
+A per-bin sigma treats the bins as independent, and the bins of a Monte Carlo
+tally are not: the same histories score them, so they move together, and their
+standard deviations alone understate the error of every rate that sums over a
+band. ``Pulse(flux_covariance=...)`` takes the full covariance of the
+``Histogram`` values instead, which a tally built with ``Tally(covariance=True)``
+reports as ``results[tally].covariance``. Give one or the other.
+
+Omitting both is the common case: a spectrum taken from a published reference set
 carries no stated error. The ``flux_spectrum`` source then contributes nothing and
-says so in ``data_uncertainty_info["spectra_without_flux_sigma"]``, rather than
-reading as a flux known exactly.
+says so in the report's ``spectra_without_flux_sigma``, rather than reading as a
+flux known exactly.
+
+##### How a sample is drawn
+
+A cross-section channel's rate is multiplied by a lognormal factor with mean one
+and that channel's variance from the folded covariance, driven by the channel's
+correlated Gaussian deviate. So each channel keeps its mean and variance exactly
+and cannot go negative. Between channels the draw keeps the rank correlation; the
+linear correlation shifts, by an amount that vanishes as the sigmas go to zero
+and grows with them.
+
+The other sources draw from a Gaussian on the stated sigma or covariance. A flux
+bin, tallied rate or decay energy drawn below zero is set to zero, and a
+half-life drawn at or below zero is set to a millionth of its nominal value. The
+report counts the flux, tallied-rate and half-life cases (``flux_bins_floored``,
+``statistical_floored`` and ``half_lives_floored``, each beside its ``_sampled``
+total). A count well above zero says the sigma is a large enough share of the
+value that a Gaussian no longer describes it.
+
+Evaluated covariance matrices are not always positive semi-definite, and one that
+is not has no square root to sample from. The negative eigenvalues of the folded
+matrix are set to zero, which is the standard repair, and the repair adds
+variance rather than removing it: no channel's sampled sigma falls below the
+evaluated one, and a channel the evaluation gave no variance can pick some up.
+``matrices_clipped`` counts the matrices repaired and ``worst_relative_clip``
+gives the largest ``|lambda_min| / lambda_max`` among them. That ratio is set by
+the widest channel, often one carrying almost none of the rate, so a small value
+does not mean the channel that matters kept its evaluated sigma.
 
 ##### What it does not cover
 
-Half-lives, decay branching ratios, fission yields and the isomeric-branching
-overlay are held at their evaluated values, and they carry uncertainties of their
-own that this does not propagate. ``data_uncertainty_info["not_perturbed"]`` names
-them for the run in hand.
+Every input below is held at its evaluated or nominal value in every sample. Some
+carry published uncertainties the converted data does not hold yet, some have none
+to read, and some are a property of the model rather than of the data. Either way
+the reported spread leaves them out.
+
+- **Decay branching ratios.** The decay data states a sigma on many of them, and
+  it is not in the converted data yet.
+- **Fission yields.** The evaluations state a sigma on each yield, and it is not
+  in the converted data yet.
+- **Isomeric branching.** The split between a product's ground and metastable
+  states is held. Its uncertainty is the radionuclide-production covariance
+  (MF=40) of the evaluations that publish one, which is parsed but not yet in the
+  converted data ([Covariance is presence, not
+  coverage](nuclear_data_libraries.md#covariance-is-presence-not-coverage)).
+- **Resonance-parameter covariance (MF=32).** It is not read. Many evaluations
+  keep the resolved-resonance uncertainty on capture, elastic and fission there
+  and leave MF=33 at zero over that range, which reaches down to thermal. A
+  product made by capture at thermal or resonance energies then draws little or
+  none of its cross section's uncertainty. ENDF/B-VIII.1 W186 is one: its
+  resonance parameters carry about 1.5% on capture below 10 keV, where its MF=33
+  gives zero.
+- **Covariance between evaluations.** MF=33 blocks that name a second material
+  (``MAT1 != 0``) are not consumed, so each nuclide's cross sections are drawn
+  independently of every other nuclide's. ``skipped_cross_material`` counts the
+  blocks left out.
+- **Self-shielding.** With ``self_shielding_shape`` or ``self_shielding_chord``
+  set, every sample uses the flux depression computed from the evaluated cross
+  sections, so a perturbed cross section neither deepens nor relieves its own
+  dip.
+- **The flux's response to the data.** A perturbed cross section does not change
+  the flux it is folded against. In ``Material.transmute`` the flux is your
+  input, and in ``Model.simulate_transmutation`` the covariance is folded against
+  the one tallied spectrum without re-running transport per sample. That is exact
+  to first order for a trace activation product, and not for a material that
+  shapes its own flux, such as a breeder's Li6(n,t), or a product deep in a
+  shield.
+- **Decay photon line intensities.** Each line's emission probability per decay
+  is held; a sample's half-life still scales its emission rate. The decay data
+  states a sigma on nearly every line, and it is not in the converted data yet,
+  so the nuclear-data spread on the decay-photon spectrum, contact dose and a
+  shutdown dose rate carries nothing from the lines themselves.
+- **Dose constants.** Contact dose is built from the material's photon mass
+  attenuation coefficients, the air mass energy-absorption coefficients or the
+  ICRP-116 conversion coefficients (by ``dose_quantity``), and a constant
+  build-up factor (``build_up``, 2.0 by default). A shutdown dose tally is scored
+  with fluence-to-dose coefficients. None of these tables publishes a per-value
+  uncertainty and the build-up factor is a model constant, so none is perturbed.
+- **Composition.** Element and impurity fractions, density and the natural
+  isotopic abundances an element is expanded with start every sample at their
+  nominal values. The abundance table carries central values only, and the
+  uncertainty on a composition can only come from you. For dose from a trace
+  impurity it can outweigh everything above: in a 316L-type steel with 0.1 wt%
+  cobalt, whose contact dose at ten years is almost all Co60, a 30% uncertainty
+  on the cobalt content is about 21% on the dose.
+
+The report's ``not_perturbed`` names decay branching, fission yields, isomeric
+branching and cross-evaluation covariance in every run, and half-life and decay
+energy when ``sources`` leaves them out. The rest of this list is held whether or
+not the report names it.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
 the two are kept apart in ``data_uncertainty_info``:
@@ -564,24 +682,25 @@ the two are kept apart in ``data_uncertainty_info``:
 ```python
 info = results.data_uncertainty_info
 if info is not None:            # None unless data_uncertainty was passed
+    info["sources"]             # the sources that applied to this run
     info["perturbed"]           # nuclides that had usable MF=33 covariance
     info["no_covariance_data"]  # nuclides whose evaluation carries none
     info["rate_fraction_covered"]  # per channel, the share of the rate the
                                    # covariance grid actually spans
-    info["not_perturbed"]       # the sources this does not propagate at all
-    info["has_gaps"]            # True if anything above was left out
+    info["skipped_cross_material"]    # MF=33 blocks naming another material
+    info["half_lives_perturbed"]      # nuclides whose half-life was drawn
+    info["no_half_life_uncertainty"]  # ... and those whose data states no sigma
+    info["decay_energies_perturbed"]  # nuclides whose decay energy was drawn
+    info["no_decay_energy_uncertainty"]  # ... and those whose data states none
+    info["not_perturbed"]       # held inputs the report names, as above
+    info["has_gaps"]            # True if a nuclide, covariance block or spectrum
+                                # had no usable uncertainty; the held inputs
+                                # listed above never set it
 ```
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
-claim of certainty. It means the evaluation says nothing.
-
-The report also carries ``matrices_clipped`` and ``worst_relative_clip``:
-evaluated covariance matrices are not always positive semi-definite, and one
-that is not has no square root to sample from. The negative eigenvalues are set
-to zero, which is the standard repair, and how large a repair it was is recorded
-rather than absorbed. ``rates_floored`` counts samples whose cross section went
-negative and was truncated at zero; a large share means the Gaussian is being
-used past the point where it describes the quantity.
+claim of certainty. It means the evaluation says nothing, and the same goes for
+a half-life or decay energy listed as having no stated sigma.
 
 ##### Uncertainty on activity, decay heat and dose
 
