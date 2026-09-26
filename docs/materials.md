@@ -880,6 +880,16 @@ inventories = results.get_uncertainty_inventories(material_id=mid, step=1)
 # evaluate the quantity once per replica, then take its spread
 ```
 
+The inventories are densities only: a replica's drawn half-lives and decay
+energies are not returned with them. Evaluating a quantity that reads a decay
+constant or a decay energy from them with the chain's nominal values gives it
+the wrong spread, the one the ``half_life`` item under [Choosing what to
+perturb](#choosing-what-to-perturb) describes: a saturated activity then picks
+up the density's whole spread. Activity, decay heat, contact dose and the photon
+spectrum have the getters above. For any other such quantity, run with
+``sources`` leaving out ``half_life`` and ``decay_energy``, and read its spread
+as excluding those two.
+
 Summing per-nuclide sigmas in quadrature instead would assume the nuclides vary
 independently, and they do not: a parent and its daughter move together, because
 every daughter atom came out of a parent atom.
