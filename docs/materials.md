@@ -518,7 +518,11 @@ half-life and decay-energy draws in a given sample are a pure function of
 ``(seed, sample, nuclide)``, and the flux draw of ``(seed, sample, spectrum)``,
 the spectrum's place among the schedule's spectra. The statistical draw is keyed
 on ``(seed, sample)`` and made jointly over the material's tallied rates, so
-adding or removing a tallied rate changes the draws of the others. In every case
+adding or removing a tallied rate changes the draws of the others. It carries no
+material key, so every material in one run draws the same deviates in a given
+sample: each material's own sigma is right, but the statistical draws of
+different materials are not independent, and replica inventories should not be
+combined across materials. In every case
 the same seed gives the same answer whatever the sample count or iteration
 order. Leave ``samples`` unset and the solver adds samples until the reported
 sigmas settle; setting it bounds cost or reproduces a specific run, but it is
@@ -618,7 +622,10 @@ or the repaired one described below), driven by the channel's correlated Gaussia
 deviate. So each channel keeps that mean and variance exactly and cannot go
 negative. Between channels the draw keeps the rank correlation; the
 linear correlation shifts, by an amount that vanishes as the sigmas go to zero
-and grows with them.
+and grows with them. For a channel whose relative sigma approaches or exceeds 1
+the lognormal is heavy-tailed, so an ensemble of the size the solver stops at (at
+most 1024 unless ``samples`` is set) tends to report a sigma below the stated
+one, and the settling test cannot detect that.
 
 The other sources draw from a Gaussian on the stated sigma or covariance. A flux
 bin, tallied rate or decay energy drawn below zero is set to zero, and a
@@ -646,9 +653,11 @@ Every input below is held at its evaluated or nominal value in every sample, or
 drawn without a correlation the data states. Some carry published uncertainties
 the converted data does not hold yet, some have none to read, and some are a
 property of the model rather than of the data. Most leave a term out of the
-reported spread, so the sigma is too small by it. Two can go either way, because
-holding them also removes a feedback that narrows the spread: self-shielding,
-and the flux's response to the data. Their items say which way each goes, and
+reported spread, so the sigma is too small by it. Some can go either way:
+self-shielding and the flux's response to the data, because holding them also
+removes a feedback that narrows the spread, and the dropped correlations, because
+a missing correlation can raise or lower the sigma of a sum. The LB=4 defect
+overstates the one block it touches. Each item says which way it goes, and
 where.
 
 - **Decay branching ratios.** The decay data states a sigma on many of them, and
@@ -756,7 +765,8 @@ where.
   the same abundances in every sample. The published isotopic-composition tables
   state an uncertainty or a range of natural variation on every isotope of a
   multi-isotope element, above 1% of the value for about a third of them (Li6's
-  stated range spans a factor of four). The bundled table carries one value per
+  stated range, which includes commercially depleted lithium, spans a factor of
+  four). The bundled table carries one value per
   isotope and no uncertainty or range: the tables' representative value, or for
   the twelve elements they give as an interval, a single best measurement, which
   for Li6 (0.07589) sits near the top of its range.
