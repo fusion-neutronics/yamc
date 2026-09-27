@@ -566,11 +566,26 @@ info = results.data_uncertainty_info
 if info is not None:            # None unless data_uncertainty was passed
     info["perturbed"]           # nuclides that had usable MF=33 covariance
     info["no_covariance_data"]  # nuclides whose evaluation carries none
-    info["rate_fraction_covered"]  # per channel, the share of the rate the
-                                   # covariance grid actually spans
+    info["rate_fraction_covered"]  # per channel, the share of the rate from
+                                   # energies with a nonzero stated variance
+    info["partials_above_rate"]    # channels whose sigma is overstated
     info["not_perturbed"]       # the sources this does not propagate at all
-    info["has_gaps"]            # True if anything above was left out
+    info["has_gaps"]            # True if anything above was left out or
+                                # is inconsistent
 ```
+
+Spanning an energy is not the same as stating an uncertainty there. A
+covariance grid can run across the whole range with a variance of zero on some
+intervals, and rate from those counts as uncovered, the same as rate from
+outside the grid. ENDF/B-VIII.1 W186 ``(n,gamma)`` is the case: its block
+states zero from 1e-5 eV to 10 keV, where nearly all of a capture rate is, so
+it reads about 0.07 on a fusion spectrum rather than 1.
+
+``partials_above_rate`` lists, with their ratio, channels whose partial rates
+the covariance was weighted with add up to more than the rate it was divided
+by. The two were then computed different ways, a self-shielded rate against
+dilute partials being one, and the relative sigma is overstated. The coverage
+share is measured against the dilute rate, so it is not affected.
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
 claim of certainty. It means the evaluation says nothing.
