@@ -651,18 +651,25 @@ is not has no square root to sample from. The negative eigenvalues of the folded
 matrix are set to zero, which is the standard repair, and the repair adds
 variance rather than removing it: no channel's sampled sigma falls below the
 evaluated one, and a channel the evaluation gave no variance can pick some up.
-A matrix counts as repaired only when its most negative eigenvalue is past
-``n * 1e-12`` of its largest (``n`` the matrix size), so a PSD matrix that comes
-back a few ulps negative from the eigendecomposition is not one.
+A matrix counts as repaired only when clipping adds more than ``n * 1e-12`` of
+some channel's own evaluated variance (``n`` the matrix size), so a PSD matrix
+that comes back a few ulps negative from the eigendecomposition is not one, and
+a channel with a huge variance cannot hide a real repair among the others.
 ``covariance_repaired`` lists the distinct nuclides repaired on any spectrum,
-and any makes ``has_gaps`` true. ``covariance_repairs`` gives one entry per
+and any makes ``has_gaps`` true. The report covers the nuclides the material
+can populate: the fold takes every chain nuclide with data, which from almost
+any composition is the chain's whole closure, so a nuclide is reported only
+when an upper bound on its density over the schedule reaches the solver's
+floor of ``1e-30`` atoms/b-cm. One the bound leaves out cannot move any
+density by as much as that floor. ``covariance_repairs`` gives one entry per
 repaired nuclide and spectrum with ``lambda_min``, ``lambda_max``,
 ``clipped_fraction`` (the variance the repair added over the stated trace) and,
 per channel, ``evaluated_variance`` (the folded diagonal as stated, which can be
 negative), ``evaluated_sigma`` (``None`` for a negative variance) and
 ``sampled_sigma``. ``worst_sigma_inflation`` is the largest sampled over
 evaluated sigma, minus one, over the repaired channels a draw can move (a
-positive rate on a spectrum the schedule irradiates with), and
+populated nuclide with a positive rate on a spectrum the schedule irradiates
+with), and
 ``rate_weighted_sigma_inflation`` is the same for the mean sigma over every
 sampled channel, each weighted by its rate at unit flux times its spectrum's
 fluence in the schedule times its parent's initial density. Either can be
@@ -670,8 +677,9 @@ fluence in the schedule times its parent's initial density. Either can be
 strict JSON does not accept that.
 
 ``sigma_at_least_one`` and ``sigma_at_least_ten`` name the sampled channels,
-keyed ``"Nuclide (n,x)"``, whose folded relative sigma as evaluated is at least
-one or ten. At that width the spread depends on the lognormal chosen to carry
+keyed ``"Nuclide (n,x)"``, of populated nuclides with a positive rate on a
+spectrum the schedule irradiates with, whose folded relative sigma as evaluated
+is at least one or ten. At that width the spread depends on the lognormal chosen to carry
 the evaluation's two moments, not on the evaluation alone.
 
 ##### What it does not cover
