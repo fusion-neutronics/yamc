@@ -651,10 +651,28 @@ is not has no square root to sample from. The negative eigenvalues of the folded
 matrix are set to zero, which is the standard repair, and the repair adds
 variance rather than removing it: no channel's sampled sigma falls below the
 evaluated one, and a channel the evaluation gave no variance can pick some up.
-``matrices_clipped`` counts the matrices repaired and ``worst_relative_clip``
-gives the largest ``|lambda_min| / lambda_max`` among them. That ratio is set by
-the widest channel, often one carrying almost none of the rate, so a small value
-does not mean the channel that matters kept its evaluated sigma.
+A matrix counts as repaired only when its most negative eigenvalue is past
+``n * 1e-12`` of its largest (``n`` the matrix size), so a PSD matrix that comes
+back a few ulps negative from the eigendecomposition is not one.
+``covariance_repaired`` lists the distinct nuclides repaired on any spectrum,
+and any makes ``has_gaps`` true. ``covariance_repairs`` gives one entry per
+repaired nuclide and spectrum with ``lambda_min``, ``lambda_max``,
+``clipped_fraction`` (the variance the repair added over the stated trace) and,
+per channel, ``evaluated_variance`` (the folded diagonal as stated, which can be
+negative), ``evaluated_sigma`` (``None`` for a negative variance) and
+``sampled_sigma``. ``worst_sigma_inflation`` is the largest sampled over
+evaluated sigma, minus one, over the repaired channels a draw can move (a
+positive rate on a spectrum the schedule irradiates with), and
+``rate_weighted_sigma_inflation`` is the same for the mean sigma over every
+sampled channel, each weighted by its rate at unit flux times its spectrum's
+fluence in the schedule times its parent's initial density. Either can be
+``float('inf')`` when a repair gives spread to a channel stated with none, and
+strict JSON does not accept that.
+
+``sigma_at_least_one`` and ``sigma_at_least_ten`` name the sampled channels,
+keyed ``"Nuclide (n,x)"``, whose folded relative sigma as evaluated is at least
+one or ten. At that width the spread depends on the lognormal chosen to carry
+the evaluation's two moments, not on the evaluation alone.
 
 ##### What it does not cover
 
