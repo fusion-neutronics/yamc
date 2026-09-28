@@ -507,7 +507,9 @@ Each sample redraws the inputs listed under [Choosing what to
 perturb](#choosing-what-to-perturb) from their stated uncertainties: the
 activation cross sections from their ENDF MF=33 covariance, folded against this
 material's own spectrum; the half-lives and decay energies from the decay data's
-own standard deviations; and the flux from the error you give it. The schedule is
+own standard deviations; the flux from the error you give it; and, on
+[Model.simulate_transmutation()](simulate_transmutation.md), the
+transport-tallied rates from their per-history covariance. The schedule is
 re-solved with the drawn rates, flux and half-lives, and the drawn decay energies
 are applied where decay heat is evaluated. That is exact to all orders in the
 matrix exponential: nothing is linearized, and the solver itself is untouched,
@@ -870,10 +872,12 @@ error. With half-lives perturbed they need not: a nuclide's activity after a lon
 cooling is convex in its drawn half-life, so its mean sits above nominal although
 the draw itself is unbiased, by nearly 20% for a 3% half-life sigma thirty
 half-lives into cooling. A product reached through two or more perturbed steps
-that share a draw (the flux, the statistical draw, or correlated channels of one
-nuclide) is nonlinear in that draw too: its mean sits above nominal by about the
-product of those steps' relative sigmas, with no bias in the draw. Outside these
-cases, a gap says the perturbation is biased rather than merely wide, and the
+that share a draw (the flux or the statistical draw) is nonlinear in that draw
+too: its mean moves from nominal by about the covariance of the shared draws,
+the product of the steps' relative sigmas times their correlation, with no bias
+in the draw. That is above nominal for positively correlated steps, such as two
+rates folded from one flux given by per-bin sigmas, and below it where a stated
+correlation is negative. Outside these cases, a gap says the perturbation is biased rather than merely wide, and the
 floored counters above say where a draw was cut.
 
 ``by_nuclide=True`` returns a ``dict[str, Estimate]`` instead of one total. Those
