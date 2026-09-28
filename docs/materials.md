@@ -522,7 +522,12 @@ adding or removing a tallied rate changes the draws of the others. It carries no
 material key, so every material in one run draws the same deviates in a given
 sample: each material's own sigma is right, but the statistical draws of
 different materials are not independent, and replica inventories should not be
-combined across materials. In every case
+combined across materials. The flux draw has the same limit: it is keyed on the
+spectrum's place in each material's own schedule, not on the material, so on a
+multi-material ``transmute()`` the materials whose schedules put a spectrum in the
+same place draw identical flux deviates. Their flux errors are then fully
+correlated, which is right for one shared tally and wrong for separately tallied
+cells. In every case
 the same seed gives the same answer whatever the sample count or iteration
 order. Leave ``samples`` unset and the solver adds samples until the reported
 sigmas settle; setting it bounds cost or reproduces a specific run, but it is
@@ -628,14 +633,16 @@ most 1024 unless ``samples`` is set) tends to report a sigma below the stated
 one, and the settling test cannot detect that.
 
 The other sources draw from a Gaussian on the stated sigma or covariance. A flux
-bin, tallied rate or decay energy drawn below zero is set to zero, and a
-half-life drawn at or below zero is set to a millionth of its nominal value.
+bin, tallied rate or decay energy drawn below zero is set to zero (for decay
+energy, each beta, gamma and alpha component separately, or the total where only
+the total is stated), and a half-life drawn at or below zero is set to a
+millionth of its nominal value.
 ``get_data_uncertainty_info`` counts the flux, tallied-rate and half-life cases
 (``flux_bins_floored``, ``statistical_floored`` and ``half_lives_floored``, each
 beside its ``_sampled`` total). A count well above zero says the sigma is a large
 enough share of the value that a Gaussian no longer describes it. A shutdown-dose
 ``time_correct_tally`` floors its half-life draws the same way and does not count
-them.
+them, and a floored decay-energy draw is not counted either.
 
 Evaluated covariance matrices are not always positive semi-definite, and one that
 is not has no square root to sample from. The negative eigenvalues of the folded
@@ -707,8 +714,13 @@ where.
   ``perturbed`` through its capture alone. ``skipped_cross_material`` and
   ``skipped_nc`` count the first two kinds, per spectrum folded and including
   blocks for reactions the run does not drive. The lumps and the partial levels
-  are not counted, and show only as a channel missing from
-  ``rate_fraction_covered`` and a lower ``rate_fraction_covered_total``.
+  are not counted. They show as a channel missing from
+  ``rate_fraction_covered`` and a lower ``rate_fraction_covered_total``, or, for
+  a nuclide whose only blocks are of these kinds, as that nuclide listed under
+  ``no_covariance_data``. The absence of a ``rate_fraction_covered`` entry does
+  not always mean no covariance was drawn: a channel covered only by LB=0
+  (absolute) blocks is perturbed, yet has no entry and counts as uncovered in
+  ``rate_fraction_covered_total``.
 - **MF=33 blocks read in part.** The ENDF parser splits an LB=0 to 4 block's
   table in the wrong place, so an LB=0 to 2 block is used over only the lower
   half of its energy grid, and a channel whose uncertainty is stated above that
@@ -810,8 +822,9 @@ if info is not None:            # None unless data_uncertainty was passed
     info["not_perturbed"]       # held inputs the report names, as above
     info["has_gaps"]            # True if a nuclide, covariance block or spectrum
                                 # had no usable uncertainty; of the held inputs
-                                # above only the blocks in skipped_cross_material
-                                # and skipped_nc set it
+                                # above, skipped_cross_material, skipped_nc, and
+                                # a nuclide left with no usable block (listed in
+                                # no_covariance_data) set it
 ```
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
@@ -847,8 +860,11 @@ rates, whose mean is the nominal rate, so the two agree to within the sampling
 error. With half-lives perturbed they need not: a nuclide's activity after a long
 cooling is convex in its drawn half-life, so its mean sits above nominal although
 the draw itself is unbiased, by nearly 20% for a 3% half-life sigma thirty
-half-lives into cooling. Where neither applies, a gap says the perturbation is
-biased rather than merely wide, and the floored counters above say where a draw
+half-lives into cooling. A product reached through two or more perturbed steps
+that share a draw (the flux, the statistical draw, or correlated channels of one
+nuclide) is nonlinear in that draw too: its mean sits above nominal by about the
+product of those steps' relative sigmas, with no bias in the draw. Outside these
+cases, a gap says the perturbation is biased rather than merely wide, and the floored counters above say where a draw
 was cut.
 
 ``by_nuclide=True`` returns a ``dict[str, Estimate]`` instead of one total. Those
