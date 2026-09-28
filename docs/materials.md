@@ -571,6 +571,7 @@ if info is not None:            # None unless data_uncertainty was passed
     info["rate_fraction_covered_total"]  # the same over the run, weighted by
                                          # production
     info["partials_above_rate"]    # channels whose sigma is overstated
+    info["partials_below_rate"]    # channels whose sigma is understated
     info["not_perturbed"]       # the sources this does not propagate at all
     info["has_gaps"]            # True if anything above was left out or
                                 # is inconsistent
@@ -584,15 +585,20 @@ states zero from 1e-5 eV to 10 keV, where nearly all of a capture rate is, so
 it reads about 0.07 on a fusion spectrum rather than 1. The share is of the
 dilute rate, both integrals using the unshielded cross section, so on a
 self-shielded or tallied run it is not the covered share of the rate the run
-used, which is not computed, and ``rate_fraction_covered_total`` there weights
-that rate's production by dilute shares.
+used, which is not computed, and ``rate_fraction_covered_total`` is ``None``
+there rather than that rate's production weighted by dilute shares.
 
 ``partials_above_rate`` lists, with their ratio, channels whose partial rates
 the covariance was weighted with add up to more than the rate it was divided
 by. The two were then computed different ways, a self-shielded rate against
 dilute partials being one, and the relative sigma is overstated. The ``1/E``
-within-group weight is another, where a covariance edge falls inside a group.
-The coverage share is measured against the dilute rate, so it is not affected.
+within-group weight is another, where a covariance edge falls inside a group,
+and a tallied rate on a transport run a third. The coverage share is measured
+against the dilute rate, so it is not affected. ``partials_below_rate`` is the
+same check the other way, for a covariance grid that spans the whole flux range
+and so must add up to the rate: a shortfall understates the sigma. A grid that
+stops short cannot be checked from below, since rate from outside it rightly
+leaves its partials short.
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
 claim of certainty. It means the evaluation says nothing.
