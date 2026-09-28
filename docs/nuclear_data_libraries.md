@@ -115,7 +115,9 @@ of its resolved resonances, and that range reaches down to thermal. Where that
 MF=33 block is stated as zero rather than left out, the uncertainty report does
 not flag it yet: a block stated as zero counts as covered. MF=33 blocks stated
 with LB=0 to 2 are also used today over only the lower half of their energy grid,
-as [MF=33 blocks read in part](materials.md#what-it-does-not-cover) describes.
+and short-range LB=8 blocks are folded as relative where the evaluation states
+them in barns squared, as [MF=33 blocks read in part](materials.md#what-it-does-not-cover)
+describes.
 
 Beyond covariance, the decay data carries each nuclide's half-life with the
 standard deviation its evaluation states, and its decay energy with a standard

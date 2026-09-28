@@ -527,11 +527,10 @@ spectrum's place in each material's own schedule, not on the material, so on a
 multi-material ``transmute()`` the materials whose schedules put a spectrum in the
 same place draw identical flux deviates. Their flux errors are then fully
 correlated, which is right for one shared tally and wrong for separately tallied
-cells. In every case
-the same seed gives the same answer whatever the sample count or iteration
-order. Leave ``samples`` unset and the solver adds samples until the reported
-sigmas settle; setting it bounds cost or reproduces a specific run, but it is
-not an accuracy dial.
+cells. In every case the same seed gives the same answer whatever the sample
+count or iteration order. Leave ``samples`` unset and the solver adds samples
+until the reported sigmas settle; setting it bounds cost or reproduces a
+specific run, but it is not an accuracy dial.
 
 Omitting the argument costs nothing. No covariance is read from disk, no matrix
 is folded or factorized, and the inventories are bit-identical.
@@ -625,10 +624,11 @@ A cross-section channel's rate is multiplied by a lognormal factor with mean one
 and that channel's variance in the matrix it samples from (the folded covariance,
 or the repaired one described below), driven by the channel's correlated Gaussian
 deviate. So each channel keeps that mean and variance exactly and cannot go
-negative. Between channels the draw keeps the rank correlation; the
-linear correlation shifts, by an amount that vanishes as the sigmas go to zero
-and grows with them. For a channel whose relative sigma approaches or exceeds 1
-the lognormal is heavy-tailed, so an ensemble of the size the solver stops at (at
+negative. Between channels the draw keeps the ordering of the correlated Gaussian
+deviates, so their rank correlation, but not the stated linear correlation,
+which shifts by an amount that vanishes as the sigmas go to zero and grows with
+them. For a channel whose relative sigma approaches or exceeds 1 the lognormal
+is heavy-tailed, so an ensemble of the size the solver stops at (at
 most 1024 unless ``samples`` is set) tends to report a sigma below the stated
 one, and the settling test cannot detect that.
 
@@ -725,14 +725,23 @@ where.
   table in the wrong place, so an LB=0 to 2 block is used over only the lower
   half of its energy grid, and a channel whose uncertainty is stated above that
   draws little or none of it. 773 ENDF/B-VIII.1 blocks are affected: at 14 MeV
-  Ni58 ``(n,a)`` draws 0.0% where the evaluation gives 19.8%, and Cr52 ``(n,p)``
-  0.4% against 17.1%. The LB=4 expansion also swaps its two tables, which
-  affects one block, FENDL-3.2d Ni58 ``(n,p)``, whose 14 MeV sigma reads 20.6%
-  against the evaluation's 18.3%. The report does not flag either:
+  Ni58 ``(n,a)`` draws 0.0% where the evaluation gives 19.8%. The LB=4
+  expansion also swaps its two tables, which affects one block, FENDL-3.2d Ni58
+  ``(n,p)``, whose 14 MeV sigma reads 20.6% against the evaluation's 18.3%.
+  Short-range LB=8 blocks are folded as a relative variance, where the
+  evaluation states an absolute one in barns squared per interval, so their
+  contribution is off by a factor of the cross section squared and, when the
+  flux groups are narrower than the tape's interval, by the ratio of the two
+  widths as well. For a cross section below one barn that understates it.
+  Cr52 ``(n,p)`` at 14 MeV shows both: it draws 0.4%, which is the LB=8 block
+  alone read as relative, against the evaluation's 17.7% on the tape's
+  [14, 16] MeV interval (17.1% from its LB=1 blocks, which the split drops, and
+  the rest from the LB=8 block). The report does not flag any of these:
   ``rate_fraction_covered`` is taken from the grid as read, so the dropped part
   shows at most as rate outside the evaluation's grid, and not at all where
-  another block on the same reaction spans the whole range, as one of Cr52's
-  ``(n,p)`` blocks does.
+  another block on the same reaction spans the whole range. For Cr52 ``(n,p)``
+  that block is the LB=8 one, itself folded on the wrong scale, so the channel
+  reads as fully covered.
 - **Self-shielding.** With ``self_shielding_shape`` or ``self_shielding_chord``
   set, every sample uses the flux depression computed from the evaluated cross
   sections, and that pulls two ways. A perturbed capture cross section neither
@@ -864,8 +873,8 @@ half-lives into cooling. A product reached through two or more perturbed steps
 that share a draw (the flux, the statistical draw, or correlated channels of one
 nuclide) is nonlinear in that draw too: its mean sits above nominal by about the
 product of those steps' relative sigmas, with no bias in the draw. Outside these
-cases, a gap says the perturbation is biased rather than merely wide, and the floored counters above say where a draw
-was cut.
+cases, a gap says the perturbation is biased rather than merely wide, and the
+floored counters above say where a draw was cut.
 
 ``by_nuclide=True`` returns a ``dict[str, Estimate]`` instead of one total. Those
 do not add up to the total in quadrature, and are not meant to.
