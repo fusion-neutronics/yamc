@@ -552,7 +552,10 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
 ```
 
 - ``cross_sections``: the activation cross sections, from the evaluation's MF=33
-  covariance folded against the spectrum the rates are collapsed with.
+  covariance folded against the spectrum the rates are collapsed with. On
+  ``Model.simulate_transmutation`` that fold is currently mis-normalised and
+  its sigma should not be used (see [What it does not
+  cover](#what-it-does-not-cover)).
 - ``flux_spectrum``: the error on the spectrum you supplied, described below.
   The spectrum calls (``Material.transmute`` and ``yamc.transmute``) only. It
   moves every rate collapsed from the spectrum's groups, which leaves out the
@@ -573,7 +576,7 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
   ``method="coupled"`` raises.
 - ``decay_energy``: each nuclide's mean decay energy, from the sigmas the decay
   data gives its recoverable-heat components (beta, gamma, alpha), or from the
-  total's where the converted data carries only the total. The evaluation
+  total's sigma where no component carries one. The evaluation
   states no correlation between the components, so they are drawn as
   independent and the total's sigma is taken as their quadrature sum. A decay
   energy never enters the solve, so this moves decay heat and nothing else.
@@ -636,8 +639,8 @@ one, and the settling test cannot detect that.
 
 The other sources draw from a Gaussian on the stated sigma or covariance. A flux
 bin, tallied rate or decay energy drawn below zero is set to zero (for decay
-energy, each beta, gamma and alpha component separately, or the total where only
-the total is stated), and a half-life drawn at or below zero is set to a
+energy, each beta, gamma and alpha component separately, or the total where no
+component carries a sigma), and a half-life drawn at or below zero is set to a
 millionth of its nominal value.
 ``get_data_uncertainty_info`` counts the flux, tallied-rate and half-life cases
 (``flux_bins_floored``, ``statistical_floored`` and ``half_lives_floored``, each
@@ -753,6 +756,16 @@ where.
   another block on the same reaction states one over that range. For Cr52
   ``(n,p)`` that block is the LB=8 one, itself folded on the wrong scale, so the
   channel reads as fully covered.
+- **Cross sections on a transport run.** In ``Model.simulate_transmutation``
+  the covariance is folded against the tallied spectrum as summed over every
+  history, while the rates it is divided by are per source particle and per
+  unit volume. The relative sigma from the ``cross_sections`` source is
+  overstated there by a factor of about the particle count times the volume
+  (in cm^3), every channel a relative block names is listed in
+  ``partials_above_rate``, and ``has_gaps`` is True. ``Material.transmute`` is
+  not affected. Until this is fixed
+  ([core#191](https://github.com/fusion-neutronics/core/issues/191)), give a
+  transport run ``sources=["statistical", "half_life", "decay_energy"]``.
 - **Self-shielding.** With ``self_shielding_shape`` or ``self_shielding_chord``
   set, every sample uses the flux depression computed from the evaluated cross
   sections, and that pulls two ways. A perturbed capture cross section neither
@@ -828,12 +841,11 @@ The rest depend on the run. Half-life, decay energy and the activation cross
 sections are named when ``sources`` leaves them out, and on a transport call the
 flux's response to perturbed cross sections is named whenever the
 ``cross_sections`` source is on, since the one transport is not rerun per
-sample. On a spectrum call the
-flux spectrum is named when no spectrum's flux is drawn, and named as held for
-spectra without a sigma only when some are drawn and some are not. On a
-transport call the tallied-rate statistics are named when the ``statistical``
-source is off. The self-shielding
-correction is named whenever self-shielding is set.
+sample. On a spectrum call the flux spectrum is named when no spectrum's flux is
+drawn, and named as held for spectra without a sigma only when some are drawn
+and some are not. On a transport call the tallied-rate statistics are named when
+the ``statistical`` source is off or there are no tallied rates to draw. The
+self-shielding correction is named whenever self-shielding is set.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
 the report, ``get_data_uncertainty_info``, keeps a nuclide with no usable MF=33
