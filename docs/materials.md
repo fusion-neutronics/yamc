@@ -567,13 +567,18 @@ if info is not None:            # None unless data_uncertainty was passed
     info["perturbed"]           # nuclides that had usable MF=33 covariance
     info["no_covariance_data"]  # nuclides whose evaluation carries none
     info["rate_fraction_covered"]  # per channel, the share of the rate the
-                                   # covariance grid actually spans
+                                   # relative covariance grids span
     info["not_perturbed"]       # the sources this does not propagate at all
     info["has_gaps"]            # True if anything above was left out
 ```
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a
 claim of certainty. It means the evaluation says nothing.
+
+Only relative MF=33 blocks count toward ``rate_fraction_covered`` for now. An
+absolute (LB=0) or short-range (LB=8) block folds into the sigma without raising
+it, so a channel stated only in those reads as uncovered while it still carries
+a variance.
 
 The report also carries ``matrices_clipped`` and ``worst_relative_clip``:
 evaluated covariance matrices are not always positive semi-definite, and one
