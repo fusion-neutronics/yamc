@@ -674,8 +674,15 @@ where.
   ``branching_ratio_uncertainty``). The published decay data predates it, so a
   downloaded library carries it only from the next data version, and no source
   samples it yet.
-- **Fission yields.** The evaluations state a sigma on each yield, and it is not
-  in the converted data yet.
+- **Fission yields.** The evaluations state a sigma on each yield. The
+  converter now stores each evaluation's yields and their sigmas as the tape
+  gives them (``fission_yields/evaluated_yields.arrow``,
+  ``yield_uncertainties``), with no correlation because no evaluation publishes
+  one. The merged yields in ``fission_yields.arrow``, where products the decay
+  library lacks are summed onto a stand-in, carry no sigma, since a sigma on
+  such a sum needs correlations the tape does not give. The published data
+  predates the file, so a downloaded library carries it only from the next data
+  version, and no source samples it yet.
 - **Isomeric branching.** The split between a product's ground and metastable
   states is held. The evaluations that publish radionuclide-production
   covariance (MF=40) give the covariance of each state's production cross
@@ -761,7 +768,9 @@ where.
   Those figures fold the shielded partial rates. The covariance fold does not
   yet: it uses the dilute partial rates while the rate itself is shielded, which
   overstates the relative sigma of a channel that shields strongly, on top of
-  the above: 4.61% against the 1.70% for the ENDF/B-VIII.1 foil.
+  the above: 4.61% against the 1.70% for the ENDF/B-VIII.1 foil. The report
+  shows that overstatement as the channel listed in ``partials_above_rate``,
+  which on a self-shielded run lists most channels a relative block names.
 - **The flux's response to the data.** A perturbed cross section does not change
   the flux it is folded against. In ``Material.transmute`` the flux is your
   input, and in ``Model.simulate_transmutation`` the covariance is folded against
@@ -791,10 +800,13 @@ where.
   state an uncertainty or a range of natural variation on every isotope of a
   multi-isotope element, above 1% of the value for about a third of them (Li6's
   stated range, which includes commercially depleted lithium, spans a factor of
-  four). The bundled table carries one value per
-  isotope and no uncertainty or range: the tables' representative value, or for
-  the twelve elements they give as an interval, a single best measurement, which
-  for Li6 (0.07589) sits near the top of its range.
+  four). The bundled table carries each isotope's stated uncertainty, or for
+  the twelve elements the tables give as an interval, that interval, readable
+  through ``yamc.data.natural_abundance_records()``. For an interval element the
+  tables state no distribution within it. Every sample uses the lookup value,
+  so none of that spread is propagated: the tables' representative value, or for
+  an interval element a single best measurement, which for Li6 (0.07589) sits
+  near the top of its interval, [0.019, 0.078].
 - **Atomic masses.** Each nuclide's mass, from AME2020, converts between mass and
   atoms the same way in every sample. AME2020 states an uncertainty on every
   mass, and the bundled table does not carry it.
@@ -813,12 +825,14 @@ are not used (cross-material, NC-derived and lumped), MF=32, decay photon line
 energy and intensity, the three dose tables and the build-up factor, material
 composition and density, natural isotopic abundance and atomic mass (AME2020).
 The rest depend on the run. Half-life, decay energy and the activation cross
-sections are named when ``sources`` leaves them out. On a spectrum call the
+sections are named when ``sources`` leaves them out, and on a transport call the
+flux's response to perturbed cross sections is named whenever the
+``cross_sections`` source is on, since the one transport is not rerun per
+sample. On a spectrum call the
 flux spectrum is named when no spectrum's flux is drawn, and named as held for
 spectra without a sigma only when some are drawn and some are not. On a
 transport call the tallied-rate statistics are named when the ``statistical``
-source is off, and the flux's response to perturbed cross sections is always
-named, since the one transport is not rerun per sample. The self-shielding
+source is off. The self-shielding
 correction is named whenever self-shielding is set.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
@@ -843,16 +857,22 @@ if info is not None:            # None unless data_uncertainty was passed
                                          # on a self-shielded or transport run
     info["skipped_cross_material"]    # MF=33 blocks with MAT1 != 0, not used
     info["skipped_nc"]                # MF=33 blocks stated as NC, not used
+    info["partials_above_rate"]  # channels whose partial rates add up to more
+                                 # than the rate: sigma overstated
+    info["partials_below_rate"]  # ... add up to less: sigma understated
     info["half_lives_perturbed"]      # nuclides whose half-life was drawn
     info["no_half_life_uncertainty"]  # ... and those whose data states no sigma
     info["decay_energies_perturbed"]  # nuclides whose decay energy was drawn
     info["no_decay_energy_uncertainty"]  # ... and those whose data states none
     info["not_perturbed"]       # held inputs this run names, as above
     info["has_gaps"]            # True if a nuclide, covariance block or spectrum
-                                # had no usable uncertainty; of the held inputs
-                                # above, skipped_cross_material, skipped_nc, and
-                                # a nuclide left with no usable block (listed in
-                                # no_covariance_data) set it
+                                # had no usable uncertainty, a block was
+                                # malformed or of an unsupported layout, either
+                                # partials check listed a channel, or a
+                                # half-life or decay energy had no stated sigma;
+                                # of the held inputs above, skipped_cross_material,
+                                # skipped_nc, and a nuclide left with no usable
+                                # block (listed in no_covariance_data) set it
 ```
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a

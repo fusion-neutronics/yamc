@@ -128,8 +128,11 @@ treated as independent and the total's sigma is their quadrature sum. The
 converter also stores the sigma each evaluation states on a decay mode's
 branching ratio (``branching_ratio_uncertainty`` in ``decay_modes.arrow``). The
 published decay data predates it, so a downloaded library carries it only from
-the next data version, and no source samples it yet. The sigmas stated on
-fission yields and decay photon lines are not in the converted data yet. [What
+the next data version, and no source samples it yet. Fission yields are in the
+same state: the converter stores each evaluation's yields with their stated
+sigmas (``yield_uncertainties`` in ``fission_yields/evaluated_yields.arrow``),
+the published data predates the file, and no source samples them. The sigmas
+stated on decay photon lines are not in the converted data yet. [What
 it does not cover](materials.md#what-it-does-not-cover) lists what a
 nuclear-data uncertainty run holds at nominal.
 
