@@ -678,17 +678,29 @@ A small ``|lambda_min| / lambda_max`` does not mean a small widening of the
 channel that matters, which is why each channel's two sigmas are given.
 ``worst_sigma_inflation`` is the largest sampled over evaluated sigma, minus
 one, over the repaired channels a draw can move, and
-``rate_weighted_sigma_inflation`` is the same for the mean sigma over every
-sampled channel, each weighted by its rate at unit flux times its spectrum's
-fluence in the schedule times its parent's initial density. Either can be
-``float('inf')`` when a repair gives spread to a channel stated with none, and
-strict JSON does not accept that.
+``rate_weighted_sigma_inflation`` is the weighted mean of each channel's own
+sampled over evaluated sigma, minus one, over every sampled channel of a
+populated nuclide, each weighted by its rate at unit flux times its spectrum's
+fluence in the schedule times its parent's initial density. The weight is on
+each channel's inflation, not on its sigma, so a wide channel with a small rate
+cannot drown out a repair on the channels that carry the reactions. The initial
+density makes it a measure of first-generation reactions: a nuclide the material
+starts without carries no weight, and its repairs show in
+``worst_sigma_inflation`` and ``covariance_repairs`` instead. The sampled sigma
+is read off the factorization for every matrix, so on a matrix that needed no
+repair the decomposition's round-off shows here as it is, far below any real repair.
+Either headline can be ``float('inf')`` when a repair gives spread to a channel
+stated with none, and strict JSON does not accept that.
 
 ``sigma_at_least_one`` and ``sigma_at_least_ten`` name the sampled channels,
 keyed ``"Nuclide (n,x)"``, of populated nuclides with a positive rate on a
 spectrum the schedule irradiates with, whose folded relative sigma as evaluated
 is at least one or ten. At that width the spread depends on the lognormal chosen to carry
 the evaluation's two moments, not on the evaluation alone.
+``sigma_at_least_one_outside_bound`` does the same for the nuclides outside the
+populated bound, since a replica's draw on exactly such a channel can sit orders
+above nominal and populate the nuclide; the ten-or-more subset reads off its
+values. They are not a gap.
 
 ##### What it does not cover
 
