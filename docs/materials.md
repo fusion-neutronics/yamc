@@ -637,17 +637,24 @@ is heavy-tailed, so an ensemble of the size the solver stops at (at
 most 1024 unless ``samples`` is set) tends to report a sigma below the stated
 one, and the settling test cannot detect that.
 
-The other sources draw from a Gaussian on the stated sigma or covariance. A flux
-bin, tallied rate or decay energy drawn below zero is set to zero (for decay
-energy, each beta, gamma and alpha component separately, or the total where no
-component carries a sigma), and a half-life drawn at or below zero is set to a
-millionth of its nominal value.
-``get_data_uncertainty_info`` counts the flux, tallied-rate and half-life cases
-(``flux_bins_floored``, ``statistical_floored`` and ``half_lives_floored``, each
-beside its ``_sampled`` total). A count well above zero says the sigma is a large
-enough share of the value that a Gaussian no longer describes it. A shutdown-dose
-``time_correct_tally`` floors its half-life draws the same way and does not count
-them, and a floored decay-energy draw is not counted either.
+A half-life or decay energy is multiplied by a lognormal factor of the same
+kind, with mean one and variance equal to its squared relative sigma, drawn per
+nuclide (for decay energy, per beta, gamma and alpha component, or on the total
+where no component carries a sigma). The decay data states an expected value and
+a standard deviation and no correlation, so each draw keeps exactly what the
+evaluation states and cannot go negative, and there is no floor. A shutdown-dose
+``time_correct_tally`` draws its half-lives the same way. A sigma no draw can
+carry, one stated on a decay energy of zero or one that is not finite, is held at
+nominal and listed in ``half_life_uncertainty_not_carried`` or
+``decay_energy_uncertainty_not_carried``.
+
+The flux and tallied-rate sources draw from a Gaussian on the stated sigma or
+covariance, since they carry correlations a lognormal would not keep. A flux bin
+or tallied rate drawn below zero is set to zero, and
+``get_data_uncertainty_info`` counts those (``flux_bins_floored`` and
+``statistical_floored``, each beside its ``_sampled`` total). A count well above
+zero says the sigma is a large enough share of the value that a Gaussian no
+longer describes it.
 
 Evaluated covariance matrices are not always positive semi-definite, and one that
 is not has no square root to sample from. The negative eigenvalues of the folded
@@ -876,12 +883,15 @@ if info is not None:            # None unless data_uncertainty was passed
     info["no_half_life_uncertainty"]  # ... and those whose data states no sigma
     info["decay_energies_perturbed"]  # nuclides whose decay energy was drawn
     info["no_decay_energy_uncertainty"]  # ... and those whose data states none
+    info["half_life_uncertainty_not_carried"]     # a stated sigma no draw can
+    info["decay_energy_uncertainty_not_carried"]  # carry, held at nominal
     info["not_perturbed"]       # held inputs this run names, as above
     info["has_gaps"]            # True if a nuclide, covariance block or spectrum
                                 # had no usable uncertainty, a block was
                                 # malformed or of an unsupported layout, either
                                 # partials check listed a channel, or a
-                                # half-life or decay energy had no stated sigma;
+                                # half-life or decay energy had no stated sigma
+                                # or one no draw can carry;
                                 # of the held inputs above, skipped_cross_material,
                                 # skipped_nc, and a nuclide left with no usable
                                 # block (listed in no_covariance_data) set it
