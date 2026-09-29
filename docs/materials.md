@@ -651,25 +651,33 @@ is not has no square root to sample from. The negative eigenvalues of the folded
 matrix are set to zero, which is the standard repair, and the repair adds
 variance rather than removing it: no channel's sampled sigma falls below the
 evaluated one, and a channel the evaluation gave no variance can pick some up.
-A matrix counts as repaired only when clipping adds more than ``n * 1e-12`` of
-some channel's own evaluated variance (``n`` the matrix size), so a PSD matrix
-that comes back a few ulps negative from the eigendecomposition is not one, and
-a channel with a huge variance cannot hide a real repair among the others.
-``covariance_repaired`` lists the distinct nuclides repaired on any spectrum,
-and any makes ``has_gaps`` true. The report covers the nuclides the material
-can populate: the fold takes every chain nuclide with data, which from almost
-any composition is the chain's whole closure, so a nuclide is reported only
-when an upper bound on its density over the schedule reaches the solver's
-floor of ``1e-30`` atoms/b-cm. One the bound leaves out cannot move any
-density by as much as that floor. ``covariance_repairs`` gives one entry per
-repaired nuclide and spectrum with ``lambda_min``, ``lambda_max``,
-``clipped_fraction`` (the variance the repair added over the stated trace) and,
-per channel, ``evaluated_variance`` (the folded diagonal as stated, which can be
-negative), ``evaluated_sigma`` (``None`` for a negative variance) and
-``sampled_sigma``. ``worst_sigma_inflation`` is the largest sampled over
-evaluated sigma, minus one, over the repaired channels a draw can move (a
-populated nuclide with a positive rate on a spectrum the schedule irradiates
-with), and
+A matrix counts as repaired when its correlation matrix, over the channels with
+a positive stated variance, has an eigenvalue below ``-n * 1e-12`` (``n`` the
+number of those channels), or when a channel is stated with a negative variance,
+or with a zero one and a covariance to another channel. Judged on the
+correlation matrix, the round-off of the eigendecomposition is on each channel's
+own scale, so a PSD matrix that comes back a few ulps negative is not a repair,
+and a channel with a huge variance cannot hide a real repair among the others.
+``covariance_repaired`` lists the distinct nuclides, not a count over spectra,
+with a repaired channel a draw can move (a positive rate on a spectrum the
+schedule irradiates with), and any makes ``has_gaps`` true. The report covers
+the nuclides the material can populate: the fold takes every chain nuclide with
+data, which from almost any composition is the chain's whole closure, so a
+nuclide is reported only when an upper bound on its density over the schedule,
+at nominal rates, reaches the solver's floor of ``1e-30`` atoms/b-cm. One the
+bound leaves out cannot move any nominal density by as much as that floor, but a
+replica's rates on a wide channel can sit orders above nominal, so the repaired
+nuclides outside the bound are named in ``covariance_repaired_outside_bound``
+rather than dropped without trace. They are not a gap. ``covariance_repairs``
+gives one entry per repaired populated nuclide and spectrum, including repairs
+no draw can move, with ``lambda_min``, ``lambda_max``, ``clipped_fraction``
+(the variance the repair added over the stated trace) and, per channel,
+``evaluated_variance`` (the folded diagonal as stated, which can be negative),
+``evaluated_sigma`` (``None`` for a negative variance) and ``sampled_sigma``.
+A small ``|lambda_min| / lambda_max`` does not mean a small widening of the
+channel that matters, which is why each channel's two sigmas are given.
+``worst_sigma_inflation`` is the largest sampled over evaluated sigma, minus
+one, over the repaired channels a draw can move, and
 ``rate_weighted_sigma_inflation`` is the same for the mean sigma over every
 sampled channel, each weighted by its rate at unit flux times its spectrum's
 fluence in the schedule times its parent's initial density. Either can be
