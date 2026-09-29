@@ -667,8 +667,9 @@ nuclide is reported only when an upper bound on its density over the schedule,
 at nominal rates, reaches the solver's floor of ``1e-30`` atoms/b-cm. One the
 bound leaves out cannot move any nominal density by as much as that floor, but a
 replica's rates on a wide channel can sit orders above nominal, so the repaired
-nuclides outside the bound are named in ``covariance_repaired_outside_bound``
-rather than dropped without trace. They are not a gap. ``covariance_repairs``
+nuclides outside the bound with a channel a draw can move are named in
+``covariance_repaired_outside_bound``, and any of those makes ``has_gaps`` true
+as well, since the bound says nothing about a replica. ``covariance_repairs``
 gives one entry per repaired populated nuclide and spectrum, including repairs
 no draw can move, with ``lambda_min``, ``lambda_max``, ``clipped_fraction``
 (the variance the repair added over the stated trace) and, per channel,
@@ -878,7 +879,8 @@ if info is not None:            # None unless data_uncertainty was passed
     info["no_decay_energy_uncertainty"]  # ... and those whose data states none
     info["not_perturbed"]       # held inputs the report names, as above
     info["has_gaps"]            # True if a nuclide, covariance block or spectrum
-                                # had no usable uncertainty; of the held inputs
+                                # had no usable uncertainty, or a covariance
+                                # was repaired; of the held inputs
                                 # above, skipped_cross_material, skipped_nc, and
                                 # a nuclide left with no usable block (listed in
                                 # no_covariance_data) set it
