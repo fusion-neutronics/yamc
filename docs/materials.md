@@ -429,6 +429,38 @@ and ``exclude_daughters`` switch off the catch-all limit and the secular
 equilibrium credit that some tables define, and ``uncovered_fraction`` is the
 number to check before trusting a comfortable index.
 
+#### Activity, decay heat and decay photons
+
+A transmuted material answers the usual decay quantities directly. Each takes
+``per=None`` for the whole material, which needs ``volume``, or ``"cm3"`` or
+``"g"`` for a density, and the totals also take ``by_nuclide=True``.
+
+<!-- doctest: skip -->
+```python
+if final is not None:
+    final.activity(per="g")                           # Bq/g
+    final.decay_heat(per="cm3")                       # W/cm3
+    final.decay_heat(per="cm3", component="gamma")    # the gamma part alone
+    energies, rates = final.decay_photon_spectrum(per="cm3")   # lines, photons/s/cm3
+    for continuum in final.decay_photon_continua(per="cm3"):
+        print(continuum.nuclide, continuum.emission_rate)       # photons/s/cm3
+```
+
+``component`` splits decay heat into the recoverable-heat components the
+decay data gives (``"beta"``, ``"gamma"`` or ``"alpha"``): the gamma heat is the
+part that leaves a thin component, while the beta and alpha heat stay where they
+are made. It raises if a nuclide making decay heat carries no split, rather than
+understating the component by that nuclide's share.
+
+``decay_photon_spectrum()`` gives the discrete lines. Part of some decay spectra
+is given as a density over energy instead: the spontaneous-fission photons of an
+actinide, or the whole emission of a nuclide far from stability whose lines were
+never measured. ``decay_photon_continua()`` returns those, one
+``PhotonContinuum`` per nuclide and continuum, each with its own ``energies``,
+``rates`` per eV, ``interpolation`` law and ``emission_rate`` (the integral).
+Their rates are per eV, so they cannot be added to the line rates; a material
+with no continuum returns an empty list.
+
 #### Repeated calls, and letting the data go
 
 ``transmute()`` loads the cross sections it needs **into the material** and keeps
@@ -449,6 +481,48 @@ for composition in many_compositions:
     scan_mat.transmute(schedule=schedule)
     scan_mat.release_nuclear_data()
 ```
+
+#### Many materials at once
+
+``yamc.transmute()`` is the plural of ``Material.transmute()``, for the cells of a
+mesh from a transport run, a component broken into regions, or a sweep over
+compositions. Each material gets exactly the answer its own ``transmute()``
+would give, and the result is one ``TransmutationResults`` keyed by each
+material's ``id``. The chain is read once, each nuclide's cross sections are
+decoded once and shared, and a multigroup collapse runs once for every distinct
+combination of spectrum, composition, temperature and shielding, before the
+materials are solved in parallel.
+
+<!-- doctest: skip -->
+```python
+cells = [
+    yamc.Material(composition={"Fe": 1.0}, density=7.874, id=i + 1, volume=1.0)
+    for i in range(3)
+]
+cell_fluxes = [1e14, 5e13, 1e13]   # each cell's flux magnitude [n/cm^2/s]
+schedules = [
+    yamc.PulseSchedule([
+        yamc.Pulse(rate=flux, duration=(1, "y"), source=spectrum),
+        yamc.Cooldown(duration=(1, "d")),
+    ])
+    for flux in cell_fluxes
+]
+many = yamc.transmute(cells, schedules)
+
+many.get_final_material(material_id=2)
+many.get_source_rates(material_id=2)   # that cell's flux magnitude per step
+many.collapse_reuse                    # {"performed": 1, "requested": 3}
+```
+
+Give one schedule for every material or one per material, in the same order.
+The schedules may differ in their spectra and rates but must share one
+timeline, the same durations with irradiation on the same steps. The ids must
+be distinct. ``data_uncertainty``, ``self_shielding_shape`` and
+``self_shielding_chord`` apply to every material as ``Material.transmute()``
+applies them to one. ``collapse_reuse`` reports the collapses actually run
+against one per distinct spectrum per material: above, the three cells share
+one spectrum and one composition, so they share one collapse whatever their
+flux magnitudes.
 
 #### Resonance self-shielding
 
@@ -544,16 +618,17 @@ Each sample redraws the inputs listed under [Choosing what to
 perturb](#choosing-what-to-perturb) from their stated uncertainties: the
 activation cross sections from their ENDF MF=33 covariance, folded against this
 material's own spectrum; the half-lives and decay energies from the decay data's
-own standard deviations; the flux from the error you give it; and, on
+own standard deviations; the split of a two-mode decay from its stated
+branching sigma; the flux from the error you give it; and, on
 [Model.simulate_transmutation()](simulate_transmutation.md), the
 transport-tallied rates from their per-history covariance. The schedule is
-re-solved with the drawn rates, flux and half-lives, and the drawn decay energies
+re-solved with the drawn rates, branching, flux and half-lives, and the drawn decay energies
 are applied where decay heat is evaluated. That is exact to all orders in the
 matrix exponential: nothing is linearized, and the solver itself is untouched,
 only its input changes.
 
 ``DataUncertainty(seed=...)`` is reproducible. A nuclide's cross-section,
-half-life and decay-energy draws in a given sample are a pure function of
+half-life, decay-branching and decay-energy draws in a given sample are a pure function of
 ``(seed, sample, nuclide)``, and the flux draw of ``(seed, sample, spectrum)``,
 the spectrum's place among the schedule's spectra. The statistical draw is keyed
 on ``(seed, sample)`` and made jointly over the material's tallied rates, so
@@ -576,13 +651,14 @@ is folded or factorized, and the inventories are bit-identical.
 
 ##### Choosing what to perturb
 
-Five sources can be perturbed, and by default every one that applies to the call
+Six sources can be perturbed, and by default every one that applies to the call
 is:
 
 <!-- doctest: skip -->
 ```python
 yamc.DataUncertainty.available_sources()
-# ['cross_sections', 'flux_spectrum', 'half_life', 'statistical', 'decay_energy']
+# ['cross_sections', 'flux_spectrum', 'half_life', 'decay_branching',
+#  'statistical', 'decay_energy']
 
 # isolate one contribution
 xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
@@ -590,9 +666,8 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
 
 - ``cross_sections``: the activation cross sections, from the evaluation's MF=33
   covariance folded against the spectrum the rates are collapsed with. On
-  ``Model.simulate_transmutation`` that fold is currently mis-normalised and
-  its sigma should not be used (see [What it does not
-  cover](#what-it-does-not-cover)).
+  ``Model.simulate_transmutation`` the fold uses the tallied spectrum,
+  normalised the same way as the rates it divides by.
 - ``flux_spectrum``: the error on the spectrum you supplied, described below.
   The spectrum calls (``Material.transmute`` and ``yamc.transmute``) only. It
   moves every rate collapsed from the spectrum's groups, which leaves out the
@@ -605,6 +680,16 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
   half-life, where using the nominal value in either place would hand it the
   density's whole spread. It is the only source a shutdown-dose
   ``PulseSchedule.time_correct_tally`` applies.
+- ``decay_branching``: the decay branching ratios of each reachable parent with
+  exactly two modes and one stated sigma between them (both modes state the
+  same one, or one states it and the other is its complement), whose smaller
+  ratio is at least five sigmas from zero. One draw per parent moves one mode
+  up and the other down by the same amount, so the pair's total is kept. Every
+  other parent is held at its evaluated ratios and named in the report by why
+  (``no_decay_branching_uncertainty``, ``decay_branchings_three_or_more_modes``,
+  ``decay_branchings_unequal_sigmas``, ``decay_branchings_too_wide``). Only the
+  inventory moves: a drawn parent's lines and decay energy per decay follow its
+  nominal branching.
 - ``statistical``: the Monte Carlo uncertainty of transport-tallied reaction
   rates, from their per-history covariance, so rates scored by the same
   histories move together.
@@ -660,6 +745,36 @@ carries no stated error. The ``flux_spectrum`` source then contributes nothing a
 says so in the report's ``spectra_without_flux_sigma``, rather than reading as a
 flux known exactly.
 
+##### Where the uncertainty comes from
+
+``DataUncertainty(attribution=True)`` also says which source and which
+evaluation a nuclide's spread comes from, read with
+``get_uncertainty_breakdown``. It is off by default because it costs further
+solves, one ensemble per source and one deterministic solve per contributor,
+and it changes none of the numbers the run otherwise reports.
+
+<!-- doctest: skip -->
+```python
+attributed = material.transmute(
+    schedule=schedule,
+    data_uncertainty=yamc.DataUncertainty(seed=42, attribution=True),
+)
+breakdown = attributed.get_uncertainty_breakdown(material_id=mid, nuclide="Mn56", step=1)
+if breakdown is not None:          # None unless attribution=True
+    breakdown["variance"]          # the total, the square of get_nuclide_uncertainty
+    breakdown["by_source"]         # each source alone, resampled; these sum to the total
+    breakdown["unattributed"]      # what that sum leaves: interaction and sampling noise
+    breakdown["contributors"]      # [(source, nuclide, reaction, variance)], largest first
+```
+
+``by_source`` resamples each source on its own, so it says how much of the
+spread is statistical and how much is each kind of nuclear data; the sources
+are independent and their variances add. ``contributors`` is first order and
+names the evaluation to look at: within the cross sections a nuclide's whole
+evaluation has a ``reaction`` of ``None`` and each channel alone names its
+reaction, and a half-life or a two-mode decay branching has ``None`` too. The
+total stays the resampled one.
+
 ##### How a sample is drawn
 
 A cross-section channel's rate is multiplied by a lognormal factor with mean one
@@ -692,6 +807,12 @@ or tallied rate drawn below zero is set to zero, and
 ``statistical_floored``, each beside its ``_sampled`` total). A count well above
 zero says the sigma is a large enough share of the value that a Gaussian no
 longer describes it.
+
+A two-mode decay branching is drawn from a Gaussian on its stated sigma too,
+since the pair's total is fixed and the split has one degree of freedom. The
+five-sigma rule keeps a draw inside the pair's total with a chance of leaving it
+below 6e-7, and a draw that does is clamped and counted in
+``decay_branchings_floored``, beside ``decay_branchings_sampled``.
 
 Evaluated covariance matrices are not always positive semi-definite, and one that
 is not has no square root to sample from. The negative eigenvalues of the folded
@@ -759,15 +880,19 @@ property of the model rather than of the data. Most leave a term out of the
 reported spread, so the sigma is too small by it. Some can go either way:
 self-shielding and the flux's response to the data, because holding them also
 removes a feedback that narrows the spread, and the dropped correlations, because
-a missing correlation can raise or lower the sigma of a sum. The LB=4 defect
-overstates the one block it touches. Each item says which way it goes, and
-where.
+a missing correlation can raise or lower the sigma of a sum. Each item says
+which way it goes, and where.
 
-- **Decay branching ratios.** The decay data states a sigma on many of them.
-  The converter now stores it with each decay mode (``decay_modes.arrow``,
-  ``branching_ratio_uncertainty``). The published decay data predates it, so a
-  downloaded library carries it only from the next data version, and no source
-  samples it yet.
+- **Decay branching ratios of most parents.** The ``decay_branching`` source
+  samples a two-mode parent with one stated sigma that stands five sigmas clear
+  of zero. A parent with three or more modes is held, since the evaluation does
+  not say how the error is shared between them, and so is one whose two modes
+  state different sigmas, one too wide to sample untruncated, and one with no
+  sigma at all. Each is listed in the report under the reason. A drawn parent's
+  per-decay emission, its lines and decay energy, stays that of the nominal
+  scheme. The sigma is read from the decay data's ``branching_ratio_uncertainty``
+  column, so a library converted before that column existed carries none and
+  lists its parents under ``no_decay_branching_uncertainty``.
 - **Fission yields.** The evaluations state a sigma on each yield. The
   converter now stores each evaluation's yields and their sigmas as the tape
   gives them (``fission_yields/evaluated_yields.arrow``,
@@ -804,59 +929,31 @@ where.
   in that channel's ``rate_fraction_covered``, which counts only rate from
   energies with a nonzero stated variance: W186 ``(n,gamma)`` reads about 0.07
   on a fusion spectrum.
-- **MF=33 blocks that are not used.** Four kinds are left out. Blocks that
-  correlate with another evaluation (``MAT1 != 0``, the links to the standards
-  among them) are skipped, so each nuclide's cross sections are drawn
-  independently of every other nuclide's; the same test also skips some blocks
-  whose ``MAT1`` names the evaluation itself, which loses correlations within one
-  nuclide. Blocks stated through other reactions' covariances (NC) are skipped,
-  so a reaction whose covariance is given only that way draws none. Lumped
-  reactions (MT=851 to 870), which state the uncertainty of a sum of reactions,
-  are skipped too, so their components draw none of it. Tungsten's ``(n,2n)``,
-  the channel behind most of a tungsten first wall's decay heat, is one:
-  ENDF/B-VIII.1, JEFF-4.0 and FENDL-3.2d state its covariance only lumped with
-  ``(n,2np)``. Blocks stated on partial levels (MT=600 to 849 and 875 to 891)
-  are not used either, since the chain drives the total, so a reaction whose
-  covariance is given only per level draws none: ENDF/B-VIII.1 Ca40 states its
-  ``(n,p)`` and ``(n,a)`` only on MT=600 and 800, and is listed under
-  ``perturbed`` through its capture alone. ``skipped_cross_material`` and
-  ``skipped_nc`` count the first two kinds, per spectrum folded and including
-  blocks for reactions the run does not drive. The lumps and the partial levels
-  are not counted. They show as a channel missing from
-  ``rate_fraction_covered`` and a lower ``rate_fraction_covered_total``, or, for
-  a nuclide whose only blocks are of these kinds, as that nuclide listed under
-  ``no_covariance_data``.
-- **MF=33 blocks read in part.** The ENDF parser splits an LB=0 to 4 block's
-  table in the wrong place, so an LB=0 to 2 block is used over only the lower
-  half of its energy grid, and a channel whose uncertainty is stated above that
-  draws little or none of it. 773 ENDF/B-VIII.1 blocks are affected: at 14 MeV
-  Ni58 ``(n,a)`` draws 0.0% where the evaluation gives 19.8%. The LB=4
-  expansion also swaps its two tables, which affects one block, FENDL-3.2d Ni58
-  ``(n,p)``, whose 14 MeV sigma reads 20.6% against the evaluation's 18.3%.
-  Short-range LB=8 blocks are folded as a relative variance, where the
-  evaluation states an absolute one in barns squared per interval, so their
-  contribution is off by a factor of the cross section squared and, when the
-  flux groups are narrower than the tape's interval, by the ratio of the two
-  widths as well. For a cross section below one barn that understates it.
-  Cr52 ``(n,p)`` at 14 MeV shows both: it draws 0.4%, which is the LB=8 block
-  alone read as relative, against the evaluation's 17.7% on the tape's
-  [14, 16] MeV interval (17.1% from its LB=1 blocks, which the split drops, and
-  the rest from the LB=8 block). The report does not flag any of these:
-  ``rate_fraction_covered`` is taken from the variances as read, so the dropped
-  part shows at most as rate with no stated variance, and not at all where
-  another block on the same reaction states one over that range. For Cr52
-  ``(n,p)`` that block is the LB=8 one, itself folded on the wrong scale, so the
-  channel reads as fully covered.
-- **Cross sections on a transport run.** In ``Model.simulate_transmutation``
-  the covariance is folded against the tallied spectrum as summed over every
-  history, while the rates it is divided by are per source particle and per
-  unit volume. The relative sigma from the ``cross_sections`` source is
-  overstated there by a factor of about the particle count times the volume
-  (in cm^3), every channel a relative block names is listed in
-  ``partials_above_rate``, and ``has_gaps`` is True. ``Material.transmute`` is
-  not affected. Until this is fixed
-  ([core#191](https://github.com/fusion-neutronics/core/issues/191)), give a
-  transport run ``sources=["statistical", "half_life", "decay_energy"]``.
+- **MF=33 blocks that are not used.** What is folded is each reaction's own
+  MF=33 blocks, including those whose ``MAT1`` names the evaluation itself, the
+  blocks of a lumped reaction (MT=851 to 870) with one component, which are that
+  component's, and the covariance an LTY=0 NC block derives from the reactions
+  it names (ENDF/B-VIII.1 O16 ``(n,p)`` is stated only that way). Four kinds
+  are left out. Blocks that correlate with another evaluation (``MAT1`` naming
+  another material, the links to the standards among them) are skipped, so each
+  nuclide's cross sections are drawn independently of every other nuclide's,
+  and so are blocks whose partner is not a cross section (``XMF1`` other than 0
+  or 3). NC blocks that cannot be derived (LTY 1 to 4, or an LTY=0 block that
+  fails, counted in ``skipped_nc``) are skipped, so a reaction whose covariance
+  is given only that way draws none. A lumped reaction with several components
+  states the uncertainty of their sum and of none of them, so unless a
+  derivation names it, it is not given to any component and is listed in
+  ``lumped_covariance_not_assignable``. Tungsten's ``(n,2n)``, the channel
+  behind most of a tungsten first wall's decay heat, is one: ENDF/B-VIII.1,
+  JEFF-4.0 and FENDL-3.2d state its covariance only lumped with ``(n,2np)``.
+  Blocks on partial levels (MT=600 to 849 and 875 to 891) are folded when an
+  LTY=0 NC block names them, and are otherwise neither used nor counted, since
+  the chain drives the total and has no rate for a level alone.
+  ``skipped_cross_material`` and ``skipped_other_file`` count the first kind
+  per nuclide, for reactions the fold reaches. A nuclide whose only blocks are
+  of these kinds is listed under ``no_covariance_data``, and a channel missing
+  its covariance shows in ``rate_fraction_covered`` and a lower
+  ``rate_fraction_covered_total``.
 - **Self-shielding.** With ``self_shielding_shape`` or ``self_shielding_chord``
   set, every sample uses the flux depression computed from the evaluated cross
   sections, and that pulls two ways. A perturbed capture cross section neither
@@ -869,12 +966,9 @@ where.
   uncertainty, and the held sigma is too large: 1.70% held against 0.96% with
   the feedback. TENDL-2017 states one, and there the held sigma is too small:
   5.34% held against 6.07% with the feedback and the elastic term together.
-  Those figures fold the shielded partial rates. The covariance fold does not
-  yet: it uses the dilute partial rates while the rate itself is shielded, which
-  overstates the relative sigma of a channel that shields strongly, on top of
-  the above: 4.61% against the 1.70% for the ENDF/B-VIII.1 foil. The report
-  shows that overstatement as the channel listed in ``partials_above_rate``,
-  which on a self-shielded run lists most channels a relative block names.
+  Those figures fold the shielded partial rates, as the covariance fold does:
+  on a self-shielded run the partials come from the same shielded flux as the
+  rate they are divided by.
 - **The flux's response to the data.** A perturbed cross section does not change
   the flux it is folded against. In ``Material.transmute`` the flux is your
   input, and in ``Model.simulate_transmutation`` the covariance is folded against
@@ -924,19 +1018,23 @@ where.
   so a 30% uncertainty on the cobalt content is about 21% on the dose.
 
 The report's ``not_perturbed`` names what the run held at nominal. Every run
-names decay branching, fission yields, isomeric branching, the MF=33 blocks that
-are not used (cross-material, NC-derived and lumped), MF=32, decay photon line
-energy and intensity, the three dose tables and the build-up factor, material
-composition and density, natural isotopic abundance and atomic mass (AME2020).
-The rest depend on the run. Half-life, decay energy and the activation cross
-sections are named when ``sources`` leaves them out, and on a transport call the
-flux's response to perturbed cross sections is named whenever the
-``cross_sections`` source is on, since the one transport is not rerun per
-sample. On a spectrum call the flux spectrum is named when no spectrum's flux is
-drawn, and named as held for spectra without a sigma only when some are drawn
-and some are not. On a transport call the tallied-rate statistics are named when
-the ``statistical`` source is off or there are no tallied rates to draw. The
-self-shielding correction is named whenever self-shielding is set.
+names fission yields, isomeric branching, the MF=33 blocks that are not used
+(cross-material, a partner that is not a cross section, NC blocks that cannot be
+derived, and lumps of several components), MF=32, decay photon line energy and
+intensity, the decay photon continuum, the three dose tables and the build-up
+factor, material composition and density, natural isotopic abundance and atomic
+mass (AME2020). The rest depend on the run. Half-life, decay branching, decay
+energy and the activation cross sections are named when ``sources`` leaves them
+out, and when decay branching is drawn for any parent, the per-branch decay
+emission (lines and decay energy following the nominal branching) is named
+instead. On a transport call the flux's response to perturbed cross sections is
+named whenever the ``cross_sections`` source is on, since the one transport is
+not rerun per sample. On a spectrum call the flux spectrum is named when no
+spectrum's flux is drawn, and named as held for spectra without a sigma only
+when some are drawn and some are not. On a transport call the tallied-rate
+statistics are named when the ``statistical`` source is off or there are no
+tallied rates to draw. The self-shielding correction is named whenever
+self-shielding is set.
 
 Because a reported sigma of zero can mean "well known" or "nothing published",
 the report, ``get_data_uncertainty_info``, keeps a nuclide with no usable MF=33
@@ -954,31 +1052,36 @@ if info is not None:            # None unless data_uncertainty was passed
     info["sources"]             # the sources that applied to this run
     info["perturbed"]           # nuclides that had usable MF=33 covariance
     info["no_covariance_data"]  # nuclides with none usable, absent or skipped
-    info["rate_fraction_covered"]  # per channel, the share of the dilute rate
+    info["rate_fraction_covered"]  # per channel, the share of the rate the fold
+                                   # divides by (shielded on a self-shielded run)
                                    # from energies with a nonzero stated variance
-    info["rate_fraction_covered_total"]  # ... over the run, by production; None
-                                         # on a self-shielded or transport run
-    info["skipped_cross_material"]    # MF=33 blocks with MAT1 != 0, not used
-    info["skipped_nc"]                # MF=33 blocks stated as NC, not used
+    info["rate_fraction_covered_total"]  # ... over the run, by production; None on
+                                         # a transport run or when a partials map
+                                         # lists a channel
+    info["skipped_cross_material"]    # blocks naming another evaluation, not used
+    info["skipped_other_file"]        # blocks whose partner is not a cross section
+    info["skipped_nc"]                # NC blocks that could not be derived
+    info["lumped_covariance_not_assignable"]  # lumps of several components
     info["partials_above_rate"]  # channels whose partial rates add up to more
                                  # than the rate: sigma overstated
     info["partials_below_rate"]  # ... add up to less: sigma understated
+    info["sigma_at_least_one"]   # channels with a relative sigma of 1 or more
     info["half_lives_perturbed"]      # nuclides whose half-life was drawn
     info["no_half_life_uncertainty"]  # ... and those whose data states no sigma
+    info["decay_branchings_perturbed"]      # two-mode parents whose split was drawn
+    info["no_decay_branching_uncertainty"]  # multi-mode parents with no sigma
     info["decay_energies_perturbed"]  # nuclides whose decay energy was drawn
     info["no_decay_energy_uncertainty"]  # ... and those whose data states none
     info["half_life_uncertainty_not_carried"]     # a stated sigma no draw can
     info["decay_energy_uncertainty_not_carried"]  # carry, held at nominal
     info["not_perturbed"]       # held inputs this run names, as above
     info["has_gaps"]            # True if a nuclide, covariance block or spectrum
-                                # had no usable uncertainty, a block was
+                                # had no usable uncertainty, a block was skipped,
                                 # malformed or of an unsupported layout, either
-                                # partials check listed a channel, a half-life
-                                # or decay energy had no stated sigma or one no
-                                # draw can carry, or a covariance was repaired;
-                                # of the held inputs above, skipped_cross_material,
-                                # skipped_nc, and a nuclide left with no usable
-                                # block (listed in no_covariance_data) set it
+                                # partials check listed a channel, a covariance
+                                # was repaired, a half-life or decay energy had
+                                # no stated sigma or one no draw can carry, or
+                                # a parent's decay branching was held
 ```
 
 A ``sigma`` of ``0.0`` for a nuclide listed in ``no_covariance_data`` is not a

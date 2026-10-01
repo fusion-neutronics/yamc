@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "yamc"
 # Kept in lockstep with yamc-core: CI rewrites both this and the pin below from
 # the release tag, and refuses to publish if that version is not on PyPI yet.
-version = "0.13.0"
+version = "0.14.0"
 description = "Yet Another Monte Carlo: neutron and photon transport with mesh geometry support"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -113,11 +113,7 @@ keeps its resolved-resonance uncertainty in MF=32 and leaves MF=33 at zero over
 that range arrives with no capture, elastic or fission uncertainty below the top
 of its resolved resonances, and that range reaches down to thermal. The
 uncertainty report counts rate from energies where the stated variance is zero
-as uncovered, so the gap shows in ``rate_fraction_covered``. MF=33 blocks stated
-with LB=0 to 2 are also used today over only the lower half of their energy
-grid, and short-range LB=8 blocks are folded as relative where the evaluation
-states them in barns squared, as [MF=33 blocks read in
-part](materials.md#what-it-does-not-cover) describes.
+as uncovered, so the gap shows in ``rate_fraction_covered``.
 
 Beyond covariance, the decay data carries each nuclide's half-life with the
 standard deviation its evaluation states, and its decay energy with a standard
@@ -126,12 +122,12 @@ components. The evaluation states no correlation between them, so they are
 treated as independent and the total's sigma is their quadrature sum. The
 ``half_life`` and ``decay_energy`` uncertainty sources draw from these. The
 converter also stores the sigma each evaluation states on a decay mode's
-branching ratio (``branching_ratio_uncertainty`` in ``decay_modes.arrow``). The
-published decay data predates it, so a downloaded library carries it only from
-the next data version, and no source samples it yet. Fission yields are in the
-same state: the converter stores each evaluation's yields with their stated
-sigmas (``yield_uncertainties`` in ``fission_yields/evaluated_yields.arrow``),
-the published data predates the file, and no source samples them. The sigmas
+branching ratio (``branching_ratio_uncertainty`` in ``decay_modes.arrow``),
+which the ``decay_branching`` source draws from for two-mode parents. Decay data
+converted before that column existed carries no branching sigma. The converter
+also stores each evaluation's fission yields with their stated sigmas
+(``yield_uncertainties`` in ``fission_yields/evaluated_yields.arrow``), and no
+source samples them yet. The sigmas
 stated on decay photon lines are not in the converted data yet. [What
 it does not cover](materials.md#what-it-does-not-cover) lists what a
 nuclear-data uncertainty run holds at nominal.
