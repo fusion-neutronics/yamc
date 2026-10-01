@@ -139,7 +139,7 @@ rates["Fe58"]["(n,2n)"]        # [('Fe57', 1.205e-09)]            # rate in 1/s
 
 ``parent -> reaction kind -> [(target, rate [1/s])]``. A ``target`` of ``None`` is a channel naming no single product, which in practice means fission, whose products come from the yields rather than from an edge. A decay-only step drove no reaction and reports an empty map.
 
-Note the index: ``step`` is the schedule step, the same index as ``timesteps`` and ``source_rates``, which is one less than the ``step`` the composition getters take (where 0 is the initial composition).
+Note the index: ``step`` is the schedule step, the same index as ``timesteps`` and ``get_source_rates(material_id)``, which is one less than the ``step`` the composition getters take (where 0 is the initial composition).
 
 Both methods report the same quantity in the same shape. ``method="coupled"`` takes the rates from that step's own transport tallies and ``method="independent"`` from the single transport's multigroup fold scaled by the step's source rate. Either way an edge rate is that rate times the branching of the chain the step was solved with, isomeric overlay included, so a consumer does not have to know which method produced the result.
 
