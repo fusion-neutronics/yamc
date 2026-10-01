@@ -321,16 +321,61 @@ tally = yamc.Tally(
 
 ### Dose coefficients
 
-Apply ICRP-116 dose conversion coefficients directly.
+Apply ICRP-116 effective dose conversion coefficients directly.
 
 <!-- doctest: skip -->
 ```python
 tally = yamc.Tally(
     scores=["flux"],
     mesh=mesh,
-    dose_coefficients=("neutron", "AP"),  # (particle, geometry)
+    dose_coefficients=("neutron", "AP"),  # (particle, geometry[, data_source])
 )
 ```
+
+For ambient dose equivalent H*(10), the quantity most regulations still
+reference, fetch the ICRP-74 coefficients with
+``yamc.data.dose_coefficients(..., dose_quantity="ambient")`` and fold them in
+as an energy function. H*(10) is defined in an aligned and expanded field, so it
+takes no geometry, and ICRP-116 does not tabulate it.
+
+<!-- doctest: skip -->
+```python
+h10 = yamc.data.dose_coefficients("neutron", dose_quantity="ambient")
+tally = yamc.Tally(
+    scores=["flux"],
+    mesh=mesh,
+    particle="neutron",
+    energy_function=h10.as_energy_function(),
+)
+```
+
+The tables cover 1 meV to 20 MeV for neutrons and 10 keV to 10 MeV for photons
+and are not extrapolated, so a particle outside that range scores nothing. H*(10)
+is designed to over-estimate effective dose for area monitoring, but for
+high-energy neutrons it under-reads it.
+
+### Bin covariance
+
+``standard_deviation`` treats each bin on its own, but the bins of one tally are
+scored by the same histories and move together, so anything summed over them, a
+reaction rate over a spectrum for instance, inherits an understated error from
+the standard deviations alone. ``covariance=True`` also accumulates the
+covariance of the bin means, history by history:
+
+<!-- doctest: skip -->
+```python
+tally = yamc.Tally(
+    scores=["flux"],
+    cells=cell,
+    energy_group_structure="VITAMIN-J-175",
+    covariance=True,
+)
+# after the run: results[tally].covariance, a bins x bins nested list
+```
+
+It is meant for spectra: it is limited to 2048 bins and runs on the CPU only.
+It is what ``Pulse(flux_covariance=...)`` takes, as [Nuclear-data
+uncertainty](materials.md#nuclear-data-uncertainty) describes.
 
 ### Neutron and photon flux spectra
 

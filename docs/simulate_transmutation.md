@@ -177,6 +177,57 @@ For a 14.06 MeV point source in a 10 cm iron sphere, one hour at 1e18 n/s:
 
 A rate is per atom of the parent, so weighting a route by inventory means multiplying by the parent's density at that step (``get_nuclide_density``). Over one short step the two together reproduce the step's own burnup: the Fe57 produced is the summed edge rate times the parent densities times the step length.
 
+### Statistical uncertainty of the tallied rates
+
+Run with ``data_uncertainty`` including the ``"statistical"`` source (which
+``method="independent"`` alone accepts) and ``get_reaction_rate_uncertainty``
+gives each tallied reaction rate with its Monte Carlo standard deviation at one
+step:
+
+<!-- doctest: skip -->
+```python
+uncertain = model.simulate_transmutation(
+    method="independent",
+    schedule=schedule,
+    total_particles=5000,
+    data_uncertainty=yamc.DataUncertainty(seed=1, sources=["statistical"]),
+)
+for nuclide, reaction, target, rate, std_dev in (
+    uncertain.get_reaction_rate_uncertainty(material_id=1, step=0) or []
+):
+    print(nuclide, reaction, target, rate, std_dev)   # 1/s per atom
+```
+
+A reaction total has a ``target`` of ``None`` and an isomeric partial names its
+final state. The rates are the tally's, scaled by the step's source rate,
+exactly as the step's solve used them. They were scored by the same histories
+and so are correlated: the inventory sigmas carry those correlations, and these
+standard deviations alone do not.
+
+### Isomeric branching report
+
+``get_branching_report(material_id, step)`` says, per channel, how the
+isomeric-branching evaluation's split was applied over that step's spectrum:
+whether its list was read as shares of the total or as absolute productions,
+and how much of the parent's removal rate rests on anything the evaluation does
+not give.
+
+<!-- doctest: skip -->
+```python
+report = results.get_branching_report(material_id=1, step=0)
+if report is not None:
+    report["channels"]         # one dict per channel: parent, reaction, mt, file,
+                               # representation ("share" or "absolute"), states, ...
+    report["dropped"]          # channels that were not folded, with the reason
+    report["unmodelled_mt5"]   # [(nuclide, share)] of MT=5, whose products are
+                               # not modelled
+```
+
+A run refuses when a channel's clipped or held production is more than 0.1% of
+that parent's neutron removal rate, so what the report shows is below that.
+The step is the schedule step, as ``get_reaction_rates`` takes it, and a
+decay-only step gives empty lists.
+
 ### Material.transmute()
 
 For standalone transmutation with a pre-computed flux spectrum (no transport), see [Material transmutation](materials.md#transmutation) in the Materials section.
