@@ -27,7 +27,7 @@ classifiers = [
 #
 # The pin is exact. A range would let `pip install yamc==0.4.0` resolve to a
 # core wheel whose API does not match the docs published for 0.4.0.
-dependencies = ["yamc-core==0.13.0"]
+dependencies = ["yamc-core==0.14.0"]
 
 [project.urls]
 Homepage = "https://github.com/fusion-neutronics/yamc"
