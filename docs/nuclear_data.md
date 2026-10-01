@@ -119,6 +119,32 @@ nuclides = yamc.data.element_nuclides()
 print(nuclides["Li"])  # ["Li6", "Li7"]
 ```
 
+The abundances are the IUPAC TICE 2013 isotopic compositions (Meija et al.,
+Pure Appl. Chem. 88 (2016) 293, doi:10.1515/pac-2015-0503). Each value is the
+column 9 representative isotopic composition. The 12 elements that TICE gives
+as an interval rather than a value (H, Li, B, C, N, O, Mg, Si, S, Cl, Br, Tl)
+use the column 6 best measurement instead, and mononuclidic elements are 1.
+
+``natural_abundance_records()`` returns the full TICE row behind each value:
+the column 9 value and its expanded uncertainty (or the interval), the column 4
+observed range of natural variation, and the column 6 best measurement with its
+uncertainty, coverage factor and calibration flag. A field TICE leaves empty is
+``None``, which means "not stated", never zero.
+
+```python
+records = yamc.data.natural_abundance_records()
+fe58 = records["Fe58"]
+print(fe58["representative_value"], fe58["representative_uncertainty"])  # 0.00282 0.00012
+print(fe58["best_measurement"], fe58["best_measurement_uncertainty"])    # 0.002819 2.7e-05
+print(fe58["best_measurement_coverage"])                                 # '2s'
+print(records["Li6"]["representative_interval"])                         # (0.019, 0.078)
+```
+
+These uncertainties are reference data only. No calculation samples or
+propagates them: turning them into a distribution needs choices TICE does not
+make (a coverage factor for column 9, correlations between the isotopes of an
+element, how to treat an interval).
+
 The element symbol table is bound too, so a script naming files or directories
 from ENDF data does not need its own copy of the periodic table.
 
