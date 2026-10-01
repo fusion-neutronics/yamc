@@ -429,6 +429,38 @@ and ``exclude_daughters`` switch off the catch-all limit and the secular
 equilibrium credit that some tables define, and ``uncovered_fraction`` is the
 number to check before trusting a comfortable index.
 
+#### Activity, decay heat and decay photons
+
+A transmuted material answers the usual decay quantities directly. Each takes
+``per=None`` for the whole material, which needs ``volume``, or ``"cm3"`` or
+``"g"`` for a density, and the totals also take ``by_nuclide=True``.
+
+<!-- doctest: skip -->
+```python
+if final is not None:
+    final.activity(per="g")                           # Bq/g
+    final.decay_heat(per="cm3")                       # W/cm3
+    final.decay_heat(per="cm3", component="gamma")    # the gamma part alone
+    energies, rates = final.decay_photon_spectrum(per="cm3")   # lines, photons/s/cm3
+    for continuum in final.decay_photon_continua(per="cm3"):
+        print(continuum.nuclide, continuum.emission_rate)       # photons/s/cm3
+```
+
+``component`` splits decay heat into the recoverable-heat components the
+decay data gives (``"beta"``, ``"gamma"`` or ``"alpha"``): the gamma heat is the
+part that leaves a thin component, while the beta and alpha heat stay where they
+are made. It raises if a nuclide making decay heat carries no split, rather than
+understating the component by that nuclide's share.
+
+``decay_photon_spectrum()`` gives the discrete lines. Part of some decay spectra
+is given as a density over energy instead: the spontaneous-fission photons of an
+actinide, or the whole emission of a nuclide far from stability whose lines were
+never measured. ``decay_photon_continua()`` returns those, one
+``PhotonContinuum`` per nuclide and continuum, each with its own ``energies``,
+``rates`` per eV, ``interpolation`` law and ``emission_rate`` (the integral).
+Their rates are per eV, so they cannot be added to the line rates; a material
+with no continuum returns an empty list.
+
 #### Repeated calls, and letting the data go
 
 ``transmute()`` loads the cross sections it needs **into the material** and keeps
@@ -449,6 +481,48 @@ for composition in many_compositions:
     scan_mat.transmute(schedule=schedule)
     scan_mat.release_nuclear_data()
 ```
+
+#### Many materials at once
+
+``yamc.transmute()`` is the plural of ``Material.transmute()``, for the cells of a
+mesh from a transport run, a component broken into regions, or a sweep over
+compositions. Each material gets exactly the answer its own ``transmute()``
+would give, and the result is one ``TransmutationResults`` keyed by each
+material's ``id``. The chain is read once, each nuclide's cross sections are
+decoded once and shared, and a multigroup collapse runs once for every distinct
+combination of spectrum, composition, temperature and shielding, before the
+materials are solved in parallel.
+
+<!-- doctest: skip -->
+```python
+cells = [
+    yamc.Material(composition={"Fe": 1.0}, density=7.874, id=i + 1, volume=1.0)
+    for i in range(3)
+]
+cell_fluxes = [1e14, 5e13, 1e13]   # each cell's flux magnitude [n/cm^2/s]
+schedules = [
+    yamc.PulseSchedule([
+        yamc.Pulse(rate=flux, duration=(1, "y"), source=spectrum),
+        yamc.Cooldown(duration=(1, "d")),
+    ])
+    for flux in cell_fluxes
+]
+many = yamc.transmute(cells, schedules)
+
+many.get_final_material(material_id=2)
+many.get_source_rates(material_id=2)   # that cell's flux magnitude per step
+many.collapse_reuse                    # {"performed": 1, "requested": 3}
+```
+
+Give one schedule for every material or one per material, in the same order.
+The schedules may differ in their spectra and rates but must share one
+timeline, the same durations with irradiation on the same steps. The ids must
+be distinct. ``data_uncertainty``, ``self_shielding_shape`` and
+``self_shielding_chord`` apply to every material as ``Material.transmute()``
+applies them to one. ``collapse_reuse`` reports the collapses actually run
+against one per distinct spectrum per material: above, the three cells share
+one spectrum and one composition, so they share one collapse whatever their
+flux magnitudes.
 
 #### Resonance self-shielding
 
@@ -670,6 +744,36 @@ Omitting both is the common case: a spectrum taken from a published reference se
 carries no stated error. The ``flux_spectrum`` source then contributes nothing and
 says so in the report's ``spectra_without_flux_sigma``, rather than reading as a
 flux known exactly.
+
+##### Where the uncertainty comes from
+
+``DataUncertainty(attribution=True)`` also says which source and which
+evaluation a nuclide's spread comes from, read with
+``get_uncertainty_breakdown``. It is off by default because it costs further
+solves, one ensemble per source and one deterministic solve per contributor,
+and it changes none of the numbers the run otherwise reports.
+
+<!-- doctest: skip -->
+```python
+attributed = material.transmute(
+    schedule=schedule,
+    data_uncertainty=yamc.DataUncertainty(seed=42, attribution=True),
+)
+breakdown = attributed.get_uncertainty_breakdown(material_id=mid, nuclide="Mn56", step=1)
+if breakdown is not None:          # None unless attribution=True
+    breakdown["variance"]          # the total, the square of get_nuclide_uncertainty
+    breakdown["by_source"]         # each source alone, resampled; these sum to the total
+    breakdown["unattributed"]      # what that sum leaves: interaction and sampling noise
+    breakdown["contributors"]      # [(source, nuclide, reaction, variance)], largest first
+```
+
+``by_source`` resamples each source on its own, so it says how much of the
+spread is statistical and how much is each kind of nuclear data; the sources
+are independent and their variances add. ``contributors`` is first order and
+names the evaluation to look at: within the cross sections a nuclide's whole
+evaluation has a ``reaction`` of ``None`` and each channel alone names its
+reaction, and a half-life or a two-mode decay branching has ``None`` too. The
+total stays the resampled one.
 
 ##### How a sample is drawn
 
