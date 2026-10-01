@@ -661,10 +661,57 @@ is not has no square root to sample from. The negative eigenvalues of the folded
 matrix are set to zero, which is the standard repair, and the repair adds
 variance rather than removing it: no channel's sampled sigma falls below the
 evaluated one, and a channel the evaluation gave no variance can pick some up.
-``matrices_clipped`` counts the matrices repaired and ``worst_relative_clip``
-gives the largest ``|lambda_min| / lambda_max`` among them. That ratio is set by
-the widest channel, often one carrying almost none of the rate, so a small value
-does not mean the channel that matters kept its evaluated sigma.
+A matrix counts as repaired when its correlation matrix, over the channels with
+a positive stated variance, has an eigenvalue below ``-n * 1e-12`` (``n`` the
+number of those channels), or when a channel is stated with a negative variance,
+or with a zero one and a covariance to another channel. Judged on the
+correlation matrix, the round-off of the eigendecomposition is on each channel's
+own scale, so a PSD matrix that comes back a few ulps negative is not a repair,
+and a channel with a huge variance cannot hide a real repair among the others.
+``covariance_repaired`` lists the distinct nuclides, not a count over spectra,
+with a repaired channel a draw can move (a positive rate on a spectrum the
+schedule irradiates with), and any makes ``has_gaps`` true. The report covers
+the nuclides the material can populate: the fold takes every chain nuclide with
+data, which from almost any composition is the chain's whole closure, so a
+nuclide is reported only when an upper bound on its density over the schedule,
+at nominal rates, reaches the solver's floor of ``1e-30`` atoms/b-cm. One the
+bound leaves out cannot move any nominal density by as much as that floor, but a
+replica's rates on a wide channel can sit orders above nominal, so the repaired
+nuclides outside the bound with a channel a draw can move are named in
+``covariance_repaired_outside_bound``, and any of those makes ``has_gaps`` true
+as well, since the bound says nothing about a replica. ``covariance_repairs``
+gives one entry per repaired populated nuclide and spectrum, including repairs
+no draw can move, with ``lambda_min``, ``lambda_max``, ``clipped_fraction``
+(the variance the repair added over the stated trace) and, per channel,
+``evaluated_variance`` (the folded diagonal as stated, which can be negative),
+``evaluated_sigma`` (``None`` for a negative variance) and ``sampled_sigma``.
+A small ``|lambda_min| / lambda_max`` does not mean a small widening of the
+channel that matters, which is why each channel's two sigmas are given.
+``worst_sigma_inflation`` is the largest sampled over evaluated sigma, minus
+one, over the repaired channels a draw can move, and
+``rate_weighted_sigma_inflation`` is the weighted mean of each channel's own
+sampled over evaluated sigma, minus one, over every sampled channel of a
+populated nuclide, each weighted by its rate at unit flux times its spectrum's
+fluence in the schedule times its parent's initial density. The weight is on
+each channel's inflation, not on its sigma, so a wide channel with a small rate
+cannot drown out a repair on the channels that carry the reactions. The initial
+density makes it a measure of first-generation reactions: a nuclide the material
+starts without carries no weight, and its repairs show in
+``worst_sigma_inflation`` and ``covariance_repairs`` instead. The sampled sigma
+is read off the factorization for every matrix, so on a matrix that needed no
+repair the decomposition's round-off shows here as it is, far below any real repair.
+Either headline can be ``float('inf')`` when a repair gives spread to a channel
+stated with none, and strict JSON does not accept that.
+
+``sigma_at_least_one`` and ``sigma_at_least_ten`` name the sampled channels,
+keyed ``"Nuclide (n,x)"``, of populated nuclides with a positive rate on a
+spectrum the schedule irradiates with, whose folded relative sigma as evaluated
+is at least one or ten. At that width the spread depends on the lognormal chosen to carry
+the evaluation's two moments, not on the evaluation alone.
+``sigma_at_least_one_outside_bound`` does the same for the nuclides outside the
+populated bound, since a replica's draw on exactly such a channel can sit orders
+above nominal and populate the nuclide; the ten-or-more subset reads off its
+values. They are not a gap.
 
 ##### What it does not cover
 
@@ -889,9 +936,9 @@ if info is not None:            # None unless data_uncertainty was passed
     info["has_gaps"]            # True if a nuclide, covariance block or spectrum
                                 # had no usable uncertainty, a block was
                                 # malformed or of an unsupported layout, either
-                                # partials check listed a channel, or a
-                                # half-life or decay energy had no stated sigma
-                                # or one no draw can carry;
+                                # partials check listed a channel, a half-life
+                                # or decay energy had no stated sigma or one no
+                                # draw can carry, or a covariance was repaired;
                                 # of the held inputs above, skipped_cross_material,
                                 # skipped_nc, and a nuclide left with no usable
                                 # block (listed in no_covariance_data) set it
