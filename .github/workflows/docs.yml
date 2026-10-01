@@ -68,7 +68,7 @@ jobs:
           # stale. The examples on the prose pages are hand-written and can:
           # README.md called `yamc.Sphere(r=...)` and `yamc.Discrete`, neither
           # of which exists, and materials.md iterated a `TransmutationResults`
-          # that has not been a list since core#511. All of it kept rendering
+          # as if it were a list. All of it kept rendering
           # and deploying. A type check against the shipped .pyi stubs catches
           # that class without needing nuclear data or a solve.
           python docs/check_examples.py
