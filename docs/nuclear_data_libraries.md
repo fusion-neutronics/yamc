@@ -101,10 +101,40 @@ not the same as covariance landing where a given run needs it. Depth varies as
 much as presence: JENDL-5 carries covariance for 13% of its evaluations, and its
 Fe56 covers 56 channels against ENDF/B-VIII.1's 7.
 
-Cross sections are also the only covariance family that reaches the converted
-data. The ENDF parser reads angular-distribution and radionuclide-production
-covariance too (MF=34 and MF=40, against MF=33 for cross sections), and nothing
-consumes them.
+Cross sections (MF=33) are also the only covariance family that reaches the
+converted data. The ENDF parser reads resonance-parameter covariance (MF=32),
+angular-distribution covariance (MF=34) and radionuclide-production covariance
+(MF=40, the covariance of each product state's production cross section) as
+well, but none of them is written to the converted data yet, so nothing samples
+them. ENDF/B-VIII.1, FENDL-3.2d and TENDL state no correlation in MF=40 between
+a product's states, or with MF=33, so even once it is stored the
+isomeric-branching split's uncertainty is only partly stated. An evaluation that
+keeps its resolved-resonance uncertainty in MF=32 and leaves MF=33 at zero over
+that range arrives with no capture, elastic or fission uncertainty below the top
+of its resolved resonances, and that range reaches down to thermal. The
+uncertainty report counts rate from energies where the stated variance is zero
+as uncovered, so the gap shows in ``rate_fraction_covered``. MF=33 blocks stated
+with LB=0 to 2 are also used today over only the lower half of their energy
+grid, and short-range LB=8 blocks are folded as relative where the evaluation
+states them in barns squared, as [MF=33 blocks read in
+part](materials.md#what-it-does-not-cover) describes.
+
+Beyond covariance, the decay data carries each nuclide's half-life with the
+standard deviation its evaluation states, and its decay energy with a standard
+deviation built from the evaluation's sigmas on the beta, gamma and alpha
+components. The evaluation states no correlation between them, so they are
+treated as independent and the total's sigma is their quadrature sum. The
+``half_life`` and ``decay_energy`` uncertainty sources draw from these. The
+converter also stores the sigma each evaluation states on a decay mode's
+branching ratio (``branching_ratio_uncertainty`` in ``decay_modes.arrow``). The
+published decay data predates it, so a downloaded library carries it only from
+the next data version, and no source samples it yet. Fission yields are in the
+same state: the converter stores each evaluation's yields with their stated
+sigmas (``yield_uncertainties`` in ``fission_yields/evaluated_yields.arrow``),
+the published data predates the file, and no source samples them. The sigmas
+stated on decay photon lines are not in the converted data yet. [What
+it does not cover](materials.md#what-it-does-not-cover) lists what a
+nuclear-data uncertainty run holds at nominal.
 
 ### Energy range
 
