@@ -1,4 +1,4 @@
-# Transmutation 
+# Transmutation
 
 ### Model.simulate_transmutation()
 
@@ -28,19 +28,19 @@ results = model.simulate_transmutation(
 The irradiation/cooling timeline is one ``PulseSchedule`` of ``Pulse`` / ``Cooldown`` steps, the same type used for the shutdown-dose-rate post-processing below. Each ``Pulse`` carries a duration (seconds, or a ``(value, unit)`` tuple) and a source ``rate`` in n/s; each ``Cooldown`` is decay-only. Transport uses the source configured on the ``Model``, so a schedule with more than one distinct ``Pulse`` source is rejected.
 
 Methods:
-- ``"coupled"`` -- transport runs every step with updated compositions
-- ``"independent"`` -- transport runs once; reaction rates scaled by source rate per step (faster for low-burnup / fusion)
+- ``"coupled"``: transport runs every step with updated compositions
+- ``"independent"``: transport runs once; reaction rates scaled by source rate per step (faster for low-burnup / fusion)
 
 ``simulate_transmutation`` accepts a ``compute`` argument for symmetry with
 ``simulate_transport``, but ``"cpu"`` (the default) is the only value it takes.
 The transmutation solve has no GPU backend, and the per-step transport would
 have to hand its rates back to a CPU solve every step even if it ran on the
-device. Anything else raises ``ValueError`` saying that, rather than a
-``TypeError`` about an unexpected keyword.
+device. Any other value raises a ``ValueError`` explaining this (not a
+``TypeError`` about an unexpected keyword).
 
 ### Cooling curves
 
-A decay curve wants points at *cumulative* times, but ``Cooldown`` takes the
+A decay curve needs points at cumulative times, but ``Cooldown`` takes the
 duration of its own step, so writing one by hand means differencing the times
 first. ``cooldown_steps`` does that:
 
@@ -56,11 +56,11 @@ Twelve cooling points from one hour to ten years after shutdown. The step
 durations sum to ``stop`` exactly: the first one runs from the end of the
 irradiation to ``start``, rather than the steps spanning ``stop - start``.
 
-Log spacing is the default because decay is exponential, so a linear sweep is
-wrong twice over: it wastes steps in the flat tail and misses the early fall
-entirely. Activity and decay heat are plotted on log-log axes, so evenly spaced
-*plotted* points means log-spaced times. ``spacing="linear"`` gives the even
-sweep in time that a fixed-interval measurement campaign looks like.
+Log spacing is the default because decay is exponential. A linear sweep wastes
+steps in the flat tail and misses the early fall. Activity and decay heat are
+plotted on log-log axes, so points evenly spaced on the plot are log-spaced in
+time. ``spacing="linear"`` gives evenly spaced times, as in a fixed-interval
+measurement campaign.
 
 ``start`` and ``stop`` take the same forms as a ``Cooldown`` duration: seconds,
 or a ``(value, unit)`` tuple. ``n`` is the number of points and must be at least
@@ -103,7 +103,7 @@ chain.decays["W185_m1"]   # [('IT', 'W185', 1.0)]
 
 Stable nuclides have no decay modes and are absent from ``decays``, as they are from ``half_lives``. A ``target`` of ``None`` means the channel names no single product: fission on the reaction side, a product outside the chain on the decay side. Decay modes carry the evaluation's own spellings (``"beta-"``, ``"ec/beta+"``, ``"alpha"``, ``"IT"``, ``"sf"``, and emissions written as ``"beta-,n"``), and the branchings for one parent sum to 1.
 
-Because the two share a shape they can go in one edge list, which is what a route walk wants. With reactions alone a walk stops at the first product, one step short of most real routes:
+Because the two share a shape they can go in one edge list, which is what a route walk needs. With reactions alone a walk stops at the first product, one step short of most real routes:
 
 <!-- doctest: skip -->
 ```python
@@ -123,11 +123,11 @@ for kind1, mid, _ in edges["W186"]:              # two-step routes from W186 to 
 # W186(n,a)Hf183(beta-)Ta183      <- the one that needs the decay edge
 ```
 
-The branching on an edge is a share of its channel, not a rate: it says how a channel splits, not how often the channel fires. Two routes into the same product are not weighted against each other by these numbers alone.
+The branching on an edge is a share of its channel. It says how a channel splits and nothing about how often the channel fires, so these numbers alone cannot weight two routes into the same product against each other.
 
 ### Per-edge reaction rates
 
-The solve computes the rate of every individual production edge to build its burnup matrix, whose entries are sums over the edges into each product. ``get_reaction_rates`` hands those edges back, so a route can be weighted rather than merely listed:
+The solve computes the rate of every individual production edge to build its burnup matrix, whose entries are sums over the edges into each product. ``get_reaction_rates`` returns those edges, so routes can be weighted as well as listed:
 
 <!-- doctest: skip -->
 ```python
@@ -139,11 +139,11 @@ rates["Fe58"]["(n,2n)"]        # [('Fe57', 1.205e-09)]            # rate in 1/s
 
 ``parent -> reaction kind -> [(target, rate [1/s])]``. A ``target`` of ``None`` is a channel naming no single product, which in practice means fission, whose products come from the yields rather than from an edge. A decay-only step drove no reaction and reports an empty map.
 
-Note the index: ``step`` is the schedule step, the same index as ``timesteps`` and ``get_source_rates(material_id)``, which is one less than the ``step`` the composition getters take (where 0 is the initial composition).
+Here ``step`` is the schedule step, the same index as ``timesteps`` and ``get_source_rates(material_id)``, which is one less than the ``step`` the composition getters take (where 0 is the initial composition).
 
 Both methods report the same quantity in the same shape. ``method="coupled"`` takes the rates from that step's own transport tallies and ``method="independent"`` from the single transport's multigroup fold scaled by the step's source rate. Either way an edge rate is that rate times the branching of the chain the step was solved with, isomeric overlay included, so a consumer does not have to know which method produced the result.
 
-The share of a product arriving down each route is the headline column of a decay heat pathway analysis, and it is what makes a C/E actionable: knowing a foil reads 2.5x the measurement says something is wrong, and knowing that 73% of the dominant product arrives down one channel says which evaluated quantity to go and look at.
+The share of a product arriving down each route is the main column of a decay heat pathway analysis, and it is what makes a C/E useful for diagnosis. A foil reading 2.5x the measurement says something is wrong; knowing that 73% of the dominant product arrives down one channel says which evaluated quantity to check.
 
 <!-- doctest: skip -->
 ```python
@@ -200,7 +200,7 @@ for nuclide, reaction, target, rate, std_dev in (
 
 A reaction total has a ``target`` of ``None`` and an isomeric partial names its
 final state. The rates are the tally's, scaled by the step's source rate,
-exactly as the step's solve used them. They were scored by the same histories
+as the step's solve used them. They were scored by the same histories
 and so are correlated: the inventory sigmas carry those correlations, and these
 standard deviations alone do not.
 

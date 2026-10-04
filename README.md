@@ -4,8 +4,8 @@
 transport code for neutron and photon simulations, with a focus on fusion
 neutronics workflows.
 
-[Documentation](https://fusion-neutronics.github.io/yamc/) 📝 |
-[PyPI](https://pypi.org/project/yamc/) 🐍
+[Documentation](https://fusion-neutronics.github.io/yamc/) |
+[PyPI](https://pypi.org/project/yamc/)
 
 ```bash
 pip install yamc
@@ -33,15 +33,15 @@ print(results[tally].mean)
 
 Continuous-energy neutron and photon transport over CSG or unstructured mesh
 geometry, on CPU or GPU, with tallies, variance reduction, transport-coupled
-transmutation and shutdown dose rates. The solver is Rust; the wheel needs no
-compiler and no external toolchain.
+transmutation and shutdown dose rates. The solver is written in Rust, and the wheel
+needs no compiler or external toolchain.
 
 
 ## Transmutation without transport
 
-If you already have a spectrum and want none of the transport stack, install
-[yani](https://github.com/fusion-neutronics/yani) instead: same materials, same
-schedules, same nuclear data, no geometry.
+If you already have a spectrum and do not need transport, install
+[yani](https://github.com/fusion-neutronics/yani) instead. It uses the same
+materials, schedules and nuclear data, without the geometry.
 
 ## Licence
 

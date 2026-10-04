@@ -1,13 +1,13 @@
 # Shutdown Dose Rate
 
-After irradiation, activated materials keep emitting decay gammas; the dose rate once the neutron source is switched off is the *shutdown dose rate*. YAMC computes it from a **single** transport run, one of the single-transport methods that also include UKAEA's **D1S** (Direct-1-Step) and **N1S** (Novel-1-Step), as opposed to **R2S** (Rigorous-2-Step), which runs a separate activation step. Decay photons are coupled directly into the neutron transport run, replacing the prompt photons. YAMC's method derives from D1S but computes time correction factors (TCFs) automatically for every reachable radionuclide and applies them in post-processing, so the irradiation and cooling schedule can change without re-running transport.
+After irradiation, activated materials keep emitting decay gammas. The dose rate once the neutron source is switched off is the shutdown dose rate. YAMC computes it from a single transport run. This puts it among the single-transport methods, which also include UKAEA's D1S (Direct-1-Step) and N1S (Novel-1-Step), as opposed to R2S (Rigorous-2-Step), which runs a separate activation step. Decay photons are coupled directly into the neutron transport run, replacing the prompt photons. YAMC's method derives from D1S but computes time correction factors (TCFs) automatically for every reachable radionuclide and applies them in post-processing, so the irradiation and cooling schedule can change without re-running transport.
 
 ### Overview
 
 1. Bin a photon tally by parent radionuclide (``parent_nuclides=model.radionuclides()``)
 2. Run transport with ``use_decay_photons=True``
 3. Describe the irradiation/cooling timeline as a ``PulseSchedule``
-4. ``schedule.time_correct_tally(...)`` -> dose rate(s)
+4. Call ``schedule.time_correct_tally(...)`` to get the dose rate(s)
 
 ### Workflow
 
@@ -21,11 +21,11 @@ yamc.transmutation_reactions = _chain
 yamc.transmutation_fission_yields = _chain
 
 # 1. Bin a photon tally by parent radionuclide.
-#    parent_nuclides=... is what makes a tally decay-photon-ready: it scores
-#    one bin per radionuclide so the per-nuclide decay photons can be scaled
-#    independently in post-processing. The radionuclides come straight from
-#    the model's materials, so no schedule is needed yet. Works on any spatial
-#    filter -- here a mesh, but cells/materials work too.
+#    parent_nuclides=... makes the tally score one bin per radionuclide, so
+#    each nuclide's decay photons can be scaled independently in
+#    post-processing. The radionuclides come from the model's materials, so
+#    no schedule is needed yet. Any spatial filter works: a mesh here, but
+#    cells and materials work too.
 mesh = yamc.RegularRectangularMesh.from_domain(geometry, shape=1_000_000)
 dose_tally = yamc.Tally(
     scores=["flux"],
@@ -63,7 +63,7 @@ print(dose.by_nuclide)                               # per-radionuclide breakdow
 For a single ``int`` ``steps`` the ``DoseResult`` arrays are 1-D; for the
 default (all steps) or a list of steps they are 2-D (one row per step), and
 ``dose.times`` gives the elapsed time at the end of each selected step. The
-flat bin layout per row is ``score → mesh`` (the general order is in
+flat bin layout per row is score then mesh (the general order is in
 [Spatial binning](tallies.md#spatial-binning)), so reshape with
 ``np.array(dose.mean).reshape(mesh.shape)``.
 
@@ -91,15 +91,15 @@ activity over the schedule, and the tally's photon yield is per decay, so the
 half-lives enter through the correction and nowhere else. Each replica draws
 every half-life feeding an emitter once and uses it for every campaign, and the
 draws are those a transmutation with the same seed makes. Decay branching
-ratios also shape a time correction and are held at nominal here, which
-``data_uncertainty_info`` lists under ``not_perturbed``. The two sigmas are
-independent, one being the transport's sampling and the other the evaluated
-half-lives, which is why they add in quadrature. Without ``data_uncertainty``
+ratios also shape a time correction but are held at nominal here, and
+``data_uncertainty_info`` lists them under ``not_perturbed``. The two sigmas are
+independent (one comes from transport sampling, the other from the evaluated
+half-lives), so they add in quadrature. Without ``data_uncertainty``
 the three attributes are ``None``.
 
 ### Mixed-spectrum (DD + DT) campaigns
 
-A schedule can mix sources -- e.g. a DT pulse, cooling, then a DD pulse. Each
+A schedule can mix sources, for example a DT pulse, cooling, then a DD pulse. Each
 distinct spectrum activates the materials differently, so run transport once
 per source and pass ``time_correct_tally`` a dict mapping each source in
 ``schedule.sources`` to its run's tally result; the per-source corrections are
@@ -130,11 +130,11 @@ dose = schedule.time_correct_tally({dt: results_dt[dose_tally],
 
 ### Reference
 
-- ``model.radionuclides()`` -- activation radionuclides reachable from a Model's materials; pass to ``Tally(parent_nuclides=...)``.
-- ``yamc.Pulse(rate, duration, source=None)`` -- an irradiation campaign. ``duration`` is seconds or a ``(value, unit)`` tuple (units: s, min, h, d, a). ``source`` is the NeutronSource for transport / SDR; omit it (sourceless) for ``Material.transmute``, where ``rate`` is a flux multiplier.
-- ``yamc.Cooldown(duration)`` -- a cooling step (no source).
-- ``yamc.PulseSchedule([steps...])`` -- the timeline; ``.sources`` lists its distinct sources, ``len(schedule)`` its step count.
-- ``schedule.time_correct_tally(results, steps=None, data_uncertainty=None)`` -> ``DoseResult`` with ``.mean`` / ``.std_dev`` / ``.by_nuclide`` / ``.times``, and ``.data_std_dev`` / ``.total_std_dev`` / ``.data_uncertainty_info`` when ``data_uncertainty`` is given.
+- ``model.radionuclides()``: activation radionuclides reachable from a Model's materials; pass to ``Tally(parent_nuclides=...)``.
+- ``yamc.Pulse(rate, duration, source=None)``: an irradiation campaign. ``duration`` is seconds or a ``(value, unit)`` tuple (units: s, min, h, d, a). ``source`` is the NeutronSource for transport and SDR; omit it (sourceless) for ``Material.transmute``, where ``rate`` is a flux multiplier.
+- ``yamc.Cooldown(duration)``: a cooling step (no source).
+- ``yamc.PulseSchedule([steps...])``: the timeline; ``.sources`` lists its distinct sources, ``len(schedule)`` its step count.
+- ``schedule.time_correct_tally(results, steps=None, data_uncertainty=None)``: returns a ``DoseResult`` with ``.mean`` / ``.std_dev`` / ``.by_nuclide`` / ``.times``, and ``.data_std_dev`` / ``.total_std_dev`` / ``.data_uncertainty_info`` when ``data_uncertainty`` is given.
 
-Parent-nuclide binning itself is just the ``parent_nuclides=`` argument on
-``Tally`` (step 1) -- no separate setup call is needed.
+Parent-nuclide binning is set by the ``parent_nuclides=`` argument on
+``Tally`` (step 1). No separate setup call is needed.

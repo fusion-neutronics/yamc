@@ -9,13 +9,13 @@ YAMC is available on [PyPI](https://pypi.org/project/yamc).
 
 ### Install from PyPI
 
-To install ensure you have [pip installed](https://pip.pypa.io/en/stable/installation/) and then run:
+To install, make sure you have [pip installed](https://pip.pypa.io/en/stable/installation/), then run:
 
 ```bash
 pip install yamc
 ```
 
-This installs the core YAMC transport solver with multi-threading support (via Rayon). No MPI required.
+This installs the core YAMC transport solver with multi-threading support (via Rayon). MPI is not required.
 
 
 
@@ -25,15 +25,15 @@ YAMC provides optional extras for additional functionality:
 
 | Extra | Install command | What it adds |
 |-------|----------------|--------------|
-| **cad** | `pip install yamc[cad]` | CAD meshing pipeline -- surface + tetrahedral (requires cadquery) |
-| **viz** | `pip install yamc[viz]` | VTKHDF visualization export (h5py, numpy) |
-| **pandas** | `pip install yamc[pandas]` | pandas DataFrame export of tally results |
-| **polars** | `pip install yamc[polars]` | polars DataFrame export of tally results |
-| **xarray** | `pip install yamc[xarray]` | xarray (labelled N-D array) export of tally results |
-| **all** | `pip install yamc[all]` | cad + tet + viz (does **not** include pandas/polars/xarray) |
-| **dev** | `pip install yamc[dev]` | Development dependencies (pytest, maturin, cadquery) |
+| cad | `pip install yamc[cad]` | CAD meshing pipeline, surface and tetrahedral (requires cadquery) |
+| viz | `pip install yamc[viz]` | VTKHDF visualization export (h5py, numpy) |
+| pandas | `pip install yamc[pandas]` | pandas DataFrame export of tally results |
+| polars | `pip install yamc[polars]` | polars DataFrame export of tally results |
+| xarray | `pip install yamc[xarray]` | xarray (labelled N-D array) export of tally results |
+| all | `pip install yamc[all]` | cad, tet and viz (does not include pandas, polars or xarray) |
+| dev | `pip install yamc[dev]` | Development dependencies (pytest, maturin, cadquery) |
 
-For the full experience including CAD-to-mesh-to-transport:
+To install everything, including the CAD-to-mesh-to-transport pipeline:
 
 ```bash
 pip install yamc[all]
@@ -41,7 +41,7 @@ pip install yamc[all]
 
 ### Virtual Environment (Recommended)
 
-Further instructions on the [Python docs](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/)
+Further instructions are in the [Python docs](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/).
 
 ```bash
 python3 -m venv .venv
@@ -51,7 +51,7 @@ pip install yamc[all]
 
 ### Install the development version
 
-To get the latest unreleased changes, install directly from the GitHub repository. This builds from the latest source code so it requires a Rust toolchain which can be installed with [rustup](https://www.rust-lang.org/tools/install):
+To get the latest unreleased changes, install directly from the GitHub repository. This builds from source, so it needs a Rust toolchain, which can be installed with [rustup](https://www.rust-lang.org/tools/install):
 
 ```bash
 # Install Rust (skip if you already have it)
@@ -65,9 +65,9 @@ Extras work too, e.g. `pip install "yamc[all] @ git+https://github.com/fusion-ne
 
 ## MPI Installation (Advanced)
 
-For distributed memory parallelism across multiple nodes or to maximize performance on large clusters, you can install YAMC with MPI support.
+YAMC can be built with MPI support for distributed-memory parallelism across multiple nodes, for example on large clusters.
 
-**Note**: MPI installation is **optional**. The standard installation above works for most users. Only install MPI if you need:
+MPI is optional, and the standard installation above is enough for most users. Install MPI only if you need:
 - Multi-node parallelism (HPC clusters)
 - Scaling beyond a single machine
 - Hybrid MPI + threading parallelism
@@ -118,7 +118,7 @@ mpirun -np 2 hostname
 
 ### Install YAMC with MPI
 
-Building with MPI requires the Rust toolchain. If you don't have Rust:
+Building with MPI requires the Rust toolchain. To install Rust:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

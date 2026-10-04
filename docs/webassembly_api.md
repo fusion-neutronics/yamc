@@ -1,6 +1,6 @@
 # WebAssembly
 
-The yamc library provides WebAssembly (WASM) bindings, allowing the library to run in web browsers and other JavaScript environments. This enables client-side nuclear data processing and visualization without requiring server-side computation.
+yamc has WebAssembly (WASM) bindings, so the library can run in web browsers and other JavaScript environments. Nuclear data processing and visualization then run on the client, with no server-side computation.
 
 ## Features
 
@@ -18,7 +18,7 @@ material, plotting, and in-browser simulation paths described below.
 
 ### Prerequisites
 
-First, install the required tools:
+Install wasm-pack:
 
 ```bash
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -26,20 +26,21 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 ### Building the Package
 
-To quickly build the WebAssembly package:
+To build the WebAssembly package quickly:
 
 ```bash
 wasm-pack build --target web --features wasm crates/yamc
 ```
 
 To build the optimized WebAssembly package:
+
 ```bash
 wasm-pack build --target web --features wasm --release crates/yamc
 ```
 
 This creates a `pkg/` directory containing the generated WebAssembly files and JavaScript bindings.
 
-Create an index.html that makes use of the WASM file.
+Create an index.html that loads the WASM file.
 
 Copy the generated package to the examples directory and serve locally:
 
@@ -68,12 +69,12 @@ cargo test -p yamc --features wasm-test
 wasm-pack test --headless --firefox --features wasm-test crates/yamc
 ```
 
-This ensures that WASM-specific tests and dependencies are only included when needed.
+WASM-specific tests and their dependencies are then only included when the feature is enabled.
 
 
 ## JavaScript API
 
-The WebAssembly build exposes a JavaScript API that mirrors the Rust API. Example usage:
+The WebAssembly build exposes a JavaScript API that mirrors the Rust API. For example:
 
 ```javascript
 import init, { Material, Nuclide } from './pkg/yamc.js';
@@ -99,7 +100,7 @@ main();
 
 ### Running a simulation in the browser (`WasmSimulation`)
 
-Beyond `Material`, the bindings expose a `WasmSimulation` class for
+Besides `Material`, the bindings expose a `WasmSimulation` class for
 loading a model exported from Python and running the transport loop
 in the browser. The exported model JSON (from `model.save(path)`)
 carries the geometry, materials, source, and tally definitions; the JS
@@ -109,9 +110,9 @@ bundles that same model into a self-contained, ready-to-run HTML page.)
 The exported methods (see the source of truth in
 `crates/yamc/src/wasm/simulation_wasm.rs`) are:
 
-- `new WasmSimulation()` -- construct a simulation; installs a fresh
+- `new WasmSimulation()`: construct a simulation; installs a fresh
   in-memory nuclear-data store. Keep a single instance per page.
-- `fetchNuclearData(library_url, on_progress)` -- fetch every nuclide (and,
+- `fetchNuclearData(library_url, on_progress)`: fetch every nuclide (and,
   for photon transport, every element) the loaded model needs and the store
   does not hold yet, from the published per-section objects under
   `library_url` (`default_library_url()` names the ENDF/B-VIII.1 set on
@@ -122,29 +123,30 @@ The exported methods (see the source of truth in
   Resolves to a JSON summary `{status, nuclides, ranged, elements, requests,
   bytes}`; rejects with the URL that failed, or with the loader's own message
   when a material temperature is outside what the data covers.
-- `add_file(path, bytes)` -- register one virtual nuclear-data file
+- `add_file(path, bytes)`: register one virtual nuclear-data file
   (`/<Nuclide>.arrow/<section>`) the host already holds, for instance data
   the exporting Python embedded in the page.
-- `file_count()` -- number of files currently held in memory.
-- `load_model_json(json)` -- load a model from its exported JSON,
+- `file_count()`: number of files currently held in memory.
+- `load_model_json(json)`: load a model from its exported JSON,
   replacing any previously loaded model.
-- `model_required_nuclides()` -- comma-joined list of nuclide names the
+- `model_required_nuclides()`: comma-joined list of nuclide names the
   loaded model references.
-- `model_missing_nuclides()` / `model_missing_elements()` -- the required
-  nuclides / photon elements whose section set is not in the store yet,
-  comma-joined. Empty when transport can run; what a Simulate button gates on.
-- `sampleSlice(paramsJson)` -- sample a 2D geometry slice; returns a flat
+- `model_missing_nuclides()` / `model_missing_elements()`: the required
+  nuclides or photon elements whose section set is not in the store yet,
+  comma-joined. Both are empty when transport can run, so a Simulate button
+  can be enabled on that.
+- `sampleSlice(paramsJson)`: sample a 2D geometry slice; returns a flat
   interleaved `[cell_id, mat_id, ...]` array.
-- `boundingBox()` -- geometry bounding box as `[cx, cy, cz, wx, wy, wz]`
-  (center + widths in cm).
-- `geometryJson()` -- CsgGeometry JSON for the loaded model, used to build
+- `boundingBox()`: geometry bounding box as `[cx, cy, cz, wx, wy, wz]`
+  (center and widths in cm).
+- `geometryJson()`: CsgGeometry JSON for the loaded model, used to build
   the viewer's cell/material legend.
-- `plotHtml(paramsJson)` -- full interactive geometry-viewer HTML for the
+- `plotHtml(paramsJson)`: full interactive geometry-viewer HTML for the
   loaded model.
-- `tallyPlotHtml(paramsJson)` -- full interactive mesh-tally plot HTML from
+- `tallyPlotHtml(paramsJson)`: full interactive mesh-tally plot HTML from
   the current tally state.
-- `sampleSourcePoints(n, seed)` -- sample `n` source positions; returns a
+- `sampleSourcePoints(n, seed)`: sample `n` source positions; returns a
   flat `[x, y, z, ...]` array for the source overlay.
-- `simulate_transport(particles, batches, seed)` -- run the loaded model
+- `simulate_transport(particles, batches, seed)`: run the loaded model
   (overriding its run parameters) and return a JSON result string with a
   per-tally, per-score breakdown of means and standard deviations.

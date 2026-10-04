@@ -8,7 +8,7 @@ YAMC uses constructive solid geometry (CSG) to define simulation domains. Surfac
 
 All surfaces take an optional ``surface_id`` and ``boundary`` (``"transmission"`` or ``"vacuum"``).
 
-**Planes** -- infinite planar surfaces:
+**Planes** are infinite planar surfaces:
 
 ```python
 # Axis-aligned planes
@@ -20,13 +20,13 @@ zp = yamc.Plane(axis="z", offset=-10.0)
 p = yamc.Plane(axis=(1.0, 1.0, 0.0), offset=5.0 / ((1.0**2 + 1.0**2 + 0.0**2) ** 0.5))
 ```
 
-**Sphere** -- centered at ``(x0, y0, z0)`` with radius ``r``:
+A **sphere** is centered at ``(x0, y0, z0)`` with radius ``r``:
 
 ```python
 sphere = yamc.Sphere(x0=0.0, y0=0.0, z0=0.0, radius=10.0)
 ```
 
-**Cylinders** -- infinite along their axis:
+**Cylinders** are infinite along their axis:
 
 ```python
 # Axis-aligned cylinders
@@ -38,7 +38,7 @@ yc = yamc.Cylinder(axis="y", x0=0.0, z0=0.0, radius=3.0)
 cyl = yamc.Cylinder(axis=(1.0, 1.0, 0.0), x0=0.0, y0=0.0, z0=0.0, radius=5.0)
 ```
 
-**Tori** -- ``r_major`` is the major radius and ``r_minor`` the minor
+For **tori**, ``r_major`` is the major radius and ``r_minor`` the minor
 radius along the symmetry axis; pass ``r_minor_2`` for a different
 transverse minor radius (an elliptical cross-section). ``axis`` is
 ``'x'``, ``'y'``, or ``'z'`` (arbitrary directions are not yet
@@ -50,7 +50,7 @@ xt = yamc.Torus(axis="x", r_major=10.0, r_minor=3.0)
 yt = yamc.Torus(axis="y", r_major=10.0, r_minor=3.0)
 ```
 
-**Cones** -- double-sheeted, with the apex at ``(x0, y0, z0)`` and
+**Cones** are double-sheeted, with the apex at ``(x0, y0, z0)`` and
 ``opening_angle`` the half-opening angle in degrees. Cap with planes
 to keep one sheet:
 
@@ -66,11 +66,11 @@ yc = yamc.Cone(axis="y", opening_angle=math.degrees(math.atan(1.0**0.5)))
 cone = yamc.Cone(axis=(0.0, 1.0, 0.0), x0=0.0, y0=0.0, z0=0.0, opening_angle=math.degrees(math.atan(0.5**0.5)))
 ```
 
-**General quadric** -- a catch-all primitive,
-``a x^2 + b y^2 + c z^2 + d xy + e yz + f xz + g x + h y + j z + k = 0``
-(The quadric coefficient naming skips ``i``). Useful for porting existing
-models and for surfaces with no dedicated variant; the dedicated
-variants are faster and contribute finite bounding boxes, so prefer
+The **general quadric** is a catch-all primitive,
+``a x^2 + b y^2 + c z^2 + d xy + e yz + f xz + g x + h y + j z + k = 0``.
+The coefficient names skip ``i``. It is useful for porting existing
+models and for surfaces with no dedicated variant. The dedicated
+variants are faster and give finite bounding boxes, so prefer
 them when one fits:
 
 ```python
@@ -78,9 +78,10 @@ them when one fits:
 q = yamc.Quadric(a=1.0, b=1.0, c=1.0, k=-100.0)
 ```
 
-**Boundary types** -- set on the outermost surfaces:
-- ``"transmission"`` (default) -- particles pass through freely
-- ``"vacuum"`` -- particles are killed on crossing
+**Boundary types** are set on the outermost surfaces:
+
+- ``"transmission"`` (default): particles pass through freely
+- ``"vacuum"``: particles are killed on crossing
 
 ```python
 outer = yamc.Sphere(radius=50.0, boundary="vacuum")
@@ -98,19 +99,19 @@ outside = sphere.above  # r > 10
 
 ### Boolean operators
 
-Regions are combined with ``&`` (intersection), ``|`` (union), and ``~`` (complement) to build complex shapes.
+Regions are combined with ``&`` (intersection), ``|`` (union), and ``~`` (complement) to build more complicated shapes.
 
-**Intersection** (``&``) -- space where both regions overlap:
+**Intersection** (``&``) is the space where both regions overlap:
 
 ```python
-# Cylinder capped by planes → finite cylinder
+# A cylinder capped by two planes gives a finite cylinder
 cylinder = yamc.Cylinder(axis="z", radius=5.0)
 bottom = yamc.Plane(axis="z", offset=-10.0)
 top = yamc.Plane(axis="z", offset=10.0)
 capped_cylinder = cylinder.below & bottom.above & top.below
 ```
 
-**Union** (``|``) -- space belonging to either region:
+**Union** (``|``) is the space belonging to either region:
 
 ```python
 # Two cylinders forming a cross
@@ -119,7 +120,7 @@ cyl_z = yamc.Cylinder(axis="z", radius=2.0)
 cross = cyl_x.below | cyl_z.below
 ```
 
-**Complement** (``~``) -- everything outside a region:
+**Complement** (``~``) is everything outside a region:
 
 ```python
 # Hollow cylinder (pipe)
@@ -127,10 +128,10 @@ inner_cyl = yamc.Cylinder(axis="z", radius=3.0)
 outer_cyl = yamc.Cylinder(axis="z", radius=5.0)
 bottom = yamc.Plane(axis="z", offset=-10.0)
 top = yamc.Plane(axis="z", offset=10.0)
-pipe = inner_cyl.above & outer_cyl.below & bottom.above & top.below
+pipe = ~inner_cyl.below & outer_cyl.below & bottom.above & top.below
 ```
 
-**Combining all three** -- a box with a cylindrical hole:
+**Combining them** gives, for example, a box with a cylindrical hole:
 
 ```python
 # Box
@@ -141,7 +142,7 @@ box = xmin.above & xmax.below & ymin.above & ymax.below & zmin.above & zmax.belo
 
 # Cylindrical hole through the box
 hole = yamc.Cylinder(axis="z", radius=3.0)
-box_with_hole = box & hole.above  # box minus cylinder interior
+box_with_hole = box & ~hole.below  # box minus cylinder interior
 ```
 
 ### Cells
@@ -305,8 +306,8 @@ print(
 
 ### Volume calculation
 
-Stochastic volume calculation samples random points and checks containment.
-This is useful for getting the size of CSG cells.
+Stochastic volume calculation samples random points and checks which cell
+contains each one. Use it to find the volumes of CSG cells.
 
 <!-- doctest: skip -->
 ```python
@@ -334,10 +335,10 @@ for name, vol in zip(mesh_geom.volume_names, mesh_geom.volume_measures):
 ```
 
 For consistency with the CSG API, ``MeshGeometry.calculate_volume()`` is
-also available -- it returns the same dict-of-VolumeResult shape as
+also available. It returns the same dict-of-VolumeResult shape as
 ``Geometry.calculate_volume()`` but with exact values (``std_dev=0``)
-computed from the analytic measures. This lets the same calling code
-work for both CSG and mesh geometries.
+computed from the analytic measures, so the same calling code works
+for both CSG and mesh geometries.
 
 <!-- doctest: skip -->
 ```python
@@ -349,9 +350,9 @@ for vol_id, result in volumes.items():
 
 ## CAD Geometry
 
-YAMC includes an integrated CAD-to-mesh pipeline via the ``yamc.cad`` module (install with ``pip install yamc[cad]``). [CadQuery](https://cadquery.readthedocs.io/) is a Python library for building parametric 3D CAD models from a concise, script-based API. This allows direct use of CadQuery geometry for neutron transport.
+YAMC includes a CAD-to-mesh pipeline in the ``yamc.cad`` module (install with ``pip install yamc[cad]``). [CadQuery](https://cadquery.readthedocs.io/) is a Python library for building parametric 3D CAD models with a script-based API. The pipeline lets CadQuery geometry be used directly for neutron transport.
 
-CadQuery can also load externally created STEP files (e.g. exported from another CAD tool) with ``cq.importers.importStep("part.step")``. The imported CAD should be clean and watertight so that it meshes correctly and works in particle transport -- avoid gaps, overlaps and self-intersections between solids, which produce meshing failures or lost/double-counted particles.
+CadQuery can also load externally created STEP files (e.g. exported from another CAD tool) with ``cq.importers.importStep("part.step")``. The imported CAD should be clean and watertight so that it meshes correctly and works in particle transport. Avoid gaps, overlaps and self-intersections between solids; they cause meshing failures or lost or double-counted particles.
 
 ### Defining geometry in CadQuery
 

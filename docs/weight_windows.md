@@ -4,20 +4,20 @@ Weight windows are a variance-reduction technique for deep-penetration and
 streaming problems: places where an analog simulation almost never sends a
 particle, so the tally there is dominated by a handful of lucky histories (or
 stays zero). A weight window defines, per mesh voxel and energy group, a target
-weight band. A particle above the band is **split** into several lower-weight
+weight band. A particle above the band is split into several lower-weight
 copies (more histories where the tally needs them); a particle below the band is
-**rouletted** (killed or promoted); a particle inside the band is left alone.
-Weight is conserved in expectation, so the tally means are unchanged, only the
-variance where it matters is reduced.
+rouletted (killed or promoted); a particle inside the band is left alone.
+Weight is conserved in expectation, so the tally means are unchanged and only
+the variance is reduced.
 
-Weight windows are applied at collisions and run on the **CPU only**
+Weight windows are applied at collisions and run on the CPU only
 (``compute='gpu'`` refuses ``variance_reduction``). They compose with the rest
 of the ``variance_reduction`` list; see [Models](models.md) for that list and
 for survival biasing.
 
 ## Generating windows automatically (DeGVR)
 
-The usual workflow is to *generate* the windows from a cheap pre-pass rather
+The usual workflow is to generate the windows from a cheap pre-pass rather
 than write bounds by hand. ``model.generate_weight_windows`` runs the
 density-extrapolation method (DeGVR): two short transport passes at reduced
 material density, then a per-(voxel, group) extrapolation to full density. It
@@ -47,7 +47,7 @@ prod = yamc.Model(
 results = prod.simulate_transport(total_particles=2_000_000)
 ```
 
-Generation is not free, so for an honest efficiency comparison charge its
+Generation has a cost, so for a fair efficiency comparison charge its
 wall-clock time against the weight-window budget: time the generation and run
 the production pass for the remaining time (see
 [``max_runtime``](simulate_transport.md)).
@@ -65,7 +65,7 @@ t_gen = time.time() - t0
 
 prod = yamc.Model(geometry=geometry, source=source, tallies=[tally], variance_reduction=[windows])
 results = prod.simulate_transport(total_particles=10_000_000_000, max_runtime=(20, "min") )
-# analog baseline for the SAME total wall-clock (generation-inclusive):
+# analog baseline for the same total wall-clock, including generation:
 analog = model.simulate_transport(total_particles=10_000_000_000,
                                   max_runtime=t_gen + results.elapsed)
 ```
@@ -121,11 +121,11 @@ windows = yamc.WeightWindowBounds(
 
 ## Photon sources
 
-Weight windows are **per particle type**: set ``particle=`` on both the
+Weight windows are per particle type: set ``particle=`` on both the
 generator and the bounds, and the collision handler applies each window only to
-matching particles. For a **photon source** ([``PhotonSource``](sources.md)),
-build the window with ``particle="photon"`` and run exactly as above -- the
-photon transport path splits/rouletts photons at their collisions and the tally
+matching particles. For a photon source ([``PhotonSource``](sources.md)),
+build the window with ``particle="photon"`` and run as above. The photon
+transport path splits and roulettes photons at their collisions and the tally
 means stay unbiased.
 
 <!-- doctest: skip -->
@@ -143,13 +143,13 @@ results = prod.simulate_transport(total_particles=..., seed=7)
 
 ### Secondary and decay photons (coupled)
 
-Photons produced *inside* the run -- secondary photons from neutron collisions
-(``transport_secondary_photons=True``) and D1S decay photons
-(``use_decay_photons=True``) -- travel the same photon transport path, so a
+Photons produced inside the run (secondary photons from neutron collisions with
+``transport_secondary_photons=True``, and D1S decay photons with
+``use_decay_photons=True``) travel the same photon transport path, so a
 ``particle="photon"`` window acts on them at their collisions too.
 
-To generate a neutron window **and** a photon window for a coupled
-neutron -> gamma problem in a single call, pass a **list** of particle types.
+To generate a neutron window and a photon window for a coupled
+neutron-gamma problem in a single call, pass a list of particle types.
 One coupled pair of reduced-density passes tallies both fields and returns one
 window per particle, in the requested order; apply them together:
 
@@ -176,8 +176,8 @@ A single-string ``particle`` still returns one ``WeightWindowBounds`` (unchanged
 a list returns a ``list`` in the same order. See
 ``examples/python/coupled_np_degvr.py``.
 
-**Auto density reduction for photons.** The auto ``density_reduction`` ray-trace
-uses a *photon* energy for a photon window, not the driving 14 MeV neutron energy
+For a photon window, the auto ``density_reduction`` ray-trace uses a photon
+energy rather than the driving 14 MeV neutron energy
 (photon attenuation at 14 MeV is nothing like at ~1 MeV). For neutron-driven
 secondary / decay photons it defaults to ~1 MeV, a typical gamma energy; override
 with ``photon_energy=`` on the generator if your spectrum is harder or softer.
@@ -185,8 +185,8 @@ This only affects generation efficiency, never bias.
 
 ### D1S decay photons
 
-A shutdown-dose (D1S, ``use_decay_photons=True``) run is just a coupled run whose
-photon field is the *decay* photons emitted at activation sites, so the same
+A shutdown-dose (D1S, ``use_decay_photons=True``) run is a coupled run whose
+photon field is the decay photons emitted at activation sites, so the same
 ``particle="photon"`` (or coupled ``["neutron", "photon"]``) generation produces a
 window that resolves the deep decay-photon dose. Tally the decay dose as usual
 with ``parent_nuclides=model.radionuclides()``; the window shapes transport, and
@@ -194,8 +194,8 @@ the pulse-schedule time-correction is applied afterwards unchanged (it is a line
 post-scaling and does not interact with the window). See
 ``examples/python/decay_photon_degvr.py``.
 
-One caveat: reducing material density for the DeGVR passes lowers the *activation
-rate* as well as the attenuation, so the decay-photon *source* scales with density
+One caveat: reducing material density for the DeGVR passes lowers the activation
+rate as well as the attenuation, so the decay-photon source scales with density
 and the log-linear-in-density extrapolation is more approximate than for pure
 attenuation. The window stays unbiased regardless (windows are unbiased for any
 bounds); only its efficiency is affected. Use a modest generation budget (the D1S
@@ -203,16 +203,16 @@ activation path runs twice at reduced density).
 
 ## Notes
 
-- **Unbiased.** With or without windows the tally means agree within statistics;
+- With or without windows the tally means agree within statistics;
   only the variance (and the run cost) differ. Judge the benefit by coverage and
   the per-tally relative error in the deep region, or the per-tally FOM.
-- **Best for exponential attenuation** (thick shields, ~many decades of flux
-  drop) where analog cannot reach at all. For pure void streaming (an air duct),
+- Windows help most under exponential attenuation (thick shields, many decades
+  of flux drop), where analog cannot reach at all. For pure void streaming (an air duct),
   analog already fills the domain and the gain is smaller.
-- **A weight-window history is expensive** (it can process thousands of split
+- A weight-window history can be expensive (it can process thousands of split
   copies), so a timed run stops on ``max_runtime`` at the end of a chunk and may
   overrun the budget by up to one chunk; read the run's measured ``elapsed``.
-- **CPU only**, for applying windows and for generating them. ``compute='gpu'``
+- Both applying and generating windows are CPU only. ``compute='gpu'``
   rejects a model carrying weight windows, and ``generate_weight_windows`` takes
   a ``compute`` argument that accepts only ``'cpu'`` (the default). Generation is
   ordinary transport under a window, so it cannot move to the GPU before the

@@ -15,7 +15,7 @@ print(result.relative_error)      # list of relative errors
 
 ### Statistical reliability
 
-Every ``TallyResult`` also carries a reliability layer, computed automatically (it rides a small per-history aggregate, so it adds no meaningful runtime cost). **Printing a result shows all of it** -- a headline mean ± std, figure of merit, the higher-moment metrics, and a PASS/FAIL verdict:
+Every ``TallyResult`` also carries reliability statistics. They are computed automatically from a small per-history aggregate, so the runtime cost is negligible. Printing a result shows all of them: the mean ± std, the figure of merit, the higher-moment metrics, and a PASS/FAIL verdict:
 
 <!-- doctest: skip -->
 ```python
@@ -43,7 +43,7 @@ Tally-level reliability scalars, computed from the per-history *total* score:
 | Attribute | Meaning |
 |-----------|---------|
 | ``aggregate_mean`` / ``aggregate_std_dev`` / ``aggregate_relative_error`` | statistics of the integrated tally total |
-| ``aggregate_variance_of_variance`` | relative variance of the variance -- large values flag an unreliable error estimate (rare large contributions undersampled) |
+| ``aggregate_variance_of_variance`` | relative variance of the variance; large values flag an unreliable error estimate (rare large contributions are undersampled) |
 | ``aggregate_skewness`` / ``aggregate_kurtosis`` | shape of the history-score distribution |
 | ``aggregate_tail_slope`` | slope of the large-score PDF tail; the variance is well-defined only when this exceeds 3 |
 
@@ -196,7 +196,7 @@ fig.colorbar(im, ax=ax, label=f"Flux [{mean.h_label}]")
 plt.savefig("manual_tally_plot.png")
 ```
 
-Rendered when these docs are built, here is the flux map for a small steel pipe carrying water with a 14.06 MeV point source on the axis, sliced in the ``xz`` plane:
+The flux map below is rendered when these docs are built. The model is a small steel pipe carrying water with a 14.06 MeV point source on the axis, sliced in the ``xz`` plane:
 
 ```python exec="1" html="1"
 import base64
@@ -256,7 +256,7 @@ print(
 
 ### VTK-HDF export and interactive 3D view
 
-Mesh tally results export to VTK-HDF with ``Tally.to_vtkhdf()``, called after ``model.simulate_transport()`` on a tally that has a ``mesh`` or ``unstructured_mesh`` set. The file opens directly in [ParaView](https://www.paraview.org/), and (as shown below) can be explored in the browser.
+Mesh tally results export to VTK-HDF with ``Tally.to_vtkhdf()``, called after ``model.simulate_transport()`` on a tally that has a ``mesh`` or ``unstructured_mesh`` set. The file opens in [ParaView](https://www.paraview.org/) and, as shown below, can also be viewed in the browser.
 
 <!-- doctest: skip -->
 ```python
@@ -275,7 +275,7 @@ tally.to_vtkhdf(
 tally.to_vtkhdf("flux_per_energy.vtkhdf", sum_energy=False)
 ```
 
-The viewer below is rendered live when these docs are built. It is a neutron radiograph: the word ``YAMC`` is built from boron-10 blocks (a strong thermal-neutron absorber), a thermal point source (orange marker) sits in front of them, and the letters cast a shadow onto a flux screen behind. Both the flux tally and the geometry are written to VTK-HDF; the grey ``YAMC`` blocks are the geometry (read back from ``geometry.vtkhdf``), and the coloured panel is the flux screen (read back from ``flux.vtkhdf``), where the letters appear as dark shadows. Drag to rotate, scroll to zoom, right-drag to pan. The same files open in [ParaView](https://www.paraview.org/) for heavier analysis.
+The viewer below is rendered live when these docs are built. It is a neutron radiograph: the word ``YAMC`` is built from boron-10 blocks (a strong thermal-neutron absorber), a thermal point source (orange marker) sits in front of them, and the letters cast a shadow onto a flux screen behind them. Both the flux tally and the geometry are written to VTK-HDF; the grey ``YAMC`` blocks are the geometry (read back from ``geometry.vtkhdf``), and the coloured panel is the flux screen (read back from ``flux.vtkhdf``), where the letters appear as dark shadows. Drag to rotate, scroll to zoom, right-drag to pan. The same files open in [ParaView](https://www.paraview.org/) for further analysis.
 
 ```python exec="1" html="1"
 import functools
@@ -342,7 +342,7 @@ yamc.Model(
     geometry=geometry, source=source, tallies=[tally], verbose=[]
 ).simulate_transport(total_particles=1_000_000, seed=1)
 
-# Export BOTH the tally and the geometry to VTK-HDF, then read them back.
+# Export both the tally and the geometry to VTK-HDF, then read them back.
 tally.to_vtkhdf("flux.vtkhdf")
 geometry.to_vtkhdf("geometry.vtkhdf", resolution=400000)
 
@@ -373,7 +373,7 @@ print(
 
 ### Performance stats
 
-Timing lives on the results returned by ``simulate_transport``:
+Timing information is stored on the results returned by ``simulate_transport``:
 
 <!-- doctest: skip -->
 ```python

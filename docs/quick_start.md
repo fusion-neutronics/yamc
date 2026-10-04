@@ -2,7 +2,7 @@
 
 A minimal simulation end to end: configure data, build a material, geometry and source, add a
 tally, run, and read the result. The example computes tritium production (the basis of the
-**tritium breeding ratio, TBR**) in a lithium sphere.
+tritium breeding ratio, TBR) in a lithium sphere.
 
 ## Import YAMC
 
@@ -18,12 +18,12 @@ A single library keyword downloads the required data automatically:
 yamc.cross_section_data = "endf-b8.1"
 ```
 
-There are six to choose between, and they differ by more than a name:
+Six libraries are available, and they differ in content as well as name; see
 [Nuclear data libraries](nuclear_data_libraries.md).
 
 ## Create a material
 
-Lithium breeds tritium, so use it as the breeder material (`"Li"` expands to natural Li6 + Li7):
+Lithium breeds tritium, so it serves as the breeder material (`"Li"` expands to natural Li6 + Li7):
 
 ```python
 mat_lithium = yamc.Material(
@@ -67,8 +67,8 @@ results = model.simulate_transport(total_particles=100_000)
 ## Read the result
 
 `results[tally]` is a labelled result. Its `.mean` is the H3-production rate per source neutron
-(the TBR for this geometry) and `.standard_deviation` the statistical uncertainty. Each is a
-list with one entry per score:
+(the TBR for this geometry) and `.standard_deviation` is its statistical uncertainty. Both are
+lists with one entry per score:
 
 ```python
 result = results[tally]

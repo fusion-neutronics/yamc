@@ -10,11 +10,11 @@ results = model.simulate_transport(total_particles=10000)
 
 ``simulate_transport()`` returns a ``SimulationResults`` object containing a ``TallyResult`` for every tally attached to the model, plus run metadata (``n_batches``, ``particles_per_chunk``, ``elapsed``).
 
-Every run needs at least one **stop condition**: a particle budget (``total_particles``), a wall-time budget (``max_runtime``), or convergence targets on the model. They are OR-combined, so the run ends at the first one satisfied. ``total_particles`` defaults to ``None`` (no particle cap); a call with no stop condition at all raises ``ValueError``.
+Every run needs at least one stop condition: a particle budget (``total_particles``), a wall-time budget (``max_runtime``), or convergence targets on the model. They are OR-combined, so the run ends at the first one satisfied. ``total_particles`` defaults to ``None`` (no particle cap); a call with no stop condition at all raises ``ValueError``.
 
 #### Accessing tally results
 
-A ``TallyResult`` can be looked up four ways: by the ``Tally`` object, by name, by id, or by iteration. Names and ids are optional -- set them on the ``Tally`` constructor to use those flavors.
+A ``TallyResult`` can be looked up four ways: by the ``Tally`` object, by name, by id, or by iteration. Names and ids are optional; set them on the ``Tally`` constructor to look results up that way.
 
 <!-- doctest: skip -->
 ```python
@@ -28,13 +28,13 @@ model = yamc.Model(
 )
 results = model.simulate_transport(total_particles=10000)
 
-# By Tally object -- always works
+# By Tally object (always works)
 flux_result = results[flux_tally]
 
-# By name -- requires name= on the Tally
+# By name (requires name= on the Tally)
 flux_result = results["flux"]
 
-# By id -- requires id= on the Tally
+# By id (requires id= on the Tally)
 flux_result = results[1]
 
 # Iterate over (tally, result) pairs
@@ -50,21 +50,21 @@ A ``TallyResult`` exposes ``mean``, ``standard_deviation``, ``relative_error``, 
 
 ### Progress output (``verbose``)
 
-The ``verbose`` argument on ``Model`` is a **list of independent flags** selecting which categories of progress are printed during transport. Progress is reported in **source particles** (the run is internally chunked, but you never deal with batches). The flags:
+The ``verbose`` argument on ``Model`` is a list of independent flags selecting which categories of progress are printed during transport. Progress is reported in source particles (the run is chunked internally, but you never deal with batches). The flags are:
 
-- ``"progress"`` -- periodic ``Progress: N/total particles (P%)`` lines.
-- ``"eta"`` -- progress lines that also show elapsed wall-clock and ETA.
-- ``"tally"`` -- each tally's running mean ± std (rel. err) as it converges.
-- ``"summary"`` -- the end-of-run completion line and per-tally final statistics.
+- ``"progress"``: periodic ``Progress: N/total particles (P%)`` lines.
+- ``"eta"``: progress lines that also show elapsed wall-clock and ETA.
+- ``"tally"``: each tally's running mean ± std (rel. err) as it converges.
+- ``"summary"``: the end-of-run completion line and per-tally final statistics.
 
-Mix and match freely. The default (pass nothing, or ``None``) is ``["eta", "tally", "summary"]``. An **empty list ``[]`` is fully silent** -- not even the end-of-run summary is printed.
+Any combination is allowed. The default (pass nothing, or ``None``) is ``["eta", "tally", "summary"]``. An empty list ``[]`` prints nothing, not even the end-of-run summary.
 
 <!-- doctest: skip -->
 ```python
 # Default output
 model = yamc.Model(geometry=geometry, source=source, tallies=[tally])
 
-# Fully silent -- useful for scripts that post-process results themselves
+# Fully silent, for scripts that post-process results themselves
 model = yamc.Model(geometry=geometry, source=source, tallies=[tally], verbose=[])
 
 # Just the final summary, no per-particle progress
@@ -86,7 +86,7 @@ model.simulate_transport(total_particles=10000, threads=8)
 
 ### GPU transport (``compute="gpu"``)
 
-The transport loop has a GPU implementation that runs on Vulkan via cubecl. Selected with ``compute="gpu"`` on ``simulate_transport``:
+The transport loop has a GPU implementation that runs on Vulkan via cubecl. Select it with ``compute="gpu"`` on ``simulate_transport``:
 
 <!-- doctest: skip -->
 ```python
@@ -97,7 +97,7 @@ else:
     results = model.simulate_transport(total_particles=1_000_000)
 ```
 
-On a machine with more than one GPU -- e.g. an integrated GPU plus a dedicated one -- ``compute="gpu"`` auto-selects an adapter (preferring a discrete GPU via the high-performance power preference). To pin a specific adapter, list the available ones with ``yamc.parallel.list_gpu_adapters()`` and pass its name directly as ``compute=<name>``:
+On a machine with more than one GPU (e.g. an integrated GPU plus a dedicated one), ``compute="gpu"`` auto-selects an adapter (preferring a discrete GPU via the high-performance power preference). To pin a specific adapter, list the available ones with ``yamc.parallel.list_gpu_adapters()`` and pass its name directly as ``compute=<name>``:
 
 <!-- doctest: skip -->
 ```python
@@ -109,18 +109,18 @@ print(adapters)
 results = model.simulate_transport(total_particles=1_000_000, compute=adapters[0])
 ```
 
-``yamc.parallel.gpu_available()`` returns ``True`` only when a GPU with **f64 compute** support is reachable. The kernel uses double-precision throughout (cross-section interpolation, sampling, and the variance accumulator), so single-precision-only consumer GPUs are rejected.
+``yamc.parallel.gpu_available()`` returns ``True`` only when a GPU with f64 compute support is reachable. The kernel uses double-precision throughout (cross-section interpolation, sampling, and the variance accumulator), so single-precision-only consumer GPUs are rejected.
 
-The GPU path supports a defined slice of the option space, **verified to match the CPU path** on real discrete hardware (NVIDIA RTX A500): `cpu_gpu_equivalence_two_materials` is bit-exact and the `gpu_*.rs` GPU-vs-CPU suite passes. As of today it supports:
+The GPU path supports a defined subset of the options, verified to match the CPU path on real discrete hardware (NVIDIA RTX A500): `cpu_gpu_equivalence_two_materials` is bit-exact and the `gpu_*.rs` GPU-vs-CPU suite passes. It currently supports:
 
-- **Neutron transport** and **standalone primary-photon transport** (a pure `PhotonSource`). Coupled neutron→photon secondary production (`transport_secondary_photons=True`) and D1S decay photons (`use_decay_photons=True`) are **not** supported - the GPU has no particle bank - and are rejected.
-- **Tallies** with the **track-length** estimator: flux, heating / heating-local, damage-energy, reaction rates (total / elastic / absorption / (n,γ) / inelastic / fission), gas-production, and photon cross-section scores. The `collision` estimator is rejected.
-- **Tally filters**: `cells=`, `materials=`, `mesh=`, `energy_bins=`, `particle=`, `nuclides=`, `parent_nuclides=`, and `energy_function=` / `dose_coefficients=`. The energy function weights rather than bins, so it still needs a spatial binner alongside it; its cubic spline is solved on the host and only evaluated in the kernel, so GPU and CPU interpolate identically.
+- Neutron transport and standalone primary-photon transport (a pure `PhotonSource`). Coupled neutron-to-photon secondary production (`transport_secondary_photons=True`) and D1S decay photons (`use_decay_photons=True`) are not supported, because the GPU has no particle bank, and are rejected.
+- Tallies with the track-length estimator: flux, heating / heating-local, damage-energy, reaction rates (total / elastic / absorption / (n,γ) / inelastic / fission), gas-production, and photon cross-section scores. The `collision` estimator is rejected.
+- Tally filters: `cells=`, `materials=`, `mesh=`, `energy_bins=`, `particle=`, `nuclides=`, `parent_nuclides=`, and `energy_function=` / `dose_coefficients=`. The energy function weights rather than bins, so it still needs a spatial binner alongside it; its cubic spline is solved on the host and only evaluated in the kernel, so GPU and CPU interpolate identically.
 - Full neutron physics: elastic (tabulated angular), inelastic (Kalbach-Mann, n-body, evaporation), free-gas thermal, URR, and the photon interactions on the photon path.
 - CSG geometry only (mesh is rejected); surfaces sphere, plane, cylinder, Z-torus.
-- Analog transport only - `variance_reduction` is rejected (not silently ignored).
+- Analog transport only. `variance_reduction` is rejected, not silently ignored.
 
-If any unsupported option is used, ``compute="gpu"`` raises a ``ValueError`` at simulate-transport start with a specific message. If no GPU with f64 compute is available, it raises ``RuntimeError``. The ``threads`` and ``capture_tracks`` kwargs are not used with ``compute="gpu"`` (the kernel parallelises across all particles in one launch, and tracking is CPU-only). Repeated `compute="gpu"` calls in one process are safe - each resets the shared GPU client.
+If any unsupported option is used, ``compute="gpu"`` raises a ``ValueError`` at simulate-transport start with a specific message. If no GPU with f64 compute is available, it raises ``RuntimeError``. The ``threads`` and ``capture_tracks`` kwargs are not used with ``compute="gpu"`` (the kernel parallelises across all particles in one launch, and tracking is CPU-only). Repeated `compute="gpu"` calls in one process are safe; each resets the shared GPU client.
 
 For the full, always-current per-option breakdown of which CPU options the GPU path supports (and which it rejects), see the CPU-vs-GPU option matrix harness `crates/yamc/tests/gpu_cpu_comparison_matrix.rs`, which is the source of truth.
 
@@ -155,7 +155,7 @@ mpirun -np 4 python simulation.py
 
 Tallies are automatically reduced to rank 0 after each batch. Always check ``yamc.parallel.mpi_rank() == 0`` before reading results.
 
-Results are deterministic regardless of rank count -- each particle gets a unique seed based on the base seed, batch number, and global particle index.
+Results are deterministic regardless of rank count: each particle gets a unique seed based on the base seed, batch number, and global particle index.
 
 Slurm example:
 
@@ -171,11 +171,11 @@ srun python simulation.py  # In script: model.simulate_transport(total_particles
 
 Track particle histories for debugging or visualization. Tracks are off by default (zero overhead) and are only captured when ``capture_tracks=`` is set on ``simulate_transport()``. Histories are addressed by their global 0-based index, so the captured set is identical regardless of thread count:
 
-- ``capture_tracks=N`` -- the first ``N`` histories (recommended for debugging)
-- ``capture_tracks=range(20, 30)`` -- histories 20..29 (half-open); strides work too, e.g. ``range(0, 1000, 10)`` for every 10th of the first 1000
-- ``capture_tracks=[20, 30, 45]`` -- exactly those history indices
-- ``capture_tracks='all'`` -- every history (warns; high memory on large runs)
-- ``capture_tracks=None`` / omitted -- no tracking
+- ``capture_tracks=N``: the first ``N`` histories (recommended for debugging)
+- ``capture_tracks=range(20, 30)``: histories 20..29 (half-open); strides work too, e.g. ``range(0, 1000, 10)`` for every 10th of the first 1000
+- ``capture_tracks=[20, 30, 45]``: exactly those history indices
+- ``capture_tracks='all'``: every history (warns; high memory on large runs)
+- ``capture_tracks=None`` / omitted: no tracking
 
 When tracking is enabled the captured ``Tracks`` are attached to the returned ``SimulationResults`` as ``results.tracks``; otherwise ``results.tracks`` is ``None``.
 

@@ -48,7 +48,7 @@ mat = yamc.Material(
 
 ### Density specification
 
-Density is always a float; its meaning is set by the optional ``units`` keyword. With ``units="atom/barn-cm"`` the value is the **total atom density** and the composition values are relative atom fractions (requires ``percent_type="atom"``).
+Density is always a float; its meaning is set by the optional ``units`` keyword. With ``units="atom/barn-cm"`` the value is the total atom density and the composition values are relative atom fractions (requires ``fraction_type="atom"``).
 
 ```python
 # Mass density (default units g/cm3)
@@ -63,7 +63,7 @@ mat = yamc.Material(composition={"Li6": 0.625, "Li7": 0.375}, density=0.08,
 mat = yamc.Material.from_atom_densities({"Li6": 0.05, "Li7": 0.03})
 ```
 
-``material.density`` is always a float -- the mass density for ``g/cm3``/``kg/m3``, or the total atom density for ``atom/barn-cm`` (and for transmuted materials).
+``material.density`` is always a float: the mass density for ``g/cm3``/``kg/m3``, or the total atom density for ``atom/barn-cm`` (and for transmuted materials).
 
 ### Atom vs weight percent
 
@@ -159,11 +159,11 @@ shielding = yamc.Material(
     composition={"Fe": 1.0},
     density=7.874,
     name="shielding",
-    # transmutable=False is the default -- composition stays fixed
+    # transmutable=False is the default; composition stays fixed
 )
 ```
 
-The flag is not needed for ``Material.transmute()`` (standalone transmutation with a pre-computed flux) -- that method always evolves the material it is called on.
+The flag is not needed for ``Material.transmute()`` (standalone transmutation with a pre-computed flux). That method always evolves the material it is called on.
 
 ### Mixing materials
 
@@ -184,7 +184,7 @@ mixed = yamc.Material.mix_materials(
 
 ### Material collections
 
-Rather than looking up a composition and typing it in, a material can be pulled straight from a curated collection. ``yamc.materials.pnnl`` holds 410 materials from the [PNNL Compendium of Material Composition Data for Radiation Transport Modeling (PNNL-15870, Rev. 2)](https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-15870Rev2.pdf): concretes, steels, tissues, air, soils, shielding, scintillators, fuels and more. The data is bundled in the wheel, so a lookup needs no network and cannot fail.
+A material can also be taken directly from a curated collection instead of typing in its composition. ``yamc.materials.pnnl`` holds 410 materials from the [PNNL Compendium of Material Composition Data for Radiation Transport Modeling (PNNL-15870, Rev. 2)](https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-15870Rev2.pdf): concretes, steels, tissues, air, soils, shielding, scintillators, fuels and more. The data is bundled in the wheel, so a lookup needs no network and cannot fail.
 
 Materials are keyed by the report's own name, verbatim, so an entry can be quoted straight back to it.
 
@@ -192,7 +192,7 @@ Materials are keyed by the report's own name, verbatim, so an entry can be quote
 steel = yamc.materials.pnnl["Steel, Stainless 304"]
 ```
 
-The result is an ordinary ``Material``, built fresh on every lookup, so it can be renamed and mutated freely. Renaming is what you want when a mesh geometry expects a particular material name:
+The result is an ordinary ``Material``, built fresh on every lookup, so it can be renamed and modified freely. Rename it when a mesh geometry expects a particular material name:
 
 ```python
 steel = yamc.materials.pnnl["Steel, Stainless 304"]
@@ -210,7 +210,7 @@ len(yamc.materials.pnnl)                 # -> 410
 yamc.materials.collections()             # -> ['pnnl']
 ```
 
-An unrecognised name raises ``KeyError`` suggesting near matches rather than failing silently.
+An unrecognised name raises ``KeyError`` and suggests near matches.
 
 ```python
 yamc.materials.pnnl["Steel, Stainless 999"]
@@ -220,7 +220,7 @@ yamc.materials.pnnl["Steel, Stainless 999"]
 
 #### Overriding fields at lookup
 
-``temperature``, ``volume``, ``transmutable``, ``name`` and ``id`` are all settable on the returned material. ``density`` is not, because a ``Material``'s per-nuclide atom densities are fixed at construction, so use ``material()`` to build at a different density, e.g. a concrete at a different porosity.
+``temperature``, ``volume``, ``transmutable``, ``name`` and ``id`` are all settable on the returned material. ``density`` is not, because a ``Material``'s per-nuclide atom densities are fixed at construction. Use ``material()`` to build at a different density, for example a concrete at a different porosity.
 
 ```python
 shield = yamc.materials.pnnl.material(
@@ -247,9 +247,9 @@ yamc.materials.pnnl.entry("Steel, Stainless 304")
 
 #### How compositions are stored
 
-Values are the report's own **atom fractions**, taken verbatim from its Elemental column, so no weight-to-atom conversion is applied on the way in.
+Values are the report's own atom fractions, taken verbatim from its Elemental column, so no weight-to-atom conversion is applied on the way in.
 
-Where an element is isotopically natural the **element symbol** is stored, and yamc expands it with yamc's natural abundances rather than pinning the report's. Where a material is genuinely not natural (enriched lithium and boron, uranium, plutonium, heavy water, He-3) the **individual nuclides** are stored instead.
+Where an element is isotopically natural the element symbol is stored, and yamc expands it with its own natural abundances instead of the report's. Where a material is not natural (enriched lithium and boron, uranium, plutonium, heavy water, He-3) the individual nuclides are stored instead.
 
 ```python
 yamc.materials.pnnl.entry("Steel, Stainless 304")["composition"]  # {'Fe': 0.667971, 'Cr': 0.199443, ...}
@@ -351,7 +351,7 @@ nuclide_name = mat.sample_interacting_nuclide(energy=14e6, seed=42)
 
 Materials can be transmuted standalone using a pre-computed multigroup flux spectrum, without running transport. This is useful when the flux is known from a prior simulation.
 
-The example below uses a simple hand-specified 3-group spectrum so it can be read in isolation. In a real workflow the spectrum is usually obtained from a transport tally -- see [Neutron and photon flux spectra](tallies.md#neutron-and-photon-flux-spectra) for how to score an energy-binned flux on a cell and feed ``results[tally].mean`` (scaled by the source strength) into ``transmute()``.
+The example below uses a simple hand-specified 3-group spectrum so it can be read in isolation. In a real workflow the spectrum is usually obtained from a transport tally. See [Neutron and photon flux spectra](tallies.md#neutron-and-photon-flux-spectra) for how to score an energy-binned flux on a cell and feed ``results[tally].mean`` (scaled by the source strength) into ``transmute()``.
 
 <!-- doctest: skip -->
 ```python
@@ -363,7 +363,7 @@ yamc.transmutation_fission_yields = "transmutation-endf-b8.1-sfr.arrow"
 
 # The spectrum rides on each irradiation pulse: a NeutronSource whose energy is
 # a Histogram over the energy groups. The Histogram normalizes the shape, so a
-# multigroup flux from a tally can be passed straight in -- see "Neutron and
+# multigroup flux from a tally can be passed straight in; see "Neutron and
 # photon flux spectra" for the full workflow. The pulse rate is the total flux
 # magnitude [n/cm^2/s]; Cooldown is decay-only.
 energy_groups = [1e-5, 0.625, 1e5, 2e7]   # 3 groups (eV, ascending); or a name like "CCFE-709"
@@ -389,7 +389,7 @@ if final is not None:
 ```
 
 Parameters:
-- ``schedule``: a ``PulseSchedule`` of ``Pulse`` / ``Cooldown`` steps. Each irradiation ``Pulse`` carries a duration (seconds, or a ``(value, unit)`` tuple), a ``rate`` (the total flux magnitude [n/cm²/s]), and a ``source`` -- a ``NeutronSource`` whose energy is a ``Histogram`` giving the multigroup spectrum (its boundaries may be a named group structure such as ``"CCFE-709"``). The source's position/direction are ignored (no transport runs). ``Cooldown`` is decay-only. Different pulses may carry different spectra.
+- ``schedule``: a ``PulseSchedule`` of ``Pulse`` / ``Cooldown`` steps. Each irradiation ``Pulse`` carries a duration (seconds, or a ``(value, unit)`` tuple), a ``rate`` (the total flux magnitude [n/cm²/s]), and a ``source``, which is a ``NeutronSource`` whose energy is a ``Histogram`` giving the multigroup spectrum (its boundaries may be a named group structure such as ``"CCFE-709"``). The source's position/direction are ignored (no transport runs). ``Cooldown`` is decay-only. Different pulses may carry different spectra.
 The transmutation network is assembled from the configured per-subsection sources (``yamc.transmutation_decay_data``, ``yamc.transmutation_reactions``, ``yamc.transmutation_fission_yields``, and optionally ``yamc.transmutation_branch_ratios``).
 
 #### Clearance
@@ -431,7 +431,7 @@ number to check before trusting a comfortable index.
 
 #### Activity, decay heat and decay photons
 
-A transmuted material answers the usual decay quantities directly. Each takes
+A transmuted material provides the usual decay quantities directly. Each takes
 ``per=None`` for the whole material, which needs ``volume``, or ``"cm3"`` or
 ``"g"`` for a density, and the totals also take ``by_nuclide=True``.
 
@@ -463,14 +463,13 @@ with no continuum returns an empty list.
 
 #### Repeated calls, and letting the data go
 
-``transmute()`` loads the cross sections it needs **into the material** and keeps
+``transmute()`` loads the cross sections it needs into the material and keeps
 them there, so calling it again on the same material does no file reading at all.
 On a steel against ENDF/B-VIII.1 that is 1.8 s of a 2.3 s call. The composition is
 not modified.
 
-That is the right trade for a material transmuted more than once, and the wrong
-one for a sweep over thousands of *distinct* compositions, where every material
-would hold a few hundred nuclides' data for as long as it lives.
+This helps when a material is transmuted more than once. It hurts in a sweep over
+thousands of distinct compositions, where every material would hold a few hundred nuclides' data for as long as it lives.
 ``release_nuclear_data()`` drops it. The material stays usable, and the next call
 that needs the data loads it again.
 
@@ -526,7 +525,7 @@ flux magnitudes.
 
 #### Resonance self-shielding
 
-The spectrum handed to ``transmute()`` is the flux *outside* the material. Inside
+The spectrum handed to ``transmute()`` is the flux outside the material. Inside
 a lump the flux is depressed at the energies where the material's own total cross
 section is large, so a resonance absorber shields itself and its reaction rates
 come out lower than a dilute fold predicts.
@@ -547,8 +546,8 @@ volume hides behind, since the mean chord is ``4V/S``.
 ``Material(volume=...)`` already fixes them; ``FoilLump(thickness=)``,
 ``CylinderLump(radius=)`` and ``WireLump(radius=)`` carry the one dimension a
 volume cannot imply. A sphere has the least surface for its volume, so it has the
-longest chord and shields more than any other shape of the same size: an upper
-bound rather than a safe default, which is why there is no default at all.
+longest chord and shields more than any other shape of the same size. That makes it
+an upper bound, not a safe default, so there is no default shape.
 
 ``self_shielding_chord`` takes the mean chord ``4V/S`` in cm directly, for a lump
 none of the five shapes describes. Give one or the other, not both.
@@ -578,20 +577,19 @@ if shielding is not None:
     shielding["strongest_factor"]  # smallest factor any group average was scaled by
 ```
 
-A ``strongest_factor`` of ``1.0`` means the run shielded nothing in practice,
-which is a different statement from not having tried.
+A ``strongest_factor`` of ``1.0`` means the run shielded nothing in practice.
+That is not the same as not having tried.
 
-A **dilute** run fills ``would_shield`` instead: the nuclides whose own resonances
+A dilute run fills ``would_shield`` instead: the nuclides whose own resonances
 are structured enough to have suppressed a reaction, each mapped to how strongly.
 It is an indicator, not a correction and not a bound. It is computed from the one
 reaction and that nuclide's own density, with no geometry in it, so it can sit
 either side of the real factor: a lump thinner than a centimetre of chord shields
 less, and a material whose other nuclides dominate the total at the resonance dips
 the flux further. On the FNS tungsten foil it reads 0.634 for W186, where the
-slowing-down correction on the same foil and spectrum gives 0.730. So it says
-"this answer may be high, and this is a resonance absorber", which is the warning
-a dilute run should carry rather than silence. Read the size of the effect off a
-shielded run.
+slowing-down correction on the same foil and spectrum gives 0.730. It warns that
+the answer may be high and that the nuclide is a resonance absorber. Read the size
+of the effect off a shielded run.
 
 #### Nuclear-data uncertainty
 
@@ -706,10 +704,10 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
 A call ignores the sources that do not apply to it, and ``sources`` in the report
 below lists the ones that did.
 
-Restricting ``sources`` is how a run isolates one contribution, so that adding a
-source and watching the inventory sigma grow is a measurement rather than a guess.
-Naming a source this build cannot perturb raises rather than being ignored: a
-source that has not landed yet must not look like one that contributed nothing.
+Restricting ``sources`` isolates one contribution, so the growth of the inventory
+sigma as a source is added can be measured directly. Naming a source this build
+cannot perturb raises an error instead of being ignored, so a source that is not
+implemented yet cannot look like one that contributed nothing.
 
 ``flux_spectrum`` propagates the error bar on the spectrum you supplied, which
 means the pulse has to carry one. ``Pulse(flux_std_dev=...)`` takes the per-bin
@@ -1092,8 +1090,8 @@ sigma.
 ##### Uncertainty on activity, decay heat and dose
 
 Activity, decay heat, contact dose and the decay-photon spectrum are all functions
-of a *whole* inventory, so their spread has to be taken over the ensemble rather
-than built from per-nuclide sigmas. Each has a getter that does exactly that,
+of a whole inventory, so their spread has to be taken over the ensemble rather
+than built from per-nuclide sigmas. Each has a getter that does this,
 evaluating the quantity once per replica and taking the spread of the result:
 
 <!-- doctest: skip -->
@@ -1111,7 +1109,7 @@ Each returns an ``Estimate``. ``nominal`` is the unperturbed run and is there
 whether or not uncertainty was asked for, while ``mean``, ``std_dev`` and
 ``relative_std_dev`` are ``None`` below two replicas, because a spread over
 fewer than two samples is unmeasured rather than zero. Comparing ``mean``
-against ``nominal`` is worth doing, with care over what a gap means. With the
+against ``nominal`` is useful, but a gap between them needs interpreting. With the
 cross sections alone and little burnup, the inventory is close to linear in the
 drawn rates, whose mean is the nominal rate, so the two agree to within the
 sampling error. With half-lives perturbed they need not: a nuclide's activity
@@ -1134,12 +1132,12 @@ Activity, decay heat and the photon spectrum need the material's ``volume``, sin
 a quantity in becquerel does. Contact dose does not, because the estimate takes
 the material for a half-space.
 
-Contact dose is also the one quantity here that is **not** linear in the atom
+Contact dose is also the one quantity here that is not linear in the atom
 densities: the material attenuates its own decay photons, so the emitters sit in
 the numerator and the whole inventory in the denominator, and a replica that makes
 more of an emitter also absorbs more of it. Scaling the nominal dose by the
 density spread would report the activity's uncertainty, which is wrong by the
-whole value; evaluating per replica gets the cancellation for free.
+whole value; evaluating per replica captures the cancellation.
 
 The decay-photon spectrum comes back line by line:
 
@@ -1154,10 +1152,10 @@ for line in (lines or [])[:5]:
 The set of lines is not the same in every replica: a nuclide that falls below the
 density floor in one draw takes its lines out of that draw. The spectrum is
 reported over the union, a line missing from a replica counts as a zero in it, and
-``emitting`` says how many replicas emitted it at all, which is the difference
-between a line that is dim and a line that is sometimes not there.
+``emitting`` says how many replicas emitted it at all, which separates a dim line
+from one that is sometimes absent.
 
-For any other quantity, ``get_uncertainty_inventories`` hands back every replica's
+For any other quantity, ``get_uncertainty_inventories`` returns every replica's
 full inventory to evaluate over:
 
 <!-- doctest: skip -->
