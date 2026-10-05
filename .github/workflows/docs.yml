@@ -7,16 +7,20 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# One deploy at a time; queued rather than cancelled so a merge is never
-# published over by an older run.
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
   build:
     name: Build the docs
     runs-on: ubuntu-latest
+    # Per branch rather than one queue for the whole workflow: builds are
+    # independent of each other and only the deploy has to be serialised.
+    # Sharing the deploy's group would make every pull request wait behind
+    # every other one, and a newer pending run would cancel an older one, so
+    # most pull requests never got a build at all. A superseded build of the
+    # same branch is cancelled, since nothing reads its result once a newer
+    # commit exists.
+    concurrency:
+      group: docs-build-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
 
@@ -87,6 +91,11 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # One deploy at a time; queued rather than cancelled so a merge is never
+    # published over by an older run.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
       pages: write
       id-token: write
