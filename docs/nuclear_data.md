@@ -4,8 +4,8 @@
 
 ### Config the nuclear data
 
-For this minimal example we will specify a single nuclear data library to use for all nuclides.
-This is the simplest option other config options are covered in the nuclear data options.
+This minimal example uses a single nuclear data library for all nuclides.
+Other configurations are covered under the nuclear data options below.
 
 ```python
 yamc.cross_section_data = "endf-b8.1"
@@ -25,8 +25,7 @@ libraries by subsection.
 | ``transmutation_fission_yields`` | fission product yields | what a fission makes | ``endf-b8.1`` |
 | ``transmutation_branch_ratios`` | isomeric branching against incident energy | which product is left in a metastable state | no overlay, so every product lands in its ground state |
 
-Note which way the last column goes. Four of the five have a default and answer
-something without being set. ``cross_section_data`` has none, and every
+Four of the five have a default and give an answer without being set. ``cross_section_data`` has none, and every
 transmutation and shutdown-dose example on these pages assumes you have set it.
 
 Photons are chosen separately and default to ``endf-b8.1`` whatever the neutron
@@ -38,13 +37,13 @@ library is. See
 ``cross_section_data`` and ``transmutation_reactions`` are halves of one
 calculation rather than alternatives. For each nuclide the network lists the
 channels it has, each channel's name is mapped to an MT number, and the cross
-sections are what that MT is priced with. So the network decides **which channels
-are considered at all** and the cross sections decide **how fast each one runs**.
+sections are what that MT is priced with. So the network decides which channels
+are considered at all and the cross sections decide how fast each one runs.
 Swap the library behind ``transmutation_reactions`` and products appear or
 disappear; swap the one behind ``cross_section_data`` and the same products
 arrive at different rates.
 
-They also fail differently, which is the practical tell. A missing
+They also fail differently, which is how to tell them apart in practice. A missing
 ``cross_section_data`` is silent: the inventory comes back as it went in. A
 network pointed at the wrong material is refused before the solve, naming what
 the material holds against what the network drives.
@@ -64,7 +63,7 @@ print(nuclide.available_temperatures)  # ["250", "294", "600", "900", "1200", "2
 print(nuclide.reaction_mts)            # [1, 2, 3, 4, 51, ..., 105]
 ```
 
-Microscopic cross sections are retrieved by reaction name or MT number. Each call returns ``(xs_values, energy_grid)`` -- note that different reactions may have different energy grids.
+Microscopic cross sections are retrieved by reaction name or MT number. Each call returns ``(xs_values, energy_grid)``. Different reactions may have different energy grids.
 
 ```python
 xs_total, energy = nuclide.microscopic_cross_section(reaction=1, temperature="294")           # total
@@ -168,11 +167,11 @@ sensitive and takes the symbol alone: ``"fe"`` and ``"iron"`` are both refused.
 
 ### Options for setting nuclear data source
 
-User control over the source of nuclear data for each on a nuclide, material and program level is facilitated in a few ways.
+The source of nuclear data can be set at the nuclide, material and program level in a few ways.
 
 #### cross_section_data with a library keyword
 
-The simplest method is to configure the package to use a single source of nuclear data for everything.
+The simplest method is to use a single source of nuclear data for everything.
 
 ```python
 yamc.cross_section_data = "fendl-3.2d"
@@ -185,8 +184,8 @@ how big each one is, and which can serve as a photon source.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from a library that has them while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
 
-Whenever nuclear data is needed this will check the users ```.cache/yamc``` folder to see if the JSON file for the required nuclide exists.
-If the file is found then it will be used and if not the JSON file will be downloaded to the cache and then used.
+Whenever nuclear data is needed, yamc checks the user's ```.cache/yamc``` folder for the JSON file of the required nuclide.
+If the file is there it is used; otherwise it is downloaded to the cache first.
 
 #### cross_section_data with a directory path
 
@@ -200,7 +199,7 @@ yamc.cross_section_data = "/path/to/neutron/"
 
 #### cross_section_data with file paths
 
-It is also possible to download data files from nuclear data repo [FENDL-3.2d](https://github.com/fusion-neutronics/cross_section_data_fendl_3.2d_arrow). Once the data files are saved locally then the path to these files can be used to configure the nuclear data. Replace the `tests` dir with the path to the downloaded data files.
+Data files can also be downloaded from the nuclear data repository [FENDL-3.2d](https://github.com/fusion-neutronics/cross_section_data_fendl_3.2d_arrow). Once they are saved locally, their paths can be used to configure the nuclear data. Replace the `tests` dir with the path to the downloaded data files.
 
 ```python
 yamc.cross_section_data = {
@@ -216,7 +215,7 @@ yamc.cross_section_data = {
 
 #### cross_section_data with paths and specific libraries
 
-It is also possible to mix different sources when configuring the nuclear data sources. In this example we use the `endf-b8.1` and `fendl-3.2d` library keywords for some nuclides and local file paths for others. Replace the ```tests``` dir with the path to the downloaded data files.
+Different sources can also be mixed. In this example we use the `endf-b8.1` and `fendl-3.2d` library keywords for some nuclides and local file paths for others. Replace the ```tests``` dir with the path to the downloaded data files.
 
 ```python
 yamc.cross_section_data = {
@@ -268,7 +267,7 @@ print(f'interacting reaction is {reaction}')
 
 ### Transmutation data
 
-For transmutation (``Material.transmute()``), coupled transport-transmutation (``Model.simulate_transmutation()``) and shutdown dose rate (D1S), YAMC also needs a transmutation network -- the chain of reactions, decays and decay-photon sources used to evolve nuclide inventories.
+For transmutation (``Material.transmute()``), coupled transport-transmutation (``Model.simulate_transmutation()``) and shutdown dose rate (D1S), YAMC also needs a transmutation network: the chain of reactions, decays and decay-photon sources used to evolve nuclide inventories.
 
 The network is assembled from four independently sourced parts, each set globally to a library keyword (its subsection tarball is downloaded and cached on first use) or a path to a local chain directory:
 
@@ -296,8 +295,8 @@ yamc.transmutation_decay_data = "/path/to/transmutation-endf-b8.1-sfr.arrow"
 
 See [Nuclear data libraries](nuclear_data_libraries.md) for which library provides which subsection. Setting a part to a library that does not publish it fails fast with a message listing that library's available subsections.
 
-A part can also be turned **off** outright, which is the honest setting for a
-decay-only calculation, or for a material nothing in which fissions:
+A part can also be turned off, which is the correct setting for a decay-only
+calculation or for a material in which nothing fissions:
 
 <!-- doctest: skip -->
 ```python

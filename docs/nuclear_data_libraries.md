@@ -44,7 +44,7 @@ with no subsections still works for transport, it just cannot supply a chain.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations. Take
 those from a library that has them and source ``reactions`` and ``branching`` from
-TENDL, which is what its far wider parent coverage is worth having for. Pointing a
+TENDL, whose parent coverage is far wider. Pointing a
 transmutation part at a library that does not provide it fails immediately with a
 message listing the subsections that library does provide.
 
@@ -60,7 +60,7 @@ Only three libraries can serve as a photon source at all:
 - ``endf-b8.1`` and ``jendl-5.0`` publish the photoatomic and atomic-relaxation
   pair a coupled run needs. JENDL-5's is EPICS2017 adopted by JAEA, so it is the
   same data ENDF/B-VIII.1 carries.
-- ``fendl-3.2d`` publishes photon cross sections with **no atomic relaxation**, so
+- ``fendl-3.2d`` publishes photon cross sections with no atomic relaxation, so
   fluorescence is silently suppressed if you point photons at it.
 - ``jeff-4.0`` and both TENDL releases publish no photoatomic data at all. JEFF's
   photon sublibrary is photonuclear, which is a different quantity.
@@ -89,9 +89,9 @@ all, rather than publishing an empty one.
 holds, which is what decides whether a product is reachable at all. ``covariance``
 is the share of neutron evaluations carrying cross-section covariance.
 
-The spread between the two ends is the thing worth noticing: TENDL carries five
-times the evaluations of ENDF/B-VIII.1 and thirteen times the reaction edges, and
-has none of the decay data. That is why a TENDL ``reactions`` network with
+The two ends of the table differ widely. TENDL carries five times the
+evaluations of ENDF/B-VIII.1 and thirteen times the reaction edges, and has none
+of the decay data. That is why a TENDL ``reactions`` network with
 ENDF/B-VIII.1 ``decay`` and ``fission_yields`` beside it is the usual arrangement.
 
 ### Covariance is presence, not coverage
@@ -126,10 +126,9 @@ branching ratio (``branching_ratio_uncertainty`` in ``decay_modes.arrow``),
 which the ``decay_branching`` source draws from for two-mode parents. Decay data
 converted before that column existed carries no branching sigma. The converter
 also stores each evaluation's fission yields with their stated sigmas
-(``yield_uncertainties`` in ``fission_yields/evaluated_yields.arrow``), and no
-source samples them yet. The sigmas
-stated on decay photon lines are not in the converted data yet. [What
-it does not cover](materials.md#what-it-does-not-cover) lists what a
+(``yield_uncertainties`` in ``fission_yields/evaluated_yields.arrow``), but no
+source samples them yet. The sigmas stated on decay photon lines are not in the
+converted data yet. [What it does not cover](materials.md#what-it-does-not-cover) lists what a
 nuclear-data uncertainty run holds at nominal.
 
 ### Energy range
@@ -147,30 +146,27 @@ uniform. Counting evaluations by the ceiling they were converted to:
 | ``tendl-2017`` | 200 MeV throughout |
 
 ENDF/B-VIII.1 is the only one that is mostly a 20 MeV library, and even its Fe56
-and W186 reach 150 MeV. So for a high-energy source it is worth checking the
-ceiling of the nuclides that carry the reaction rather than the library's
-headline.
+and W186 reach 150 MeV. For a high-energy source, check the ceiling of the
+nuclides that carry the reaction rather than the library's headline figure.
 
-The two halves of the code treat that differently, which is worth knowing before
-reading a result. In transport a particle above a nuclide's ceiling finds no
+Transport and transmutation treat the ceiling differently. In transport a particle above a nuclide's ceiling finds no
 cross section up there, and that reads as a rate too low rather than as an
 error. In a transmutation collapse, from yamc-core 0.11.0, it is refused: a group
 spectrum whose flux reaches past an evaluation's last energy point is rejected
 before the fold, naming the nuclide and the energy its evaluation stops at,
 because there is nothing up there to fold against and any answer would be
-invented. Before that release it folded against the last tabulated value,
-carrying it forward, which is a different and wrong answer whenever the top
-groups are populated. Groups above
-the ceiling carrying no flux cost nothing, which is what makes a padded
-spectrum safe.
+invented. Earlier releases carried the last tabulated value forward and folded
+against that, which gives a wrong answer whenever the top groups are populated.
+Groups above the ceiling that carry no flux are accepted, so a padded spectrum
+is safe.
 
 ### What a library can quietly lack
 
-Two things a library can be missing that neither the tables above nor its cross
+A library can lack two things that neither the tables above nor its cross
 sections reveal. Both matter for decay heat and shutdown dose rather than for
 transport.
 
-**Mean decay energies that are placeholders.** A nuclide whose decay scheme
+The first is placeholder mean decay energies. A nuclide whose decay scheme
 nobody has evaluated still gets a decay file, with a third of each beta or
 electron-capture branch's Q booked to the light particles and a third to the
 photons. For an electron-capture emitter that is meaningless, since the
@@ -183,7 +179,7 @@ named in the decay subsection's `provenance.json`, in data converted by
 yamc-core 0.10.0 or newer; libraries published before that carry the numbers
 without the record that says which of them are placeholders.
 
-**Reactions that do not list the isomer they make.** A reaction that can leave
+The second is reactions that do not list the isomer they make. A reaction that can leave
 its product in a metastable state has to say so, one entry per final state. One
 that lists the ground state alone puts the isomer outside the network
 altogether, so no code can make it. `Os190 (n,n')` to Os190m at 1706 keV and

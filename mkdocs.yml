@@ -70,7 +70,16 @@ extra_css:
   - css/api.css
   - css/nav.css
 
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
 markdown_extensions:
+  # Maths. `generic: true` emits MathJax-agnostic markup that the loader in
+  # docs/javascripts/mathjax.js renders; the equations on the method page are
+  # the reason this is here.
+  - pymdownx.arithmatex:
+      generic: true
   - admonition
   - pymdownx.highlight
   # def_list renders the "term / : definition" lists the nuclear_data_to_arrow
@@ -102,5 +111,6 @@ nav:
     - Simulate transmutation: simulate_transmutation.md
     - Simulate shutdown dose: simulate_shutdown_dose.md
     - Results: results.md
+  - Method: method.md
   - Python API: api.md
   - WebAssembly API: webassembly_api.md

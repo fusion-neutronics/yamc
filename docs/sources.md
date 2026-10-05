@@ -26,10 +26,10 @@ you can also ``from yamc import sources`` and write ``sources.Discrete(...)``.
 ### Spatial distributions
 
 ```python
-# Fixed point -- the (x, y, z) tuple shorthand
+# Fixed point, using the (x, y, z) tuple shorthand
 source = yamc.NeutronSource(position=(0, 0, 0), energy=14.06e6)
 
-# Cylindrical ring source -- a bare ring. For a real tokamak plasma, with
+# Cylindrical ring source (a bare ring). For a real tokamak plasma, with
 # its shape and its density/temperature profiles, see
 # "Parametric tokamak plasma source" below.
 import math
@@ -49,7 +49,7 @@ source = yamc.NeutronSource(
 # Monoenergetic
 energy = 14.06e6
 
-# Discrete line spectrum -- e.g. Co-60's two main decay gammas,
+# Discrete line spectrum, e.g. Co-60's two main decay gammas,
 # 1.17 MeV and 1.33 MeV, emitted in ~equal intensity
 energy = yamc.sources.Discrete([1.1732e6, 1.3325e6], [0.5, 0.5])
 
@@ -80,15 +80,15 @@ energy = yamc.sources.fusion_neutron_spectrum(ion_temp=20000.0, reactants='DD')
 ### Angular distributions
 
 ```python
-direction = yamc.sources.Isotropic()                 # default -- usually omitted
+direction = yamc.sources.Isotropic()                 # default, usually omitted
 direction = yamc.sources.Monodirectional([0, 0, 1])  # beam in +z
 ```
 
 ### Parametric tokamak plasma source
 
 `yamc.sources.tokamak_source()` builds a tokamak's neutron source from the
-plasma itself -- its shape, its confinement mode, and its ion density and
-temperature profiles -- rather than from a hand-placed ring.
+plasma itself (its shape, confinement mode, and ion density and temperature
+profiles) rather than from a hand-placed ring.
 
 ```python
 import yamc
@@ -123,12 +123,12 @@ model = yamc.Model(geometry=geometry, source=sources, tallies=tallies)
 Lengths are in cm, ion densities in m^-3, ion temperatures in eV and angles in
 radians. The full argument list is in the [API reference](api.md).
 
-The return is a **list** of `NeutronSource` ring sources -- the plasma is
+It returns a list of `NeutronSource` ring sources. The plasma is
 discretised onto a cylindrical (R, phi, Z) mesh and each non-empty voxel
 becomes one source per reaction, carrying the Ballabio spectrum at that voxel's
 emission-weighted ion temperature. Strengths are normalised to sum to 1, so the
-absolute neutron rate comes from the simulation's source rate, not from here.
-Pass the list straight to `Model(source=...)`, exactly as under
+absolute neutron rate comes from the simulation's source rate. Pass the list
+straight to `Model(source=...)`, as under
 "Multiple sources and strength weighting" below.
 
 The mesh defaults to `(100, 100)`, which is about 15000 sources for D-T fuel.
@@ -161,7 +161,7 @@ sources = yamc.sources.tokamak_source(**plasma, fuel={"D": 1.0})          # D-D 
 sources = yamc.sources.tokamak_source(**plasma, fuel={"D": 0.4, "T": 0.6})
 ```
 
-T(t,2n)4He is not included -- yamc has no T-T neutron spectrum model -- so
+T(t,2n)4He is not included because yamc has no T-T neutron spectrum model, so
 D-D and D-T carry the whole yield. For 50:50 D-T fuel at reactor temperatures
 the T-T channel is well under a percent of the total (0.7% for the parameters
 above), and pure-tritium fuel is rejected rather than silently returning no
@@ -247,9 +247,9 @@ plt.show()
 
 #### Plotting the emission
 
-Sampling the sources shows the plasma's poloidal cross-section directly -- the
-D-shape from the triangularity, the elongation, and the emission concentrated
-near the magnetic axis where the plasma is hottest.
+Sampling the sources shows the plasma's poloidal cross-section: the D-shape
+from the triangularity, the elongation, and the emission concentrated near the
+magnetic axis.
 
 ```python
 import math
@@ -288,7 +288,7 @@ plt.show()
 ```
 
 Emission crowds towards the magnetic axis, where the plasma is hottest, and
-the sparse 2.5 MeV points are the D-D component -- about 0.5% of the yield for
+the sparse 2.5 MeV points are the D-D component, about 0.5% of the yield for
 50:50 D-T fuel at these temperatures.
 
 ### Multiple sources and strength weighting

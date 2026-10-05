@@ -16,7 +16,7 @@ This guide is organised by topic:
 - [Tallies](tallies.md): scores, estimators, filters, and meshes
 - [Models](models.md): assembling a model and model function
 - [Weight windows](weight_windows.md): variance reduction for deep-penetration and streaming
-- [Simulating transport](simulate_transport.md): run the a particle transport simulation
+- [Simulating transport](simulate_transport.md): run a particle transport simulation
 - [Simulating transmutation](simulate_transmutation.md): run transmutation simulations
-- [Simulating shutdown_dose](simulate_shutdown_dose.md): run shutdown / residual dose simulations.
+- [Simulating shutdown dose](simulate_shutdown_dose.md): run shutdown (residual) dose simulations
 - [Results and post-processing](results.md): statistics, plotting, and export

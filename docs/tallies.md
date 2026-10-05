@@ -27,16 +27,16 @@ tally = yamc.Tally(scores=["flux", "heating", 105], cells=cell)
 
 #### Virtual response overlays (``response=``)
 
-By default a tally is *macroscopic*: cross sections are multiplied by the cell's atom density, so it only scores where the responding material physically exists. Pass ``response=`` to instead score a **virtual** response everywhere, even in void -- a detector that isn't present in the geometry. ``response`` and ``nuclides`` are mutually exclusive (``nuclides`` stays the macroscopic per-nuclide breakdown at real in-material density).
+By default a tally is macroscopic: cross sections are multiplied by the cell's atom density, so it only scores where the responding material physically exists. Passing ``response=`` scores a virtual response everywhere instead, even in void, as if a detector that is not in the geometry were present. ``response`` and ``nuclides`` are mutually exclusive (``nuclides`` remains the macroscopic per-nuclide breakdown at the real in-material density).
 
-The *type* of ``response`` selects the regime:
+The type of ``response`` selects the regime:
 
-- ``response="Si28"`` or ``response=["Li6", "Li7"]`` -- microscopic cross sections (barns) at **unit density**; one result bin per nuclide. You weight by atom density yourself in post-processing.
-- ``response=<Material>`` -- the material's **macroscopic** response directly, weighting each nuclide's microscopic XS by its real atom density and collapsing to a **single combined bin** (e.g. a SiO2 dose map). No post-processing needed.
+- ``response="Si28"`` or ``response=["Li6", "Li7"]``: microscopic cross sections (barns) at unit density, with one result bin per nuclide. Weighting by atom density is left to post-processing.
+- ``response=<Material>``: the material's macroscopic response, weighting each nuclide's microscopic XS by its real atom density and collapsing to a single combined bin (e.g. a SiO2 dose map). No post-processing is needed.
 
 <!-- doctest: skip -->
 ```python
-# Nuclide overlay (unit density) -- one bin per nuclide:
+# Nuclide overlay (unit density), one bin per nuclide:
 tally = yamc.Tally(
     scores=["heating"],
     response="Si28",
@@ -44,7 +44,7 @@ tally = yamc.Tally(
     name="silicon_dose_overlay",
 )
 
-# Material overlay -- one combined macroscopic bin, weighted by atom density:
+# Material overlay, one combined macroscopic bin weighted by atom density:
 silicon = yamc.Material(composition={"Si28": 1.0}, density=2.33)
 tally = yamc.Tally(
     scores=["heating"],
@@ -58,15 +58,15 @@ tally = yamc.Tally(
 
 Each tally has an ``estimator`` controlling how a particle history is turned into score contributions:
 
-- ``"track-length"`` (default) -- every cell crossing contributes ``X · weight · Δs``, where ``X`` is the relevant cross section (``Σ_t`` for ``flux`` collapses the XS away into a pure length integral, ``heating_xs`` for ``heating``, ``σ_r`` for a reaction rate, etc.). Lower variance in optically thin regions; touches more bins per history.
-- ``"collision"`` -- fires at every collision site with contribution ``(X / Σ_t) · weight``, where ``Σ_t`` is the URR-modified macroscopic total cross section the collision was sampled against. Lower variance in optically thick regions; touches one bin per collision rather than one per crossing. Both estimators converge to the same expected value, so identical seeds must agree to within statistical noise.
+- ``"track-length"`` (default): every cell crossing contributes ``X · weight · Δs``, where ``X`` is the relevant cross section (for ``flux`` the XS drops out, leaving a pure length integral; ``heating_xs`` for ``heating``; ``σ_r`` for a reaction rate; and so on). It has lower variance in optically thin regions and touches more bins per history.
+- ``"collision"``: scores at every collision site with contribution ``(X / Σ_t) · weight``, where ``Σ_t`` is the URR-modified macroscopic total cross section the collision was sampled against. It has lower variance in optically thick regions and touches one bin per collision rather than one per crossing. Both estimators converge to the same expected value, so identical seeds must agree to within statistical noise.
 
 <!-- doctest: skip -->
 ```python
 # Default: track-length flux
 tally = yamc.Tally(scores=["flux"], cells=cell)
 
-# Collision-estimator flux -- explicit
+# Collision-estimator flux, set explicitly
 tally = yamc.Tally(scores=["flux"], cells=cell, estimator="collision")
 
 # Collision-estimator reaction rate (URR-aware for total / elastic /
@@ -79,17 +79,17 @@ Score / estimator compatibility:
 | Score | Track-length | Collision |
 | --- | --- | --- |
 | ``flux`` | ✓ (default) | ✓ |
-| ``heating`` / ``heating-local`` | ✓ -- neutron KERMA (MT 301/901) and photon collision KERMA, both scored along tracks | ✓ -- neutrons use ``(heating_xs / Σ_t) · weight``; photons use the analog absorbed energy ``(E_in − E_out − Σ E_banked_photons) · weight`` at each collision |
-| ``reaction-rate`` (``total`` / ``elastic`` / ``fission`` / ``absorption`` / arbitrary MT) | ✓ | ✓ -- URR-aware for MTs 1 / 2 / 18 / 27 / 102 |
+| ``heating`` / ``heating-local`` | ✓: neutron KERMA (MT 301/901) and photon collision KERMA, both scored along tracks | ✓: neutrons use ``(heating_xs / Σ_t) · weight``; photons use the analog absorbed energy ``(E_in − E_out − Σ E_banked_photons) · weight`` at each collision |
+| ``reaction-rate`` (``total`` / ``elastic`` / ``fission`` / ``absorption`` / arbitrary MT) | ✓ | ✓, URR-aware for MTs 1 / 2 / 18 / 27 / 102 |
 | ``H1-production`` / ``H2-production`` / ``H3-production`` / ``He3-production`` / ``He4-production`` | ✓ | ✓ |
-| ``damage-energy`` (MT 444) | ✓ | ✓ -- ``(damage_energy_xs / Σ_t) · weight`` per neutron collision |
-| ``coherent-scatter`` / ``incoherent-scatter`` / ``photoelectric`` / ``pair-production`` (photon XS) | ✓ | ✓ -- ``(σ_component / Σ_t) · weight`` per photon collision, where ``Σ_t`` is the macroscopic photon total |
+| ``damage-energy`` (MT 444) | ✓ | ✓: ``(damage_energy_xs / Σ_t) · weight`` per neutron collision |
+| ``coherent-scatter`` / ``incoherent-scatter`` / ``photoelectric`` / ``pair-production`` (photon XS) | ✓ | ✓: ``(σ_component / Σ_t) · weight`` per photon collision, where ``Σ_t`` is the macroscopic photon total |
 
-Every score type supports both estimators, with these caveats (each refused or documented explicitly rather than silently substituted):
+Every score type supports both estimators, with the following caveats. In each case the unsupported combination is refused or documented, never silently substituted.
 
-- **Photon heating follows the estimator, with a physical convention split.** ``estimator="collision"`` scores the analog absorbed energy at each photon collision: ``E_in − E_out − Σ E_banked_photons``, electron/positron kinetic energy deposited locally minus the banked TTB bremsstrahlung (the coupled neutron–photon local-deposition convention; matches a reference code's *unfiltered* heating to 0.01% on an absorbing Fe sphere, but not its photon-*filtered* share, which that code books on its electron pseudo-particles). ``estimator="track-length"`` scores collision KERMA along tracks (lower variance, and what mesh tallies want): the same electron energy, but the TTB-radiated part is counted *locally* instead of where those photons land. On thick absorbing bodies the two agree within ~1%; in thin or streaming geometries the track-length value exceeds the absorbed energy by the escaping radiative fraction -- the textbook kerma-vs-dose distinction (4.7% on a 5 MeV broomstick). Photon ``heating-local`` reports the same values as ``heating`` (with no electron transport there is nothing to separate).
-- **GPU runs are track-length only.** ``estimator="collision"`` tallies are refused at dispatch with a clear error.
-- **Unstructured-mesh tallies support both estimators in every mode.** The collision estimator resolves the containing tetrahedron with a BVH point query; under ``woodcock`` / ``hybrid``, flux-score track-length unstructured tallies score true track length along each flight segment (like regular meshes) and other scores use the delta-collision estimator with per-tet attribution.
+- Photon heating depends on the estimator, because the two follow different physical conventions. ``estimator="collision"`` scores the analog absorbed energy at each photon collision: ``E_in − E_out − Σ E_banked_photons``, which is the electron/positron kinetic energy deposited locally minus the banked TTB bremsstrahlung (the coupled neutron-photon local-deposition convention). This matches a reference code's unfiltered heating to 0.01% on an absorbing Fe sphere, but not its photon-filtered share, which that code books on its electron pseudo-particles. ``estimator="track-length"`` scores collision KERMA along tracks, which has lower variance and suits mesh tallies. It counts the same electron energy, but the TTB-radiated part is deposited locally instead of where those photons land. On thick absorbing bodies the two agree within ~1%. In thin or streaming geometries the track-length value exceeds the absorbed energy by the escaping radiative fraction, which is the usual distinction between kerma and dose (4.7% on a 5 MeV broomstick). Photon ``heating-local`` reports the same values as ``heating``, since with no electron transport there is nothing to separate.
+- GPU runs are track-length only. ``estimator="collision"`` tallies are refused at dispatch with an error.
+- Unstructured-mesh tallies support both estimators in every mode. The collision estimator resolves the containing tetrahedron with a BVH point query; under ``woodcock`` / ``hybrid``, flux-score track-length unstructured tallies score true track length along each flight segment (like regular meshes) and other scores use the delta-collision estimator with per-tet attribution.
 
 After running, the chosen estimator is reported on the tally:
 
@@ -100,29 +100,29 @@ print(tally.estimator)  # "track-length" or "collision"
 
 ### Variance estimator
 
-Each tally reports a per-bin standard deviation alongside its mean. Variance is estimated end-to-end with per-history Welford accumulation: every source-particle history is one variance sample, per-rayon-worker private scratch is updated online via Welford, then a pairwise reduce folds the workers together. No user-facing knobs -- no batch size, no method selection.
+Each tally reports a per-bin standard deviation alongside its mean. Variance is estimated with per-history Welford accumulation: each source-particle history is one variance sample, each rayon worker updates its private scratch online with Welford's algorithm, and a pairwise reduction then combines the workers. There are no user settings for this (no batch size and no choice of method).
 
 ### Spatial binning
 
-Each tally scores in one spatial domain family: cells, materials, mesh, or unstructured mesh. ``cells`` and ``materials`` are mutually exclusive -- a single tally cannot bin over both cells and materials.
+Each tally scores in one spatial domain family: cells, materials, mesh, or unstructured mesh. ``cells`` and ``materials`` are mutually exclusive: a single tally cannot bin over both.
 
 <!-- doctest: skip -->
 ```python
-# Cell binning -- single cell (one result bin)
+# Cell binning, single cell (one result bin)
 tally = yamc.Tally(scores=["flux"], cells=cell)
 
-# Cell binning -- list of cells (one result bin per cell)
+# Cell binning, list of cells (one result bin per cell)
 tally = yamc.Tally(scores=["flux"], cells=[cell1, cell2, cell3])
 # After results = model.simulate_transport(total_particles=10000):
-#   results[tally].mean[0]  → flux in cell1
-#   results[tally].mean[1]  → flux in cell2
-#   results[tally].mean[2]  → flux in cell3
-# A bare single cell is also accepted: cells=cell1 → one bin.
+#   results[tally].mean[0] is the flux in cell1
+#   results[tally].mean[1] is the flux in cell2
+#   results[tally].mean[2] is the flux in cell3
+# A bare single cell is also accepted: cells=cell1 gives one bin.
 
-# Material binning -- single material
+# Material binning, single material
 tally = yamc.Tally(scores=["flux"], materials=material)
 
-# Material binning -- list of materials (one result bin per material)
+# Material binning, list of materials (one result bin per material)
 tally = yamc.Tally(scores=["flux"], materials=[m1, m2])
 
 # Regular mesh binning. `shape` is either per-axis voxel counts [nx, ny, nz]
@@ -138,7 +138,7 @@ tally = yamc.Tally(scores=["flux"], mesh=mesh)
 mesh = yamc.RegularRectangularMesh.from_domain(geometry, shape=1_000_000)
 tally = yamc.Tally(scores=["flux"], mesh=mesh)
 
-# Regular cylindrical (r, phi, z) mesh -- natural for tokamak / cylindrical
+# Regular cylindrical (r, phi, z) mesh, suited to tokamak and cylindrical
 # geometries. phi_bounds defaults to the full circle (0, 2*pi); pass a
 # sub-interval (e.g. (0, math.pi)) for a sector.
 import math
@@ -150,7 +150,7 @@ mesh = yamc.RegularCylindricalMesh(
     origin=(0.0, 0.0, 0.0),
 )
 tally = yamc.Tally(scores=["flux"], mesh=mesh)
-# Cylindrical cells are NOT equal volume -- outer radial rings are larger.
+# Cylindrical cells are not equal in volume: outer radial rings are larger.
 # Normalise per cell when comparing flux across radii:
 #   results[tally].mean[b] / mesh.element_volume(b)
 
@@ -161,7 +161,7 @@ tally = yamc.Tally(
 )
 ```
 
-The ``mean``/``std_dev``/``relative_error`` arrays are laid out flat. When multiple binning axes are present the bin order (slowest → fastest varying) is ``score → cell → material → nuclide → parent_nuclide → energy → mesh``.
+The ``mean``/``std_dev``/``relative_error`` arrays are laid out flat. When multiple binning axes are present, the bin order from slowest to fastest varying is ``score``, ``cell``, ``material``, ``nuclide``, ``parent_nuclide``, ``energy``, ``mesh``.
 
 ### Energy binning
 
@@ -193,9 +193,9 @@ tally = yamc.Tally(scores=["flux"], cells=cell, energy_group_structure="VITAMIN-
 
 Two of them, ``SCALE-252`` and ``SHEM-361``, have a lowest boundary of exactly 0 eV. That is OpenMC's value and is kept, but it sits below the 1e-5 eV floor of the transport data, so treat their bottom bin as open-ended rather than as a real energy range.
 
-Passing a name that is not in the table raises with the list of the ones that are, so a typo never silently becomes something else. Every name except ``CCFE-24-PHOTON`` carries the same boundaries as OpenMC's ``openmc.mgxs.GROUP_STRUCTURES`` entry of that name, so a spectrum tabulated for one code can be handed to the other without re-binning.
+Passing a name that is not in the table raises an error listing the valid names, so a typo cannot silently select a different structure. Every name except ``CCFE-24-PHOTON`` carries the same boundaries as OpenMC's ``openmc.mgxs.GROUP_STRUCTURES`` entry of that name, so a spectrum tabulated for one code can be handed to the other without re-binning.
 
-The names are also readable as data, which is what lets a multigroup result be plotted or folded against the energies it was scored on:
+The structures can also be read as data, so a multigroup result can be plotted or folded against the energies it was scored on:
 
 <!-- doctest: skip -->
 ```python
@@ -209,9 +209,9 @@ edges[0], edges[-1]                   # 1e-05, 1000000000.0
 
 #### What the choice of structure costs
 
-Choosing a structure is a resolution trade, and it is easier to see than to argue about. Below, a 14.06 MeV point source sits at the centre of a 50 cm sphere of one homogenized mixture of tungsten, water, steel, lithium and beryllium, and the same cell flux is tallied ten times over, once per neutron structure in the table. Flux is divided by bin width in lethargy, so that structures with different bin widths land on one axis.
+Choosing a structure trades resolution against bin count, and the effect is easiest to show with an example. Below, a 14.06 MeV point source sits at the centre of a 50 cm sphere of one homogenized mixture of tungsten, water, steel, lithium and beryllium, and the same cell flux is tallied ten times over, once per neutron structure in the table. Flux is divided by bin width in lethargy, so that structures with different bin widths land on one axis.
 
-The left panel is the whole slowing-down spectrum: all ten agree on it, but the coarse ones step over the resonance dips and the thermal end that the fine ones resolve. The right panel is the source line itself, which each structure smears across whichever bin contains 14.06 MeV: the wider the bin, the lower and flatter the peak, from ``XMAS-172`` at the bottom to ``ECCO-1968`` at the top. This figure is rendered live when these docs are built.
+The left panel shows the whole slowing-down spectrum. All ten agree on it, but the coarse structures step over the resonance dips and the thermal end that the fine ones resolve. The right panel shows the source line itself, which each structure smears across whichever bin contains 14.06 MeV. The wider the bin, the lower and flatter the peak, from ``XMAS-172`` at the bottom to ``ECCO-1968`` at the top. This figure is rendered live when these docs are built.
 
 ```python exec="1" html="1" source="above"
 import base64
@@ -293,7 +293,7 @@ tally = yamc.Tally(
 
 ### Particle binning
 
-Restrict scoring to neutrons or photons. Required for separate neutron/photon spectra.
+Restrict scoring to neutrons or photons. This is required for separate neutron and photon spectra.
 
 <!-- doctest: skip -->
 ```python
