@@ -8,7 +8,7 @@
 results = model.simulate_transport(total_particles=10000)
 ```
 
-``simulate_transport()`` returns a ``SimulationResults`` object containing a ``TallyResult`` for every tally attached to the model, plus run metadata (``n_batches``, ``particles_per_chunk``, ``elapsed``).
+``simulate_transport()`` returns a ``SimulationResults`` object containing a ``TallyResult`` for every tally attached to the model, plus run metadata (``elapsed``, ``transport_time``, ``particles_per_second``, and ``runs``: per run the seed, ``n_histories``, the data libraries and the published release of each, ``data_releases``).
 
 Every run needs at least one stop condition: a particle budget (``total_particles``), a wall-time budget (``max_runtime``), or convergence targets on the model. They are OR-combined, so the run ends at the first one satisfied. ``total_particles`` defaults to ``None`` (no particle cap); a call with no stop condition at all raises ``ValueError``.
 

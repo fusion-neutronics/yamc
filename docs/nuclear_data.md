@@ -184,8 +184,46 @@ how big each one is, and which can serve as a photon source.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from a library that has them while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
 
-Whenever nuclear data is needed, yamc checks the user's ```.cache/yamc``` folder for the JSON file of the required nuclide.
-If the file is there it is used; otherwise it is downloaded to the cache first.
+A keyword resolves, once per process, to the library's current published
+release: a dated folder such as ``2026-10-10.1`` with a manifest that lists every
+file in it with its size and sha256. Whenever nuclear data is needed, yamc looks
+for the file in that release's folder of its cache. If the file is there it is
+used; otherwise it is downloaded first, checked against the manifest (a byte
+range against its own hash), and only then kept. A file that does not match is
+refused with an error naming it. A load of many nuclides downloads them in
+concurrent batches and prints a ``Downloaded k of N nuclides`` counter.
+
+The cache is a ``yamc`` folder in the platform's per-user cache directory, and
+``yamc.cache_dir()`` returns it:
+
+| platform | cache directory |
+| --- | --- |
+| Linux | ``~/.cache/yamc``, or ``$XDG_CACHE_HOME/yamc`` when that is set |
+| macOS | ``~/Library/Caches/yamc`` |
+| Windows | ``%LOCALAPPDATA%\yamc`` |
+
+Each release has its own folder, laid out as the published tree:
+
+```
+<cache dir>/<keyword>/<release>/manifest.json
+<cache dir>/<keyword>/<release>/neutron/<Nuclide>.arrow/...
+<cache dir>/<keyword>/<release>/photon/<Element>.arrow/...
+<cache dir>/<keyword>/<release>/transmutation/<subsection>.arrow/...
+```
+
+No setting or environment variable moves the cache (``YAMC_CACHE_DIR`` is gone).
+To read data from somewhere else, point the setting at a local directory, as
+below, which bypasses the cache. When a newer release is published, the next run
+downloads what it needs from it, says so once, and leaves the older folder in
+place; every file one run reads from a library comes from a single release.
+Without a connection, yamc uses the newest cached release that already holds
+every file the run needs and says which; only a file missing from the cache is
+then an error. Results record the release of each library they used:
+``SimulationResults.runs[i]["data_releases"]`` and
+``TransmutationResults.data_releases``, each mapping a keyword to its
+``release``, ``manifest_sha256``, ``format_version`` and ``offline``.
+``yamc.combine_results`` refuses runs that read different releases of one
+library.
 
 #### cross_section_data with a directory path
 

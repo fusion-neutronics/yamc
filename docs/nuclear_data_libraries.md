@@ -1,7 +1,10 @@
 # Nuclear data libraries
 
 Six libraries are available by keyword. Point a setting at one and the sections it
-needs are downloaded on first use and cached under ``~/.cache/yamc``.
+needs are downloaded on first use from the library's current published release,
+verified against that release's manifest, and cached on disk under
+``yamc.cache_dir()``. Releases, the cache layout and offline use are described
+in [Nuclear data](nuclear_data.md#cross_section_data-with-a-library-keyword).
 
 <!-- doctest: skip -->
 ```python
@@ -15,7 +18,7 @@ yamc.cross_section_data = "endf-b8.1"
 | ``jendl-5.0`` | JENDL-5. |
 | ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six. |
 | ``tendl-2017`` | TENDL-2017, for comparing a result against the older release. |
-| ``fendl-3.2d`` | FENDL-3.2d. Cross sections only, no transmutation data. |
+| ``fendl-3.2d`` | FENDL-3.2d. Cross sections, plus ``reactions`` and ``branching`` subsections. |
 
 Every setting also takes a path instead of a keyword, and ``cross_section_data``
 additionally takes a directory or a dict keyed by nuclide; the four
@@ -30,7 +33,7 @@ when left alone, is in [Nuclear data settings](nuclear_data.md#nuclear-data-sett
 | ``endf-b8.1`` | neutron + photon | yes | yes | yes | yes |
 | ``jeff-4.0`` | neutron | yes | yes | yes | yes |
 | ``jendl-5.0`` | neutron + photon | yes | yes | yes | yes |
-| ``fendl-3.2d`` | neutron + photon | -- | -- | -- | -- |
+| ``fendl-3.2d`` | neutron + photon | -- | yes | -- | yes |
 | ``tendl-2025`` | neutron | -- | yes | -- | yes |
 | ``tendl-2017`` | neutron | -- | yes | -- | yes |
 
@@ -44,7 +47,10 @@ with no subsections still works for transport, it just cannot supply a chain.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations. Take
 those from a library that has them and source ``reactions`` and ``branching`` from
-TENDL, whose parent coverage is far wider. Pointing a
+TENDL, whose parent coverage is far wider. FENDL-3.2d publishes the same two
+subsections, built against ENDF/B-VIII.1 decay data; its ``branching`` is the
+reason to use it, since 54 of its evaluations carry isomer production (MF=9 or
+MF=10), 15 of them with MF=40 covariances. Pointing a
 transmutation part at a library that does not provide it fails immediately with a
 message listing the subsections that library does provide.
 
@@ -80,7 +86,7 @@ all, rather than publishing an empty one.
 | ``endf-b8.1`` | 557 | 100 | 5,175 | 915 | 3,820 | 42% |
 | ``jeff-4.0`` | 593 | -- | 13,513 | 8,303 | 3,851 | 98% |
 | ``jendl-5.0`` | 795 | 100 | 9,902 | 5,349 | 4,070 | 13% |
-| ``fendl-3.2d`` | 192 | 61 | -- | -- | -- | 35% |
+| ``fendl-3.2d`` | 192 | 61 | pending | pending | -- | 35% |
 | ``tendl-2025`` | 2,848 | -- | 67,797 | 8,416 | -- | pending |
 | ``tendl-2017`` | 2,801 | -- | 68,827 | 8,365 | -- | pending |
 
@@ -101,19 +107,25 @@ not the same as covariance landing where a given run needs it. Depth varies as
 much as presence: JENDL-5 carries covariance for 13% of its evaluations, and its
 Fe56 covers 56 channels against ENDF/B-VIII.1's 7.
 
-Cross sections (MF=33) are also the only covariance family that reaches the
-converted data. The ENDF parser reads resonance-parameter covariance (MF=32),
-angular-distribution covariance (MF=34) and radionuclide-production covariance
-(MF=40, the covariance of each product state's production cross section) as
-well, but none of them is written to the converted data yet, so nothing samples
-them. ENDF/B-VIII.1, FENDL-3.2d and TENDL state no correlation in MF=40 between
-a product's states, or with MF=33, so even once it is stored the
-isomeric-branching split's uncertainty is only partly stated. An evaluation that
-keeps its resolved-resonance uncertainty in MF=32 and leaves MF=33 at zero over
-that range arrives with no capture, elastic or fission uncertainty below the top
-of its resolved resonances, and that range reaches down to thermal. The
+Three covariance families reach the converted data. The cross sections' MF=33
+is folded against the spectrum. Resonance-parameter covariance (MF=32), where an
+evaluation often keeps its resolved-resonance uncertainty while leaving MF=33 at
+zero over that range, is used two ways: where a nuclide's folder carries the
+parameters themselves (``resonance_parameters.arrow``, in the published
+libraries), each sample draws them and rebuilds the resonance range from the
+draw; otherwise the converter's first-order MF=32 rows in ``covariance.arrow``
+are folded like MF=33. Data with neither arrives with no capture, elastic or
+fission uncertainty below the top of its resolved resonances, and the
 uncertainty report counts rate from energies where the stated variance is zero
-as uncovered, so the gap shows in ``rate_fraction_covered``.
+as uncovered, so that gap shows in ``rate_fraction_covered``. The
+radionuclide-production covariance (MF=40, the covariance of each product
+state's production cross section) is in the branching subsection's
+``branching_covariance.arrow`` and drawn by the ``isomer_branching`` source.
+ENDF/B-VIII.1, FENDL-3.2d and TENDL state no correlation in MF=40 between a
+product's states, or with the reaction's MF=33, so the split's uncertainty is
+only partly stated. The ENDF
+parser also reads angular-distribution covariance (MF=34), which nothing samples
+yet.
 
 Beyond covariance, the decay data carries each nuclide's half-life with the
 standard deviation its evaluation states, and its decay energy with a standard
@@ -123,12 +135,13 @@ treated as independent and the total's sigma is their quadrature sum. The
 ``half_life`` and ``decay_energy`` uncertainty sources draw from these. The
 converter also stores the sigma each evaluation states on a decay mode's
 branching ratio (``branching_ratio_uncertainty`` in ``decay_modes.arrow``),
-which the ``decay_branching`` source draws from for two-mode parents. Decay data
-converted before that column existed carries no branching sigma. The converter
-also stores each evaluation's fission yields with their stated sigmas
-(``yield_uncertainties`` in ``fission_yields/evaluated_yields.arrow``), but no
-source samples them yet. The sigmas stated on decay photon lines are not in the
-converted data yet. [What it does not cover](materials.md#what-it-does-not-cover) lists what a
+which the ``decay_branching`` source draws from for parents with any number of
+modes. Decay data converted before that column existed carries no branching
+sigma. The converter also stores each evaluation's fission yields with their
+stated sigmas (``yield_uncertainties`` in
+``fission_yields/evaluated_yields.arrow``), which the ``fission_yield`` source
+draws, and the sigmas stated on decay photon lines, which the
+``decay_photon_lines`` source draws. [What it does not cover](materials.md#what-it-does-not-cover) lists what a
 nuclear-data uncertainty run holds at nominal.
 
 ### Energy range

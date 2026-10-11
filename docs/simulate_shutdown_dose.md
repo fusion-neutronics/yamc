@@ -67,7 +67,7 @@ flat bin layout per row is score then mesh (the general order is in
 [Spatial binning](tallies.md#spatial-binning)), so reshape with
 ``np.array(dose.mean).reshape(mesh.shape)``.
 
-### Half-life uncertainty on the dose
+### Nuclear-data uncertainty on the dose
 
 ``dose.std_dev`` is the transport's statistical error alone. Pass
 ``data_uncertainty`` and the time correction's nuclear-data uncertainty comes
@@ -80,19 +80,27 @@ dose = schedule.time_correct_tally(
     steps=-1,
     data_uncertainty=yamc.DataUncertainty(seed=1),
 )
-dose.data_std_dev            # from the half-lives, same shape as dose.mean
+dose.data_std_dev            # from the nuclear data, same shape as dose.mean
 dose.total_std_dev           # std_dev and data_std_dev in quadrature
-dose.data_uncertainty_info   # half-lives sampled, those with no stated sigma,
+dose.data_uncertainty_info   # what was sampled, what states no sigma,
                              # the replica count and whether it settled
 ```
 
-Only the ``"half_life"`` source acts here. A time-correction factor is an
-activity over the schedule, and the tally's photon yield is per decay, so the
-half-lives enter through the correction and nowhere else. Each replica draws
-every half-life feeding an emitter once and uses it for every campaign, and the
-draws are those a transmutation with the same seed makes. Decay branching
-ratios also shape a time correction but are held at nominal here, and
-``data_uncertainty_info`` lists them under ``not_perturbed``. The two sigmas are
+Two sources act here. ``"half_life"`` acts through the time correction: a
+time-correction factor is an activity over the schedule, and the tally's photon
+yield is per decay, so the half-lives enter there and nowhere else. Each
+replica draws every half-life feeding an emitter once and uses it for every
+campaign. ``"decay_photon_lines"`` acts through each photon spectrum's
+normalisation (FD for lines, FC for a continuum), which scales an emitter's whole
+spectrum and so its tally, and is applied after the fact. The draws are those a
+transmutation with the same seed makes. ``dose.data_std_dev_correlated`` and
+``dose.total_std_dev_correlated`` give the upper end of the range left by the
+unstated correlation between an emitter's gamma and x-ray normalisations. The
+line intensities and energies change the spectrum's shape, which would need
+line-resolved tallies, and are held; ENDF/B-VIII.1 folds the normalisation's
+sigma into the line intensities, so under it almost nothing is drawn. Decay
+branching ratios also shape a time correction but are held at nominal here, and
+``data_uncertainty_info`` lists everything held under ``not_perturbed``. The two sigmas are
 independent (one comes from transport sampling, the other from the evaluated
 half-lives), so they add in quadrature. Without ``data_uncertainty``
 the three attributes are ``None``.

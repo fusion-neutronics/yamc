@@ -517,8 +517,9 @@ for up to 2048 bins.
 Separate runs of the same model can be combined exactly: the means, $M_2$,
 higher moments, covariance products and score distributions are merged with
 the same pairwise update. Runs are refused if they could share random number
-streams, if the model, data library or tally definitions differ, or if they
-came from the GPU.
+streams, if the model, data library or tally definitions differ, if they read
+different published releases of one library (each run records its releases in
+``runs[i]["data_releases"]``), or if they came from the GPU.
 
 ## Random numbers and reproducibility
 
