@@ -10,7 +10,12 @@
 # the importable module markdown-exec runs come from the installed `yamc-core`
 # wheel, which is why `paths` is absent below.
 #
-# Build: pip install "yamc-core[all]"; mkdocs build -f mkdocs.yml
+# The exporter plugin renders every page in headless Chromium and joins them
+# into one PDF, linked from the nav. Chromium rather than WeasyPrint because
+# the maths is typeset by MathJax, which needs a browser to run.
+#
+# Build: pip install "yamc-core[all]"; playwright install chromium;
+#   mkdocs build -f mkdocs.yml
 site_name: yamc
 site_description: Yet Another Monte Carlo -- neutron and photon transport
 site_url: https://fusion-neutronics.github.io/yamc/
@@ -65,6 +70,23 @@ plugins:
               # yamc's __all__ is dynamic (dir()-based); mark top-level names
               # public so explicitly imported ones (Model, Cell, ...) render.
               - docs/griffe_ext.py:PublicApi
+  - exporter:
+      formats:
+        pdf:
+          enabled: true
+          concurrency: 8
+          stylesheets:
+            - docs/pdf/pdf.css
+          scripts:
+            - docs/pdf/before-paging.js
+          aggregator:
+            enabled: true
+            output: yamc-documentation.pdf
+            covers: none
+
+# Keeps the inline plots intact in the PDF; see the module docstring.
+hooks:
+  - docs/pdf/exporter_hooks.py
 
 extra_css:
   - css/api.css
@@ -115,3 +137,6 @@ nav:
   - Method: method.md
   - Python API: api.md
   - WebAssembly API: webassembly_api.md
+  # Absolute, because the PDF is written by the exporter after the build and
+  # is not a file in docs/ for MkDocs to resolve a relative link against.
+  - Download as PDF: https://fusion-neutronics.github.io/yamc/yamc-documentation.pdf

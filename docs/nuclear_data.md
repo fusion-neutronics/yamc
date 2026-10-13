@@ -184,7 +184,7 @@ how big each one is, and which can serve as a photon source.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from a library that has them while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
 
-Whenever nuclear data is needed, yamc checks the user's ```.cache/yamc``` folder for the JSON file of the required nuclide.
+Whenever nuclear data is needed, yamc checks the user's ```.cache/yamc``` folder for the Arrow data of the required nuclide.
 If the file is there it is used; otherwise it is downloaded to the cache first.
 
 #### cross_section_data with a directory path

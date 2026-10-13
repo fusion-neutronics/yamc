@@ -88,7 +88,6 @@ Score / estimator compatibility:
 Every score type supports both estimators, with the following caveats. In each case the unsupported combination is refused or documented, never silently substituted.
 
 - Photon heating depends on the estimator, because the two follow different physical conventions. ``estimator="collision"`` scores the analog absorbed energy at each photon collision: ``E_in − E_out − Σ E_banked_photons``, which is the electron/positron kinetic energy deposited locally minus the banked TTB bremsstrahlung (the coupled neutron-photon local-deposition convention). This matches a reference code's unfiltered heating to 0.01% on an absorbing Fe sphere, but not its photon-filtered share, which that code books on its electron pseudo-particles. ``estimator="track-length"`` scores collision KERMA along tracks, which has lower variance and suits mesh tallies. It counts the same electron energy, but the TTB-radiated part is deposited locally instead of where those photons land. On thick absorbing bodies the two agree within ~1%. In thin or streaming geometries the track-length value exceeds the absorbed energy by the escaping radiative fraction, which is the usual distinction between kerma and dose (4.7% on a 5 MeV broomstick). Photon ``heating-local`` reports the same values as ``heating``, since with no electron transport there is nothing to separate.
-- GPU runs are track-length only. ``estimator="collision"`` tallies are refused at dispatch with an error.
 - Unstructured-mesh tallies support both estimators in every mode. The collision estimator resolves the containing tetrahedron with a BVH point query; under ``woodcock`` / ``hybrid``, flux-score track-length unstructured tallies score true track length along each flight segment (like regular meshes) and other scores use the delta-collision estimator with per-tet attribution.
 
 After running, the chosen estimator is reported on the tally:
@@ -321,7 +320,8 @@ tally = yamc.Tally(
 
 ### Dose coefficients
 
-Apply ICRP-116 effective dose conversion coefficients directly.
+Apply effective dose conversion coefficients directly. They are ICRP-116 by default; add
+``"icrp74"`` as a third element, ``("neutron", "AP", "icrp74")``, for ICRP-74.
 
 <!-- doctest: skip -->
 ```python
