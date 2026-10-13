@@ -30,8 +30,7 @@ course. See
 ## Accurate
 
 **Continuous-energy neutron and photon transport.** Cross sections are used on
-the evaluation's own energy grid, and the photon physics, including atomic
-relaxation, is read straight from the ENDF sublibraries with no NJOY step. See
+the evaluation's own energy grid, with no multigroup collapse. See
 [Method](method.md).
 
 **Every tally says whether to trust it.** Statistics are kept per history, with
