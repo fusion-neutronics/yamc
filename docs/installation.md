@@ -30,7 +30,7 @@ YAMC provides optional extras for additional functionality:
 | pandas | `pip install yamc[pandas]` | pandas DataFrame export of tally results |
 | polars | `pip install yamc[polars]` | polars DataFrame export of tally results |
 | xarray | `pip install yamc[xarray]` | xarray (labelled N-D array) export of tally results |
-| all | `pip install yamc[all]` | cad, tet and viz (does not include pandas, polars or xarray) |
+| all | `pip install yamc[all]` | cad and viz (does not include pandas, polars or xarray) |
 | dev | `pip install yamc[dev]` | Development dependencies (pytest, maturin, cadquery) |
 
 To install everything, including the CAD-to-mesh-to-transport pipeline:
