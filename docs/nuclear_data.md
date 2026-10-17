@@ -186,6 +186,8 @@ how big each one is, and which can serve as a photon source.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from a library that has them while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
 
+TENDL-2025's Li6 and Li7 make no tritium below 30 MeV, whether used as cross sections or as a ``reactions`` network, so use another library wherever lithium matters: see [Lithium in TENDL-2025](nuclear_data_libraries.md#lithium-in-tendl-2025).
+
 A keyword resolves, once per process, to the library's current published
 release: a dated folder such as ``2026-10-10.1`` with a manifest that lists every
 file in it with its size and sha256. Whenever nuclear data is needed, yamc looks
