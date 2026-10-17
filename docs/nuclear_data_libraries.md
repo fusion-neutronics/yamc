@@ -151,8 +151,9 @@ nuclear-data uncertainty run holds at nominal.
 
 ### Energy range
 
-Every library reaches past 20 MeV for at least some evaluations, and none is
-uniform. Counting evaluations by the ceiling they were converted to:
+Every library reaches past 20 MeV for at least some evaluations, and only
+TENDL-2025 takes every evaluation to the same ceiling. Counting evaluations by
+the ceiling they were converted to:
 
 | library | ceiling |
 | --- | --- |
@@ -161,7 +162,7 @@ uniform. Counting evaluations by the ceiling they were converted to:
 | ``jendl-5.0`` | 579 at 200 MeV, 216 at 20 |
 | ``fendl-3.2d`` | 109 at 200 MeV, 72 at 150, 11 at 60 to 65, none at 20 |
 | ``tendl-2025`` | 200 MeV throughout |
-| ``tendl-2017`` | 200 MeV throughout |
+| ``tendl-2017`` | 2,780 at 200 MeV, 14 at 20, 4 at 150, 2 at 30, 1 at 60 |
 
 ENDF/B-VIII.1 is the only one that is mostly a 20 MeV library, and even its Fe56
 and W186 reach 150 MeV. For a high-energy source, check the ceiling of the
