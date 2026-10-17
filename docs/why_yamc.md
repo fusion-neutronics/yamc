@@ -15,8 +15,8 @@ compiled solver, so there is no compiler or toolchain to set up. See
 [Installation](installation.md).
 
 **Nuclear data downloads itself.** Pick a library and only the parts your
-model needs are fetched and cached, down to just the temperatures your
-materials are at. To work offline, download the full data files and point
+model needs are fetched and cached, down to just the temperatures you set on
+your materials. To work offline, download the full data files and point
 YAMC at the directory. See [Nuclear data](nuclear_data.md).
 
 **Permissively licensed throughout.** YAMC is MIT or Apache-2.0, and nothing

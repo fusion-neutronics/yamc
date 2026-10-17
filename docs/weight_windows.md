@@ -11,7 +11,7 @@ Weight is conserved in expectation, so the tally means are unchanged and only
 the variance is reduced.
 
 Weight windows are applied at collisions and run on the CPU only
-(``compute='gpu'`` refuses ``variance_reduction``). They compose with the rest
+(``compute='gpu'`` refuses a model carrying them). They compose with the rest
 of the ``variance_reduction`` list; see [Models](models.md) for that list and
 for survival biasing.
 

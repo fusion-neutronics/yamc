@@ -13,7 +13,7 @@ yamc.cross_section_data = "endf-b8.1"
 
 | keyword | what it is |
 |---------|-------------------------------------------------------------------|
-| ``endf-b8.1`` | ENDF/B-VIII.1. The default for photon data and for every unset transmutation part. |
+| ``endf-b8.1`` | ENDF/B-VIII.1. The default for photon data and for an unset ``decay``, ``reactions`` or ``fission_yields``. |
 | ``jeff-4.0`` | JEFF-4.0. |
 | ``jendl-5.0`` | JENDL-5. |
 | ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six. |
@@ -78,25 +78,27 @@ library keywords as well as paths.
 
 ## How big each library is
 
-Counted from the built trees. ``--`` means the library does not publish that at
-all, rather than publishing an empty one.
+Counted from each library's published release ``2026-10-12.1``. ``--`` means the
+library does not publish that at all, rather than publishing an empty one.
 
 | library | neutron | photon | reaction edges | branching channels | decay nuclides | covariance |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ``endf-b8.1`` | 557 | 100 | 5,175 | 915 | 3,820 | 42% |
-| ``jeff-4.0`` | 593 | -- | 13,513 | 8,303 | 3,851 | 98% |
-| ``jendl-5.0`` | 795 | 100 | 9,902 | 5,349 | 4,070 | 13% |
-| ``fendl-3.2d`` | 192 | 61 | pending | pending | -- | 35% |
-| ``tendl-2025`` | 2,848 | -- | 67,797 | 8,416 | -- | pending |
-| ``tendl-2017`` | 2,801 | -- | 68,827 | 8,365 | -- | pending |
+| ``endf-b8.1`` | 557 | 100 | 12,444 | 917 | 3,820 | 48% |
+| ``jeff-4.0`` | 593 | -- | 81,045 | 8,362 | 3,851 | 99% |
+| ``jendl-5.0`` | 795 | 100 | 145,117 | 5,397 | 4,070 | 13% |
+| ``fendl-3.2d`` | 192 | 61 | 27,814 | 652 | -- | 35% |
+| ``tendl-2025`` | 2,848 | -- | 415,154 | 40,934 | -- | 100% |
+| ``tendl-2017`` | 2,801 | -- | 417,434 | 41,185 | -- | 100% |
 
 ``neutron`` and ``photon`` are evaluations, one per nuclide and one per element.
 ``reaction edges`` is how many ``(parent, reaction, product)`` triples the network
-holds, which is what decides whether a product is reachable at all. ``covariance``
-is the share of neutron evaluations carrying cross-section covariance.
+holds, which is what decides whether a product is reachable at all. Most of them
+are the products of ``(n,X)`` (MT=5), its residuals and light particles, one
+triple each. ``covariance`` is the share of neutron evaluations carrying
+cross-section covariance.
 
 The two ends of the table differ widely. TENDL carries five times the
-evaluations of ENDF/B-VIII.1 and thirteen times the reaction edges, and has none
+evaluations of ENDF/B-VIII.1 and over thirty times the reaction edges, and has none
 of the decay data. That is why a TENDL ``reactions`` network with
 ENDF/B-VIII.1 ``decay`` and ``fission_yields`` beside it is the usual arrangement.
 
@@ -107,25 +109,28 @@ not the same as covariance landing where a given run needs it. Depth varies as
 much as presence: JENDL-5 carries covariance for 13% of its evaluations, and its
 Fe56 covers 56 channels against ENDF/B-VIII.1's 7.
 
-Three covariance families reach the converted data. The cross sections' MF=33
-is folded against the spectrum. Resonance-parameter covariance (MF=32), where an
-evaluation often keeps its resolved-resonance uncertainty while leaving MF=33 at
-zero over that range, is used two ways: where a nuclide's folder carries the
-parameters themselves (``resonance_parameters.arrow``, in the published
-libraries), each sample draws them and rebuilds the resonance range from the
-draw; otherwise the converter's first-order MF=32 rows in ``covariance.arrow``
-are folded like MF=33. Data with neither arrives with no capture, elastic or
-fission uncertainty below the top of its resolved resonances, and the
-uncertainty report counts rate from energies where the stated variance is zero
-as uncovered, so that gap shows in ``rate_fraction_covered``. The
-radionuclide-production covariance (MF=40, the covariance of each product
-state's production cross section) is in the branching subsection's
-``branching_covariance.arrow`` and drawn by the ``isomer_branching`` source.
-ENDF/B-VIII.1, FENDL-3.2d and TENDL state no correlation in MF=40 between a
-product's states, or with the reaction's MF=33, so the split's uncertainty is
-only partly stated. The ENDF
-parser also reads angular-distribution covariance (MF=34), which nothing samples
-yet.
+Six covariance families reach the converted data, and three of them are sampled.
+The cross sections' MF=33 is drawn by the ``cross_sections`` source.
+Resonance-parameter covariance (MF=32), where an evaluation often keeps its
+resolved-resonance uncertainty while leaving MF=33 at zero over that range, is
+used two ways: where a nuclide's folder carries the parameters themselves
+(``resonance_parameters.arrow``, in the published libraries), each sample draws
+them and rebuilds the resonance range from the draw; otherwise the converter's
+first-order MF=32 rows in ``covariance.arrow`` are folded like MF=33. Data with
+neither arrives with no capture, elastic or fission uncertainty below the top of
+its resolved resonances, and the uncertainty report counts rate from energies
+where the stated variance is zero as uncovered, so that gap shows in
+``rate_fraction_covered``. The radionuclide-production covariance (MF=40, the
+covariance of each product state's production cross section) is in the branching
+subsection's ``branching_covariance.arrow`` and drawn by the
+``isomer_branching`` source. ENDF/B-VIII.1, FENDL-3.2d and TENDL state no
+correlation in MF=40 between a product's states, or with the reaction's MF=33,
+so the split's uncertainty is only partly stated. The angular-distribution
+covariance (MF=34, ``angular_covariance.arrow``), the fission multiplicity
+covariance (MF=31, ``nubar_covariance.arrow``) and the fission spectrum
+covariance (MF=35, ``spectrum_covariance.arrow``) are converted and published
+too, and ``Model.data_uncertainty_coverage()`` reports which nuclides carry
+them, but nothing samples them yet.
 
 Beyond covariance, the decay data carries each nuclide's half-life with the
 standard deviation its evaluation states, and its decay energy with a standard

@@ -108,7 +108,8 @@ host supplies the nuclear data files and the run size. (`model.to_html(path)`
 bundles that same model into a self-contained, ready-to-run HTML page.)
 
 The exported methods (see the source of truth in
-`crates/yamc/src/wasm/simulation_wasm.rs`) are:
+`crates/yamc/src/wasm/simulation_wasm.rs`, and `fetch_wasm.rs` beside it for
+`fetchNuclearData`) are:
 
 - `new WasmSimulation()`: construct a simulation; installs a fresh
   in-memory nuclear-data store. Keep a single instance per page.
@@ -116,13 +117,19 @@ The exported methods (see the source of truth in
   for photon transport, every element) the loaded model needs and the store
   does not hold yet, from the published per-section objects under
   `library_url` (`default_library_url()` names the ENDF/B-VIII.1 set on
-  yamc-data.xsplot.com). `reactions.arrow` and `energy.arrow` are fetched as
-  the byte ranges of the temperature each material is at, or of the two that
-  bracket it, so one temperature of six comes down the wire; every other
-  section arrives whole. `on_progress(message, done, total)` is optional.
-  Resolves to a JSON summary `{status, nuclides, ranged, elements, requests,
-  bytes}`; rejects with the URL that failed, or with the loader's own message
-  when a material temperature is outside what the data covers.
+  yamc-data.xsplot.com). The library's current release is resolved first
+  (`latest.json`, then the manifest it names, checked against it), and every
+  section comes from that release. `reactions.arrow` and `energy.arrow` are
+  fetched as the byte ranges of the temperature each material is at, or of the
+  two that bracket it, so for a material with a temperature set one temperature
+  of six comes down the wire; every other section arrives whole and is checked
+  against its manifest size and sha256. `on_progress(message, done, total)` is
+  optional. Resolves to a JSON summary `{status, library, release,
+  manifest_sha256, nuclides, ranged, elements, requests, bytes,
+  metadata_bytes}`, where `bytes` counts section data and `metadata_bytes` the
+  release pointer and manifest; rejects with the URL that failed, or with the
+  loader's own message when a material temperature is outside what the data
+  covers.
 - `add_file(path, bytes)`: register one virtual nuclear-data file
   (`/<Nuclide>.arrow/<section>`) the host already holds, for instance data
   the exporting Python embedded in the page.

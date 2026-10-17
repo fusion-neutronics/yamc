@@ -430,6 +430,14 @@ mesh_geom = yamc.MeshGeometry(
 )
 ```
 
+A whole-model ``MeshGeometry`` with no vacuum boundary (no ``graveyard_offset``
+and no surface with a vacuum condition) is closed before transport: with a void
+implicit complement it gets a vacuum box 10 cm outside its bounding box, and with
+a material in the implicit complement the run is refused, since where the box
+sits would decide how much of that material surrounds the model. Pass
+``graveyard_offset`` to choose the margin. A mesh used as the fill of a CSG cell
+is bounded by the CSG geometry and gets nothing added.
+
 Properties:
 
 <!-- doctest: skip -->

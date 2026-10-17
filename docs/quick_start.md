@@ -72,11 +72,11 @@ lists with one entry per score:
 
 ```python
 result = results[tally]
-print(f"TBR (H3 production per source neutron): {result.mean} +/- {result.standard_deviation}")
+print(f"TBR (H3 production per source neutron): {result.mean[0]:.3f} +/- {result.standard_deviation[0]:.3f}")
 ```
 
 For a pure-lithium sphere this prints a TBR of roughly:
 
 ```text
-TBR (H3 production per source neutron): 1.223 +/- 0.014
+TBR (H3 production per source neutron): 1.217 +/- 0.002
 ```

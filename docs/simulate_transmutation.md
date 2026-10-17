@@ -141,7 +141,7 @@ rates["Fe58"]["(n,2n)"]        # [('Fe57', 1.205e-09)]            # rate in 1/s
 
 Here ``step`` is the schedule step, the same index as ``timesteps`` and ``get_source_rates(material_id)``, which is one less than the ``step`` the composition getters take (where 0 is the initial composition).
 
-Both methods report the same quantity in the same shape. ``method="coupled"`` takes the rates from that step's own transport tallies and ``method="independent"`` from the single transport's multigroup fold scaled by the step's source rate. Either way an edge rate is that rate times the branching of the chain the step was solved with, isomeric overlay included, so a consumer does not have to know which method produced the result.
+Both methods report the same quantity in the same shape. ``method="coupled"`` takes the rates from that step's own transport tallies and ``method="independent"`` from the single transport's tallies, scaled by the step's source rate. Either way an edge rate is that rate times the branching of the chain the step was solved with, isomeric overlay included, so a consumer does not have to know which method produced the result.
 
 The share of a product arriving down each route is the main column of a decay heat pathway analysis, and it is what makes a C/E useful for diagnosis. A foil reading 2.5x the measurement says something is wrong; knowing that 73% of the dominant product arrives down one channel says which evaluated quantity to check.
 
@@ -208,23 +208,28 @@ standard deviations alone do not.
 
 ``get_branching_report(material_id, step)`` says, per channel, how the
 isomeric-branching evaluation's split was applied over that step's spectrum:
-whether its list was read as shares of the total or as absolute productions,
-and how much of the parent's removal rate rests on anything the evaluation does
-not give.
+whether its list was read as shares of the total, as absolute productions or,
+for the light particles of ``(n,X)`` (MT=5), as multiplicities, and how much of
+the parent's removal rate rests on anything the evaluation does not give.
 
 <!-- doctest: skip -->
 ```python
 report = results.get_branching_report(material_id=1, step=0)
 if report is not None:
     report["channels"]         # one dict per channel: parent, reaction, mt, file,
-                               # representation ("share" or "absolute"), states, ...
+                               # representation ("share", "absolute" or
+                               # "multiplicity"), states, ...
     report["dropped"]          # channels that were not folded, with the reason
-    report["unmodelled_mt5"]   # [(nuclide, share)] of MT=5, whose products are
-                               # not modelled
+    report["unmodelled_mt5"]   # [(nuclide, share, reason)]: parents whose MT=5
+                               # residuals the chain does not model
 ```
 
-A run refuses when a channel's clipped or held production is more than 0.1% of
-that parent's neutron removal rate, so what the report shows is below that.
+A run refuses when the clipped or held production of its channels, each parent
+weighted by its density, is more than 0.1% of the material's neutron removal
+rate, and likewise when the material's own nuclides lose more than that to MT=5
+residuals the chain does not model. Each channel's own shares are of its
+parent's removal rate, so a trace parent can read above 0.1% in a run that was
+not refused.
 The step is the schedule step, as ``get_reaction_rates`` takes it, and a
 decay-only step gives empty lists.
 

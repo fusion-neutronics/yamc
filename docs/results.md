@@ -21,15 +21,22 @@ Every ``TallyResult`` also carries reliability statistics. They are computed aut
 ```python
 result = results["flux"]
 print(result)
-# TallyResult 'flux'   shape=[1]   histories=200000   elapsed=0.85 s
-#   mean . . . . . . . 2.2161e0 +/- 3.79e-3   (0.17% rel err)
-#   figure of merit .. 4.024e5
-#   variance of var. . 2.693e-5   skewness 1.490   kurtosis 3.386
-#   large-score tail slope .. 10.00
-#   statistical checks: PASSED (7/7)
-#     mean stable ...                    pass
-#     relative error < 0.10 ...          pass
-#     ...
+# TallyResult 'flux'   shape=[1]   particles=1000000   elapsed=0.613 s
+#   mean . . . . . . . 1.7674e1 +/- 1.21e-2   (0.07% rel err)
+#   figure of merit .. 3.475e6
+#   variance of var. . 7.343e-6   skewness 1.880   kurtosis 5.343
+#   large-score tail slope .. 8.13
+#   statistical checks: PASSED (10/10)
+#     mean stable....................... pass
+#     relative error < 0.10............. pass
+#     relative error decreasing......... pass
+#     relative error falls as 1/sqrt(N). pass
+#     variance of variance < 0.10....... pass
+#     variance of variance decreasing... pass
+#     variance of variance falls as 1/N. pass
+#     figure of merit stable............ pass
+#     figure of merit has no trend...... pass
+#     large-score tail slope > 3........ pass
 ```
 
 Per-bin array (same shape as ``mean``):

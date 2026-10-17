@@ -42,8 +42,10 @@ Each nuclide is a directory of Apache Arrow IPC files, one per section:
 metadata and temperatures, energy grid, reactions, secondary products and
 distributions, unresolved resonance probability tables, total $\nu$, fission
 photon data and (opt-in) covariances. Only the sections a run needs are
-loaded: transport loads everything, activation loads only the reaction cross
-sections.
+loaded: transport loads every section but the covariances, which only a
+nuclear-data uncertainty run reads, and for a material with a temperature set
+only that temperature or the two published ones that bracket it; activation
+loads only the reaction cross sections.
 
 ### Cross sections
 
@@ -327,7 +329,8 @@ $(\bar\nu_p + \bar\nu_d)/\bar\nu_p$ to include delayed fission photons.
 
 ## Variance reduction
 
-The default is fully analog. Two methods can be switched on, both CPU only.
+The default is fully analog. Two methods can be switched on. Survival biasing
+runs on the CPU and the GPU, and weight windows on the CPU only.
 
 ### Survival biasing
 
@@ -443,8 +446,8 @@ absorbed dose.
 
 Dose is a flux tally weighted by a dose coefficient $f(E)$: ICRP 74 or
 ICRP 116 effective dose per fluence, for a chosen irradiation geometry. The
-coefficients are interpolated with a natural cubic spline; events outside the
-table are not scored.
+coefficients are interpolated log-log, the way the tables are read everywhere
+else; events outside the table are not scored.
 
 ## Statistics
 
@@ -493,8 +496,12 @@ third and fourth moments. From it yamc reports:
 
 The checks passed are: relative error below 0.1, VoV below 0.1, tail slope
 above 3, and, over the second half of the run, a mean that is not trending,
-relative error and VoV that do not grow, and a FOM that stays within a factor
-of 2.
+relative error and VoV that do not grow, a FOM that stays within a factor of 2,
+a relative error falling as $1/\sqrt{N}$ (a log-log slope between $-0.75$ and
+$-0.25$), a VoV falling as $1/N$ (a slope between $-1.5$ and $-0.5$) and a FOM
+with no trend in $N$ (a slope within $\pm 0.5$). The three rate checks read as
+not evaluated with fewer than four snapshots in that half, and the FOM trend
+also when the half spans less than 0.1 s.
 
 A run can stop early on convergence targets: a relative error, standard
 deviation or VoV threshold, on all tallies or a named one. Targets are checked
@@ -568,17 +575,27 @@ the dose at any number of cooling times.
 
 Transport can estimate the uncertainty from the cross-section covariances in
 one run. Each history carries a likelihood ratio for each of a set of
-perturbed data replicas ([Rief 1984](#references)): a flight of length $d$
-multiplies it by $e^{-\Delta\Sigma_t d}$ and a collision by
-$\sigma'_\text{MT}/\sigma_\text{MT}$. Track-length scores are weighted by the
-mean survival over the track. The spread of the replica results includes the
-Monte Carlo noise of the shared histories, which is estimated and subtracted
+perturbed data replicas ([Rief 1984](#references)): with surface tracking a
+flight of length $d$ multiplies it by $e^{-\Delta\Sigma_t d}$ and a collision by
+$\sigma'_\text{MT}/\sigma_\text{MT}$. Under delta tracking the majorant is
+raised to cover every replica's total, so a flight moves no ratio, a real
+collision takes the same $\sigma'_\text{MT}/\sigma_\text{MT}$ and a virtual one
+multiplies it by $(\Sigma_\text{maj}-\Sigma'_t)/(\Sigma_\text{maj}-\Sigma_t)$.
+Track-length scores are weighted by the mean survival over the track. The
+spread of the replica results includes the Monte Carlo noise of the shared
+histories, which is estimated and subtracted
 ([Clements et al. 2024](#references)).
 
-Only the MF=33 cross-section covariances are sampled. Secondary distributions,
-$\bar\nu$, fission spectra, photon data and KERMA are not perturbed. It is
-not available with photon transport, variance reduction, Woodcock tracking,
-collision estimators, mesh tallies or MPI.
+The MF=33 cross-section covariances are sampled, and where a nuclide's data
+carries its resonance parameters (MF=2 and MF=32), each replica draws those and
+rebuilds the resonance cross sections from the draw. Heating and damage energy
+move with the reactions that deposit them, apart from fission's share, which
+stays nominal. Secondary distributions, $\bar\nu$ and fission spectra are not
+perturbed, and photon data carries no covariance: a photon inherits its
+neutron's ratios times the change to the cross section of the reaction that
+made it. The ratios are carried through every tracking mode, survival biasing,
+weight windows and MPI. GPU runs, and collision-estimator, overlay, mesh and
+per-nuclide tallies, are refused.
 
 ## References
 
