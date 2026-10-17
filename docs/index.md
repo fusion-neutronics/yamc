@@ -39,6 +39,7 @@ path therefore targets AMD, NVIDIA, and Intel hardware, and the whole stack stay
 
 ## Explore
 
+- [Why YAMC](why_yamc.md): what it does well, and where to read more about each
 - [Installation](installation.md): install with `pip`, no compilation step
 - [Quick start](quick_start.md): a minimal simulation end to end
 - [Usage guide](usage_guide.md): materials, geometry, sources, tallies, transmutation, CAD

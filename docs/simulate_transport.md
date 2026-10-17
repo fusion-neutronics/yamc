@@ -113,12 +113,13 @@ results = model.simulate_transport(total_particles=1_000_000, compute=adapters[0
 
 The GPU path supports a defined subset of the options, verified to match the CPU path on real discrete hardware (NVIDIA RTX A500): `cpu_gpu_equivalence_two_materials` is bit-exact and the `gpu_*.rs` GPU-vs-CPU suite passes. It currently supports:
 
-- Neutron transport and standalone primary-photon transport (a pure `PhotonSource`). Coupled neutron-to-photon secondary production (`transport_secondary_photons=True`) and D1S decay photons (`use_decay_photons=True`) are not supported, because the GPU has no particle bank, and are rejected.
-- Tallies with the track-length estimator: flux, heating / heating-local, damage-energy, reaction rates (total / elastic / absorption / (n,γ) / inelastic / fission), gas-production, and photon cross-section scores. The `collision` estimator is rejected.
+- Neutron transport, primary-photon transport (a `PhotonSource`), coupled neutron-to-photon secondary production (`transport_secondary_photons=True`) and D1S decay photons (`use_decay_photons=True`). D1S on a mixed neutron and photon source is rejected.
+- Tallies with either estimator: flux, heating / heating-local, damage-energy, reaction rates (total / elastic / absorption / (n,γ) / inelastic / fission), gas-production, and photon cross-section scores. Tally covariance (`covariance=True`) and virtual-overlay tallies (`response=`) are rejected.
 - Tally filters: `cells=`, `materials=`, `mesh=`, `energy_bins=`, `particle=`, `nuclides=`, `parent_nuclides=`, and `energy_function=` / `dose_coefficients=`. The energy function weights rather than bins, so it still needs a spatial binner alongside it; its cubic spline is solved on the host and only evaluated in the kernel, so GPU and CPU interpolate identically.
 - Full neutron physics: elastic (tabulated angular), inelastic (Kalbach-Mann, n-body, evaporation), free-gas thermal, URR, and the photon interactions on the photon path.
-- CSG geometry only (mesh is rejected); surfaces sphere, plane, cylinder, Z-torus.
-- Analog transport only. `variance_reduction` is rejected, not silently ignored.
+- CSG geometry only (mesh is rejected), with every CSG surface type.
+- Survival biasing is supported. Weight windows are rejected, not silently ignored.
+- The kernels always surface-track: a `tracking_mode` of `"woodcock"` or `"hybrid"` gives a warning and runs with surface tracking.
 
 If any unsupported option is used, ``compute="gpu"`` raises a ``ValueError`` at simulate-transport start with a specific message. If no GPU with f64 compute is available, it raises ``RuntimeError``. The ``threads`` and ``capture_tracks`` kwargs are not used with ``compute="gpu"`` (the kernel parallelises across all particles in one launch, and tracking is CPU-only). Repeated `compute="gpu"` calls in one process are safe; each resets the shared GPU client.
 

@@ -209,6 +209,6 @@ All six are converted at the same six temperatures, 250, 293.6, 600, 900, 1200 a
 2500 K, so a library swap never changes which temperature is available.
 
 Size is per nuclide rather than per library, because only the nuclides in the
-model are fetched. Fe56 is 65 MB on ``endf-b8.1`` and 25 MB on ``tendl-2025``;
-U235 is 199 MB and 63 MB. Transport pulls the ``distributions`` section on top of
-what an activation run needs, which is 15 MB of Fe56's 65 MB on ENDF/B-VIII.1.
+model are fetched. Fe56 is 56 MB on ``endf-b8.1`` and 18 MB on ``tendl-2025``;
+U235 is 171 MB and 43 MB. Transport pulls the ``distributions`` section on top of
+what an activation run needs, which is 15 MB of Fe56's 56 MB on ENDF/B-VIII.1.
