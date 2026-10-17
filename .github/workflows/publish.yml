@@ -24,31 +24,32 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Set the version and the yamc-core pin from the release tag
+      - name: Set the version and the yamc-core pins from the release tag
         if: github.event_name == 'release'
         shell: bash
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
-          # Both the version and the pin, together: a release whose pin lagged
-          # would install a core wheel that does not match these docs.
+          # The version and every yamc-core pin, together: the dependency's and
+          # each extra's. A release whose pin lagged would install a core wheel
+          # that does not match these docs, and an extra pinned apart from the
+          # dependency could not be installed at all.
           sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
-          sed -i "s/^dependencies = \[\"yamc-core==.*\"\]/dependencies = [\"yamc-core==$VERSION\"]/" pyproject.toml
-          grep -E '^(version|dependencies)' pyproject.toml
+          sed -i -E "s/\"yamc-core(\[[^]\"]*\])?==[^\"]*\"/\"yamc-core\1==$VERSION\"/g" pyproject.toml
+          grep -E '^version|"yamc-core' pyproject.toml
 
-      - name: The pinned yamc-core must already be on PyPI
+      - name: The pinned yamc-core must already be on PyPI, with every extra
         shell: bash
         run: |
           # Publishing ahead of the core release would put a permanently
-          # uninstallable version on PyPI: the pin is exact, and a PyPI version
-          # can never be re-uploaded once it exists.
-          PIN="$(grep -oP 'yamc-core==\K[^"]+' pyproject.toml)"
-          echo "pinned yamc-core==$PIN"
-          code="$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/yamc-core/$PIN/json")"
-          if [ "$code" != "200" ]; then
-            echo "::error::yamc-core $PIN is not on PyPI (HTTP $code). Release yamc-core first." >&2
-            exit 1
-          fi
+          # uninstallable version on PyPI: the pins are exact, and a PyPI
+          # version can never be re-uploaded once it exists. An extra that the
+          # pinned yamc-core does not declare is the quieter version of the same
+          # mistake: pip skips it with a warning, so `pip install "yamc[cad]"`
+          # would succeed without installing cadquery. The script checks every
+          # pin is the one version, that version is on PyPI, and each extra is
+          # one it declares (see its docstring).
+          python docs/check_extras.py
 
       - name: Build sdist and wheel
         run: |

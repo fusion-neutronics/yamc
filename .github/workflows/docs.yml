@@ -43,6 +43,15 @@ jobs:
           PIN="$(grep -oP 'yamc-core==\K[^"]+' pyproject.toml)"
           pip install "yamc-core[all]==$PIN"
 
+      - name: Every extra the docs name must be one pip installs
+        shell: bash
+        run: |
+          # pip skips an extra a package does not declare with only a warning.
+          # installation.md documented `pip install yamc[cad]` and six more
+          # while this package declared no extras at all, so each of them
+          # installed yamc-core alone and exited 0. This fails instead.
+          python docs/check_extras.py
+
       - name: Build
         env:
           MPLBACKEND: Agg   # headless matplotlib for the executed plot blocks
