@@ -16,7 +16,7 @@ yamc.cross_section_data = "endf-b8.1"
 | ``endf-b8.1`` | ENDF/B-VIII.1. The default for photon data and for an unset ``decay``, ``reactions`` or ``fission_yields``. |
 | ``jeff-4.0`` | JEFF-4.0. |
 | ``jendl-5.0`` | JENDL-5. |
-| ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six. |
+| ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six, but its Li6 and Li7 make no tritium below 30 MeV: see [Lithium in TENDL-2025](#lithium-in-tendl-2025). |
 | ``tendl-2017`` | TENDL-2017, for comparing a result against the older release. |
 | ``fendl-3.2d`` | FENDL-3.2d. Cross sections, plus ``reactions`` and ``branching`` subsections. |
 
@@ -207,6 +207,53 @@ heat five minutes after a 14 MeV irradiation comes out at a third of the
 measured value on that library. Nothing about such a channel looks wrong from
 outside: it is present, its cross section is reasonable, and only the state
 list is short.
+
+### Lithium in TENDL-2025
+
+TENDL-2025's Li6 and Li7 produce no tritium below 30 MeV. For a breeder
+blanket, a lithium-bearing shield, or anything else where lithium's reactions
+matter, use another library.
+
+TENDL-2019 and TENDL-2023 carried the ENDF/B-VIII.0 lithium evaluations
+unchanged: Li6 from LANL (G.M. Hale, 2017), with its (n,t) reaction as MT=105,
+and Li7 from LANL (P.G. Young, 1988). TENDL-2025 replaces both with TALYS
+output, written by TEFAL. Its Li6 has MT=1 to 5, 51 to 55, 91 and 102 in MF=3
+and no other cross section, and its Li7 has MT=1 to 5, 16, 51 to 54, 91 and
+102. Neither has an (n,t) channel, so the only tritons left are those of MT=5,
+which starts at 30 MeV in both. Li6's resolved resonance range is a
+six-resonance MLBW fit with neutron and gamma widths only, so its thermal total
+is 0.485 b, where ENDF/B-VIII.1 has 938.9 b, 938.1 b of it (n,t).
+
+A 100 cm sphere of natural lithium (0.534 g/cm3, 294 K) with a 14.06 MeV point
+source at its centre, 100,000 histories, yamc-core 0.16.0 on release
+``2026-10-12.1``, per source neutron:
+
+| library | tritium (TBR) | from Li6 | from Li7 | absorption |
+| --- | ---: | ---: | ---: | ---: |
+| ``endf-b8.1`` | 1.2169 +/- 0.0021 | 0.4624 | 0.7546 | 0.4788 |
+| ``jeff-4.0`` | 1.2164 +/- 0.0021 | 0.4617 | 0.7547 | 0.4781 |
+| ``tendl-2017`` | 1.2164 +/- 0.0021 | 0.4617 | 0.7547 | 0.4781 |
+| ``fendl-3.2d`` | 1.2157 +/- 0.0021 | 0.4610 | 0.7548 | 0.4774 |
+| ``jendl-5.0`` | 1.2120 +/- 0.0020 | 0.4750 | 0.7370 | 0.4925 |
+| ``tendl-2025`` | 0 | 0 | 0 | 0.0000054 |
+
+The tritium tally is not the only thing that changes. With no (n,t) and next to
+no capture (Li6's is 1.5e-10 b at thermal, against 0.0385 b in ENDF/B-VIII.1),
+lithium absorbs almost nothing on TENDL-2025: the sphere's flux comes out 3.7%
+higher and its neutron heating 43.5% lower than on ENDF/B-VIII.1, which counts
+the 4.78 MeV each Li6(n,t) releases. OpenMC, given the same TENDL-2025 files
+processed with NJOY, also finds no tritium production and no absorption in this
+sphere, which places the gap in the evaluation rather than in how either code
+reads it.
+
+Transmutation is affected the same way, through either setting. A litre of
+natural lithium irradiated for 30 days at 1e14 n/cm2/s, in a spectrum with 30%
+of its flux between 13.5 and 14.5 MeV and the rest slowed down, makes 392 appm
+of tritium with ``endf-b8.1`` as both ``cross_section_data`` and
+``transmutation_reactions``, and none with ``tendl-2025`` as either.
+
+The ``tendl-2025`` keyword serves the library as published; yamc does not patch
+or replace these two evaluations.
 
 ### Temperatures and size
 
