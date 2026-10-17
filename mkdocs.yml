@@ -75,6 +75,13 @@ plugins:
         pdf:
           enabled: true
           concurrency: 8
+          # The API reference is one long page, and Paged.js takes about half a
+          # minute to split it into sheets on a fast machine (every other page
+          # takes a second or two). On a CI runner sharing its cores with the
+          # other renders that passes the exporter's 60 s default and fails the
+          # build, so each page gets five minutes.
+          browser:
+            timeout: 300000
           stylesheets:
             - docs/pdf/pdf.css
           scripts:
