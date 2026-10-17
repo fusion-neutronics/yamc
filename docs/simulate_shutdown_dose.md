@@ -4,7 +4,7 @@ After irradiation, activated materials keep emitting decay gammas. The dose rate
 
 ### Overview
 
-1. Bin a photon tally by parent radionuclide (``parent_nuclides=model.radionuclides()``)
+1. Bin a photon tally by parent radionuclide (``parent_nuclides=`` the model's ``radionuclides()``)
 2. Run transport with ``use_decay_photons=True``
 3. Describe the irradiation/cooling timeline as a ``PulseSchedule``
 4. Call ``schedule.time_correct_tally(...)`` to get the dose rate(s)
@@ -27,10 +27,11 @@ yamc.transmutation_fission_yields = _chain
 #    no schedule is needed yet. Any spatial filter works: a mesh here, but
 #    cells and materials work too.
 mesh = yamc.RegularRectangularMesh.from_domain(geometry, shape=1_000_000)
+radionuclides = yamc.Model(geometry=geometry, source=source).radionuclides()
 dose_tally = yamc.Tally(
     scores=["flux"],
     particle="photon",
-    parent_nuclides=model.radionuclides(),
+    parent_nuclides=radionuclides,
     mesh=mesh,
 )
 
@@ -82,8 +83,9 @@ dose = schedule.time_correct_tally(
 )
 dose.data_std_dev            # from the nuclear data, same shape as dose.mean
 dose.total_std_dev           # std_dev and data_std_dev in quadrature
-dose.data_uncertainty_info   # what was sampled, what states no sigma,
-                             # the replica count and whether it settled
+dose.data_uncertainty_info   # what was sampled, what states no sigma, the
+                             # replica count, the convergence target and
+                             # whether every factor's sigma met it
 ```
 
 Two sources act here. ``"half_life"`` acts through the time correction: a
@@ -139,7 +141,7 @@ dose = schedule.time_correct_tally({dt: results_dt[dose_tally],
 ### Reference
 
 - ``model.radionuclides()``: activation radionuclides reachable from a Model's materials; pass to ``Tally(parent_nuclides=...)``.
-- ``yamc.Pulse(rate, duration, source=None)``: an irradiation campaign. ``duration`` is seconds or a ``(value, unit)`` tuple (units: s, min, h, d, a). ``source`` is the NeutronSource for transport and SDR; omit it (sourceless) for ``Material.transmute``, where ``rate`` is a flux multiplier.
+- ``yamc.Pulse(rate, duration, source=None)``: an irradiation campaign. ``duration`` is seconds or a ``(value, unit)`` tuple (units: s, min, h, d, a). ``source`` is the NeutronSource for transport and SDR. ``Model.simulate_transmutation`` may omit it and transports the model's source; ``Material.transmute`` needs one whose energy is a ``Histogram``, and there ``rate`` is the total flux in n/cm^2/s.
 - ``yamc.Cooldown(duration)``: a cooling step (no source).
 - ``yamc.PulseSchedule([steps...])``: the timeline; ``.sources`` lists its distinct sources, ``len(schedule)`` its step count.
 - ``schedule.time_correct_tally(results, steps=None, data_uncertainty=None)``: returns a ``DoseResult`` with ``.mean`` / ``.std_dev`` / ``.by_nuclide`` / ``.times``, and ``.data_std_dev`` / ``.total_std_dev`` / ``.data_uncertainty_info`` when ``data_uncertainty`` is given.
