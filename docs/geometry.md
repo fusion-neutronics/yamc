@@ -350,7 +350,7 @@ for vol_id, result in volumes.items():
 
 ## CAD Geometry
 
-YAMC includes a CAD-to-mesh pipeline in the ``yamc.cad`` module (install with ``pip install yamc[cad]``). [CadQuery](https://cadquery.readthedocs.io/) is a Python library for building parametric 3D CAD models with a script-based API. The pipeline lets CadQuery geometry be used directly for neutron transport.
+YAMC includes a CAD-to-mesh pipeline in the ``yamc.cad`` module (install with ``pip install "yamc[cad]"``). [CadQuery](https://cadquery.readthedocs.io/) is a Python library for building parametric 3D CAD models with a script-based API. The pipeline lets CadQuery geometry be used directly for neutron transport.
 
 CadQuery can also load externally created STEP files (e.g. exported from another CAD tool) with ``cq.importers.importStep("part.step")``. The imported CAD should be clean and watertight so that it meshes correctly and works in particle transport. Avoid gaps, overlaps and self-intersections between solids; they cause meshing failures or lost or double-counted particles.
 

@@ -17,7 +17,7 @@ pip install yamc
 
 This installs the core YAMC transport solver with multi-threading support (via Rayon). MPI is not required.
 
-
+The `yamc` package carries no code of its own: it installs `yamc-core`, the compiled package that provides the `yamc` module, at the same version.
 
 ### Optional extras
 
@@ -25,18 +25,19 @@ YAMC provides optional extras for additional functionality:
 
 | Extra | Install command | What it adds |
 |-------|----------------|--------------|
-| cad | `pip install yamc[cad]` | CAD meshing pipeline, surface and tetrahedral (requires cadquery) |
-| viz | `pip install yamc[viz]` | VTKHDF visualization export (h5py, numpy) |
-| pandas | `pip install yamc[pandas]` | pandas DataFrame export of tally results |
-| polars | `pip install yamc[polars]` | polars DataFrame export of tally results |
-| xarray | `pip install yamc[xarray]` | xarray (labelled N-D array) export of tally results |
-| all | `pip install yamc[all]` | cad and viz (does not include pandas, polars or xarray) |
-| dev | `pip install yamc[dev]` | Development dependencies (pytest, maturin, cadquery) |
+| cad | `pip install "yamc[cad]"` | CAD meshing pipeline, surface and tetrahedral (requires cadquery) |
+| viz | `pip install "yamc[viz]"` | VTKHDF visualization export (h5py, numpy) |
+| pandas | `pip install "yamc[pandas]"` | pandas DataFrame export of tally results |
+| polars | `pip install "yamc[polars]"` | polars DataFrame export of tally results |
+| xarray | `pip install "yamc[xarray]"` | xarray (labelled N-D array) export of tally results |
+| all | `pip install "yamc[all]"` | cad and viz (does not include pandas, polars or xarray) |
 
-To install everything, including the CAD-to-mesh-to-transport pipeline:
+Each installs the `yamc-core` extra of the same name. Extras combine, as in `pip install "yamc[all,pandas]"`. The quotes stop shells such as zsh, the default on macOS, from reading the square brackets as a file name pattern.
+
+To install the CAD-to-mesh-to-transport pipeline and the visualization export together:
 
 ```bash
-pip install yamc[all]
+pip install "yamc[all]"
 ```
 
 ### Virtual Environment (Recommended)
@@ -46,21 +47,24 @@ Further instructions are in the [Python docs](https://packaging.python.org/en/la
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install yamc[all]
+pip install "yamc[all]"
 ```
 
 ### Install the development version
 
-To get the latest unreleased changes, install directly from the GitHub repository. This builds from source, so it needs a Rust toolchain, which can be installed with [rustup](https://www.rust-lang.org/tools/install):
+`yamc-core` is built from the [fusion-neutronics/core](https://github.com/fusion-neutronics/core) repository, and `pip install yamc` gives its latest release. To get the latest unreleased changes, build `yamc-core` from core's main branch. This builds from source, so it needs a Rust toolchain, which can be installed with [rustup](https://www.rust-lang.org/tools/install):
 
 ```bash
 # Install Rust (skip if you already have it)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 
-pip install git+https://github.com/fusion-neutronics/yamc.git
+pip install "yamc-core @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"
 ```
 
-Extras work too, e.g. `pip install "yamc[all] @ git+https://github.com/fusion-neutronics/yamc.git"`.
+Extras work too, e.g. `pip install "yamc-core[all] @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"`.
+
+Install it on its own rather than alongside `yamc`, which pins the released `yamc-core` exactly: installing or upgrading `yamc` can put the release back in place of the development build. To work on the code itself, with the test tooling in `yamc-core`'s `dev` extra, follow core's [developer guide](https://github.com/fusion-neutronics/core/blob/main/docs/developer_info.md).
 
 
 ## MPI Installation (Advanced)
@@ -125,14 +129,13 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 ```
 
-Then clone and build from source with the `mpi` feature:
+Then build `yamc-core` from source, as for the [development version](#install-the-development-version), with the `mpi` feature switched on. `MATURIN_PEP517_ARGS` passes the flag to maturin, which builds the wheel for pip:
 
 ```bash
-git clone https://github.com/fusion-neutronics/yamc.git
-cd yamc
-pip install maturin
-maturin develop --release --features mpi
+MATURIN_PEP517_ARGS="--features mpi" pip install "yamc-core @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"
 ```
+
+This builds core's main branch. To build a release instead, put its tag after `core.git@`, as in `git+https://github.com/fusion-neutronics/core.git@<tag>#subdirectory=packages/yamc-core`. Core's [tags](https://github.com/fusion-neutronics/core/tags) are named after the versions they release.
 
 ### Verify MPI Installation
 
@@ -143,7 +146,7 @@ python -c "import yamc; print(f'MPI enabled: {yamc.parallel.has_mpi()}')"
 
 # Test with multiple ranks
 mpirun -np 2 python -c "import yamc; print(f'Rank {yamc.parallel.mpi_rank()} of {yamc.parallel.mpi_size()}')"
-# Should print:
+# Should print, the two lines in either order:
 # Rank 0 of 2
 # Rank 1 of 2
 ```
@@ -155,7 +158,11 @@ mpirun -np 2 python -c "import yamc; print(f'Rank {yamc.parallel.mpi_rank()} of 
 ```dockerfile
 FROM python:3.11-slim
 
-RUN pip install yamc[all]
+# cadquery, which the cad extra brings, needs the system OpenGL library to import
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install "yamc[all]"
 
 WORKDIR /workspace
 CMD ["python"]
@@ -177,12 +184,12 @@ RUN apt-get update && apt-get install -y \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Install YAMC with MPI from source
-RUN git clone https://github.com/fusion-neutronics/yamc.git /tmp/yamc \
-    && pip3 install maturin \
-    && cd /tmp/yamc \
-    && maturin develop --release --features mpi \
-    && rm -rf /tmp/yamc
+# Build yamc-core, which provides the yamc module, from source with MPI
+RUN MATURIN_PEP517_ARGS="--features mpi" pip3 install \
+    "yamc-core @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"
+
+# The container runs as root, and OpenMPI refuses to start as root without these
+ENV OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 WORKDIR /workspace
 CMD ["python3"]
@@ -203,17 +210,18 @@ For HPC environments with environment modules:
 # Load required modules
 module load python/3.11
 module load openmpi/4.1.4
-module load rust/1.75.0  # or install Rust locally
+
+# Install Rust in your home directory: yamc-core needs the latest stable
+# release, which cluster modules rarely carry
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 
 # Create virtual environment
 python3 -m venv ~/.venvs/yamc-mpi
 source ~/.venvs/yamc-mpi/bin/activate
 
-# Clone and build with MPI
-git clone https://github.com/fusion-neutronics/yamc.git
-cd yamc
-pip install maturin
-maturin develop --release --features mpi
+# Build yamc-core with MPI
+MATURIN_PEP517_ARGS="--features mpi" pip install "yamc-core @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"
 
 # Test installation
 mpirun -np 4 python -c "import yamc; print(f'Rank {yamc.parallel.mpi_rank()}')"
