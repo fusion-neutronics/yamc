@@ -81,33 +81,78 @@ from yamc-data.xsplot.com inside the browser, so the run needs network access.
 
 ## JavaScript API
 
-The WebAssembly build exposes a JavaScript API that mirrors the Rust API. For example:
+The package exports its classes with a `Wasm` prefix (`WasmSimulation`,
+`WasmMaterial`, `WasmNuclide`, `WasmElement`, `WasmReaction`, `WasmConfig`), and
+a few functions such as `default_library_url`. Nuclear data reaches a page
+through `WasmSimulation`, which holds it in memory: load a model, and
+`fetchNuclearData` fetches the sections its nuclides need from the current
+release of a library on yamc-data.xsplot.com, with nothing to configure.
+
+This example runs a lithium sphere exported from Python, then works out a
+material's cross section from the same data. In Python, write the model once:
+
+```python
+import yamc
+
+lithium = yamc.Material(composition={"Li": 1.0}, density=0.534, temperature=294, name="lithium")
+sphere = yamc.Sphere(radius=100.0, boundary="vacuum")
+cell = yamc.Cell(region=sphere.below, material=lithium, name="sphere")
+geometry = yamc.Geometry(cells=[cell])
+tbr = yamc.Tally(cells=cell, scores=["H3-production"], name="tbr")
+model = yamc.Model(geometry=geometry, tallies=[tbr], source=yamc.NeutronSource(energy=14.06e6))
+model.save("lithium.json")
+```
+
+Then, in a module script on a page served beside `lithium.json` and `pkg/`:
 
 ```javascript
-import init, { Material, Nuclide } from './pkg/yamc.js';
+import init, { WasmSimulation, WasmMaterial, WasmConfig, default_library_url } from './pkg/yamc.js';
 
-async function main() {
-    await init();
+await init();
 
-    // Create a material
-    let material = new Material();
-    material.add_element("Li", 1.0);
-    material.set_density("g/cm3", 0.534);
+// One WasmSimulation per page: it installs the in-memory store the data goes in.
+const sim = new WasmSimulation();
+sim.load_model_json(await (await fetch('lithium.json')).text());
 
-    // Calculate the macroscopic total cross section (MT 1) at the
-    // default temperature. `macroscopicCrossSection` returns
-    // [xs_values, energy_grid]; pass an explicit temperature string
-    // (e.g. "300K") as a second argument to override the default.
-    let xs_data = material.macroscopicCrossSection(1);
-    console.log("Cross section data:", xs_data);
-}
+// The model's nuclides, from the current ENDF/B-VIII.1 release. For another
+// library, put its keyword in the URL: 'https://yamc-data.xsplot.com/fendl-3.2d'.
+const fetched = JSON.parse(await sim.fetchNuclearData(default_library_url()));
+console.log(fetched.release, fetched.nuclides.join(' '));
 
-main();
+// 10,000 histories in one batch, seed 1. The seed is a u64, so a BigInt.
+const result = JSON.parse(sim.simulate_transport(10000, 1, 1n));
+const tritium = result.tallies[0].scores[0];
+console.log('tritium per source neutron', tritium.mean.toFixed(4), '+/-', tritium.std.toFixed(4));
+
+// A material reads the same data once its nuclides are pointed at the store,
+// where fetchNuclearData put each one under /<Nuclide>.arrow.
+WasmConfig.set_cross_sections({ Li6: '/Li6.arrow', Li7: '/Li7.arrow' });
+const material = new WasmMaterial();
+material.add_element('Li', 1.0);
+material.set_density('g/cm3', 0.534);
+// The fetch took only the data for the model's 294 K, so ask for that.
+material.set_temperature('294');
+const [xs, energies] = material.macroscopicCrossSection(1);  // MT 1, the total, in 1/cm
+const i = energies.findIndex((e) => e >= 14.06e6);  // the first grid point from 14.06 MeV
+console.log('total at', energies[i] / 1e6, 'MeV:', xs[i].toFixed(4), '/cm');
 ```
+
+On data release 2026-10-12.1 it prints:
+
+```text
+2026-10-12.1 Li6 Li7
+tritium per source neutron 1.2062 +/- 0.0064
+total at 14.1 MeV: 0.0665 /cm
+```
+
+A page that already holds the data, for instance one that embeds it or serves
+its own copy, registers each section with
+`sim.add_file('/<Nuclide>.arrow/<section>', bytes)` instead of fetching it.
+`fetchNuclearData` skips any nuclide the store already has.
 
 ### Running a simulation in the browser (`WasmSimulation`)
 
-Besides `Material`, the bindings expose a `WasmSimulation` class for
+Besides `WasmMaterial`, the bindings expose a `WasmSimulation` class for
 loading a model exported from Python and running the transport loop
 in the browser. The exported model JSON (from `model.save(path)`)
 carries the geometry, materials, source, and tally definitions; the JS
@@ -160,7 +205,9 @@ The exported methods (see the source of truth in
 - `tallyPlotHtml(paramsJson)`: full interactive mesh-tally plot HTML from
   the current tally state.
 - `sampleSourcePoints(n, seed)`: sample `n` source positions; returns a
-  flat `[x, y, z, ...]` array for the source overlay.
+  flat `[x, y, z, ...]` array for the source overlay. `seed` is a u64, so a
+  BigInt (`1n`).
 - `simulate_transport(particles, batches, seed)`: run the loaded model
   (overriding its run parameters) and return a JSON result string with a
-  per-tally, per-score breakdown of means and standard deviations.
+  per-tally, per-score breakdown of means and standard deviations. `seed` is
+  a u64, so a BigInt (`1n`); a plain number is refused.
