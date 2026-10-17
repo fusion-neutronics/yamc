@@ -304,9 +304,15 @@ tally_p = yamc.Tally(scores=["flux"], cells=cell, particle="photon")
 
 Apply an energy-dependent weighting function to the tally (e.g. response functions, DPA cross sections).
 
-The values are interpolated with a natural cubic spline, which needs at least
-four points. A particle whose energy falls outside the tabulated range scores
-nothing into that tally, so make the grid span the whole spectrum you expect.
+``interpolation`` says how the values are read between points: ``"cubic"``, a
+natural cubic spline in linear energy and the default, which needs at least four
+points; ``"linear"``; or ``"log-log"``, the convention for tabulated
+coefficients, which falls back to linear over an interval with a zero value.
+The last two need two points. An ``energy_function`` given as
+``(energies, values, units, interpolation)``, the tuple ``as_energy_function()``
+returns, carries its own. A particle whose energy falls outside the tabulated
+range scores nothing into that tally, so make the grid span the whole spectrum
+you expect.
 
 <!-- doctest: skip -->
 ```python
@@ -321,7 +327,8 @@ tally = yamc.Tally(
 ### Dose coefficients
 
 Apply effective dose conversion coefficients directly. They are ICRP-116 by default; add
-``"icrp74"`` as a third element, ``("neutron", "AP", "icrp74")``, for ICRP-74.
+``"icrp74"`` as a third element, ``("neutron", "AP", "icrp74")``, for ICRP-74. They are
+interpolated log-log, as contact dose reads the same tables.
 
 <!-- doctest: skip -->
 ```python
@@ -335,8 +342,9 @@ tally = yamc.Tally(
 For ambient dose equivalent H*(10), the quantity most regulations still
 reference, fetch the ICRP-74 coefficients with
 ``yamc.data.dose_coefficients(..., dose_quantity="ambient")`` and fold them in
-as an energy function. H*(10) is defined in an aligned and expanded field, so it
-takes no geometry, and ICRP-116 does not tabulate it.
+as an energy function, whose tuple names the log-log interpolation itself. H*(10)
+is defined in an aligned and expanded field, so it takes no geometry, and ICRP-116
+does not tabulate it.
 
 <!-- doctest: skip -->
 ```python

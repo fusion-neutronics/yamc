@@ -8,7 +8,7 @@
 results = model.simulate_transport(total_particles=10000)
 ```
 
-``simulate_transport()`` returns a ``SimulationResults`` object containing a ``TallyResult`` for every tally attached to the model, plus run metadata (``n_batches``, ``particles_per_chunk``, ``elapsed``).
+``simulate_transport()`` returns a ``SimulationResults`` object containing a ``TallyResult`` for every tally attached to the model, plus run metadata (``elapsed``, ``transport_time``, ``particles_per_second``, and ``runs``: per run the seed, ``n_histories``, the data libraries and the published release of each, ``data_releases``).
 
 Every run needs at least one stop condition: a particle budget (``total_particles``), a wall-time budget (``max_runtime``), or convergence targets on the model. They are OR-combined, so the run ends at the first one satisfied. ``total_particles`` defaults to ``None`` (no particle cap); a call with no stop condition at all raises ``ValueError``.
 
@@ -56,6 +56,7 @@ The ``verbose`` argument on ``Model`` is a list of independent flags selecting w
 - ``"eta"``: progress lines that also show elapsed wall-clock and ETA.
 - ``"tally"``: each tally's running mean ± std (rel. err) as it converges.
 - ``"summary"``: the end-of-run completion line and per-tally final statistics.
+- ``"nuclear_data"``: one line per nuclear-data file as it loads (nuclide and path), plus the transmutation chain file.
 
 Any combination is allowed. The default (pass nothing, or ``None``) is ``["eta", "tally", "summary"]``. An empty list ``[]`` prints nothing, not even the end-of-run summary.
 
@@ -115,13 +116,13 @@ The GPU path supports a defined subset of the options, verified to match the CPU
 
 - Neutron transport, primary-photon transport (a `PhotonSource`), coupled neutron-to-photon secondary production (`transport_secondary_photons=True`) and D1S decay photons (`use_decay_photons=True`). D1S on a mixed neutron and photon source is rejected.
 - Tallies with either estimator: flux, heating / heating-local, damage-energy, reaction rates (total / elastic / absorption / (n,γ) / inelastic / fission), gas-production, and photon cross-section scores. Tally covariance (`covariance=True`) and virtual-overlay tallies (`response=`) are rejected.
-- Tally filters: `cells=`, `materials=`, `mesh=`, `energy_bins=`, `particle=`, `nuclides=`, `parent_nuclides=`, and `energy_function=` / `dose_coefficients=`. The energy function weights rather than bins, so it still needs a spatial binner alongside it; its cubic spline is solved on the host and only evaluated in the kernel, so GPU and CPU interpolate identically.
+- Tally filters: `cells=`, `materials=`, `mesh=`, `energy_bins=`, `particle=`, `nuclides=`, `parent_nuclides=`, and `energy_function=` / `dose_coefficients=`. The energy function weights rather than bins, so it still needs a spatial binner alongside it; its interpolation table (cubic, linear or log-log) is built on the host and evaluated in the kernel, so cubic and linear match the CPU bit for bit and log-log to about an ulp.
 - Full neutron physics: elastic (tabulated angular), inelastic (Kalbach-Mann, n-body, evaporation), free-gas thermal, URR, and the photon interactions on the photon path.
 - CSG geometry only (mesh is rejected), with every CSG surface type.
 - Survival biasing is supported. Weight windows are rejected, not silently ignored.
 - The kernels always surface-track: a `tracking_mode` of `"woodcock"` or `"hybrid"` gives a warning and runs with surface tracking.
 
-If any unsupported option is used, ``compute="gpu"`` raises a ``ValueError`` at simulate-transport start with a specific message. If no GPU with f64 compute is available, it raises ``RuntimeError``. The ``threads`` and ``capture_tracks`` kwargs are not used with ``compute="gpu"`` (the kernel parallelises across all particles in one launch, and tracking is CPU-only). Repeated `compute="gpu"` calls in one process are safe; each resets the shared GPU client.
+If any unsupported option is used, ``compute="gpu"`` raises a ``ValueError`` at simulate-transport start with a specific message. If no GPU with f64 compute is available, it raises ``RuntimeError``. Passing ``threads``, ``capture_tracks`` or ``data_uncertainty`` with ``compute="gpu"`` raises ``ValueError`` (the kernel parallelises across all particles in one launch, and tracking and nuclear-data uncertainty are CPU-only). Repeated `compute="gpu"` calls in one process are safe; each resets the shared GPU client.
 
 For the full, always-current per-option breakdown of which CPU options the GPU path supports (and which it rejects), see the CPU-vs-GPU option matrix harness `crates/yamc/tests/gpu_cpu_comparison_matrix.rs`, which is the source of truth.
 
@@ -154,9 +155,9 @@ model.simulate_transport(total_particles=10000, threads=8)  # 8 threads per MPI 
 mpirun -np 4 python simulation.py
 ```
 
-Tallies are automatically reduced to rank 0 after each batch. Always check ``yamc.parallel.mpi_rank() == 0`` before reading results.
+Tallies are combined across ranks once, at the end of the run: rank 0 folds every rank's statistics in rank order and broadcasts them, so every rank returns the same result. Read and save results on rank 0 (check ``yamc.parallel.mpi_rank() == 0``); ``yamc.combine_results`` refuses a result from any other rank, since combining two ranks' copies would count the run twice. The tally-level reliability statistics (the ``aggregate_*`` values, the score PDF and the checks built on them) are not gathered across ranks yet, so they are reported for single-process runs only.
 
-Results are deterministic regardless of rank count: each particle gets a unique seed based on the base seed, batch number, and global particle index.
+Each history's random numbers depend only on the base seed and its global index, not on the thread, chunk or rank that runs it, so the same histories run whatever the rank count; merged statistics can differ in the last bits, since the fold order changes with it.
 
 Slurm example:
 
@@ -206,7 +207,7 @@ Each ``TrackEvent`` includes: ``event_type``, ``position``, ``direction``, ``ene
 
 ### Lost particles and geometry debugging
 
-If a particle crosses into a region not covered by any cell, it is "lost". YAMC prints diagnostics and kills the particle.
+If a particle crosses into a region not covered by any cell, or reaches an unbounded cell with no surface ahead of it (a missing vacuum boundary), it is "lost". YAMC prints diagnostics, kills the particle and counts it towards ``max_lost_particles``.
 
 <!-- doctest: skip -->
 ```python

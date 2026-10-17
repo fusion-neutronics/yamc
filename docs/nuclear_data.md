@@ -19,7 +19,7 @@ libraries by subsection.
 
 | setting | supplies | decides | left unset |
 | --- | --- | --- | --- |
-| ``cross_section_data`` | continuous-energy cross sections per nuclide | every reaction rate, in transport and in transmutation alike | nothing at all: there is no data to transport with, and every transmutation ``sigma * phi`` is zero |
+| ``cross_section_data`` | continuous-energy cross sections per nuclide | every reaction rate, in transport and in transmutation alike | nothing: anything that needs a neutron cross section stops with an error naming this setting |
 | ``transmutation_reactions`` | which reaction on which nuclide gives which product, and its Q | which activation products exist to be made | ``endf-b8.1`` |
 | ``transmutation_decay_data`` | half-lives, decay modes, mean decay energies, decay photon lines | how the inventory decays, and the photon source a shutdown dose rate transports | ``endf-b8.1`` |
 | ``transmutation_fission_yields`` | fission product yields | what a fission makes | ``endf-b8.1`` |
@@ -44,7 +44,9 @@ disappear; swap the one behind ``cross_section_data`` and the same products
 arrive at different rates.
 
 They also fail differently, which is how to tell them apart in practice. A missing
-``cross_section_data`` is silent: the inventory comes back as it went in. A
+``cross_section_data`` stops a transport, an irradiation or a cross-section query
+before it starts, with an error naming the setting and a nuclide it has no data
+for; a decay-only schedule needs no cross sections and still runs. A
 network pointed at the wrong material is refused before the solve, naming what
 the material holds against what the network drives.
 
@@ -56,11 +58,11 @@ Nuclides can be created and their properties inspected.
 nuclide = yamc.Nuclide('Li6')
 
 print(nuclide.name)                    # "Li6"
-print(nuclide.element)                 # "Li"
+print(nuclide.element)                 # "lithium"
 print(nuclide.atomic_number)           # 3
 print(nuclide.mass_number)             # 6
 print(nuclide.available_temperatures)  # ["250", "294", "600", "900", "1200", "2500"]
-print(nuclide.reaction_mts)            # [1, 2, 3, 4, 51, ..., 105]
+print(nuclide.reaction_mts)            # [1, 2, 3, 4, 27, 32, ..., 444, 901]
 ```
 
 Microscopic cross sections are retrieved by reaction name or MT number. Each call returns ``(xs_values, energy_grid)``. Different reactions may have different energy grids.
@@ -184,8 +186,46 @@ how big each one is, and which can serve as a photon source.
 
 TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from a library that has them while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
 
-Whenever nuclear data is needed, yamc checks the user's ```.cache/yamc``` folder for the Arrow data of the required nuclide.
-If the file is there it is used; otherwise it is downloaded to the cache first.
+A keyword resolves, once per process, to the library's current published
+release: a dated folder such as ``2026-10-10.1`` with a manifest that lists every
+file in it with its size and sha256. Whenever nuclear data is needed, yamc looks
+for the file in that release's folder of its cache. If the file is there it is
+used; otherwise it is downloaded first, checked against the manifest (a byte
+range against its own hash), and only then kept. A file that does not match is
+refused with an error naming it. A load of many nuclides downloads them in
+concurrent batches and prints a ``Downloaded k of N nuclides`` counter.
+
+The cache is a ``yamc`` folder in the platform's per-user cache directory, and
+``yamc.cache_dir()`` returns it:
+
+| platform | cache directory |
+| --- | --- |
+| Linux | ``~/.cache/yamc``, or ``$XDG_CACHE_HOME/yamc`` when that is set |
+| macOS | ``~/Library/Caches/yamc`` |
+| Windows | ``%LOCALAPPDATA%\yamc`` |
+
+Each release has its own folder, laid out as the published tree:
+
+```
+<cache dir>/<keyword>/<release>/manifest.json
+<cache dir>/<keyword>/<release>/neutron/<Nuclide>.arrow/...
+<cache dir>/<keyword>/<release>/photon/<Element>.arrow/...
+<cache dir>/<keyword>/<release>/transmutation/<subsection>.arrow/...
+```
+
+No setting or environment variable moves the cache (``YAMC_CACHE_DIR`` is gone).
+To read data from somewhere else, point the setting at a local directory, as
+below, which bypasses the cache. When a newer release is published, the next run
+downloads what it needs from it, says so once, and leaves the older folder in
+place; every file one run reads from a library comes from a single release.
+Without a connection, yamc uses the newest cached release that already holds
+every file the run needs and says which; only a file missing from the cache is
+then an error. Results record the release of each library they used:
+``SimulationResults.runs[i]["data_releases"]`` and
+``TransmutationResults.data_releases``, each mapping a keyword to its
+``release``, ``manifest_sha256``, ``format_version`` and ``offline``.
+``yamc.combine_results`` refuses runs that read different releases of one
+library.
 
 #### cross_section_data with a directory path
 
@@ -199,7 +239,7 @@ yamc.cross_section_data = "/path/to/neutron/"
 
 #### cross_section_data with file paths
 
-Data files can also be downloaded from the nuclear data repository [FENDL-3.2d](https://github.com/fusion-neutronics/cross_section_data_fendl_3.2d_arrow). Once they are saved locally, their paths can be used to configure the nuclear data. Replace the `tests` dir with the path to the downloaded data files.
+A nuclide's data is a folder of Arrow files, ``<Nuclide>.arrow``, which a published release serves at ``https://yamc-data.xsplot.com/<keyword>/<release>/neutron/<Nuclide>.arrow/`` (every file its ``manifest.json`` lists for that folder). Once such folders are saved locally, their paths can be used to configure the nuclear data. Replace the `tests` dir with the path to the downloaded data files.
 
 ```python
 yamc.cross_section_data = {
@@ -261,15 +301,16 @@ Once the interacting nuclide is known then the reaction can be sampled using ```
 import yamc
 nuc = yamc.Nuclide('Li6')
 nuc.read_nuclear_data('tests/Li6.arrow')
-reaction = nuc.sample_reaction(energy=1.0, temperature='300', seed=42)
-print(f'interacting reaction is {reaction}')
+reaction = nuc.sample_reaction(energy=1.0, temperature='294', seed=42)
+if reaction is not None:    # None where no reaction can be sampled
+    print(f'interacting reaction is MT {reaction["mt_number"]}')
 ```
 
 ### Transmutation data
 
 For transmutation (``Material.transmute()``), coupled transport-transmutation (``Model.simulate_transmutation()``) and shutdown dose rate (D1S), YAMC also needs a transmutation network: the chain of reactions, decays and decay-photon sources used to evolve nuclide inventories.
 
-The network is assembled from four independently sourced parts, each set globally to a library keyword (its subsection tarball is downloaded and cached on first use) or a path to a local chain directory:
+The network is assembled from four independently sourced parts, each set globally to a library keyword (its subsection's files are downloaded from the library's current release on first use, verified and cached) or a path to a local chain directory:
 
 <!-- doctest: skip -->
 ```python
