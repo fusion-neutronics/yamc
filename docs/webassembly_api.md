@@ -16,6 +16,15 @@ material, plotting, and in-browser simulation paths described below.
 
 ## Building WebAssembly
 
+The WebAssembly bindings are compiled from the Rust in
+[fusion-neutronics/core](https://github.com/fusion-neutronics/core), so the
+commands below run in a checkout of that repository, not of this one:
+
+```bash
+git clone https://github.com/fusion-neutronics/core.git
+cd core
+```
+
 ### Prerequisites
 
 Install wasm-pack:
@@ -26,50 +35,48 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 ### Building the Package
 
-To build the WebAssembly package quickly:
+From the checkout's `crates/yamc` directory:
 
 ```bash
-wasm-pack build --target web --features wasm crates/yamc
+cd crates/yamc
+# A quick, unoptimised build
+wasm-pack build --dev --target web --features wasm
+# The optimised build: wasm-pack builds in release mode unless told otherwise
+wasm-pack build --target web --features wasm
 ```
 
-To build the optimized WebAssembly package:
+Keep `--features` after wasm-pack's own flags. wasm-pack hands everything from
+the first flag it does not recognise to `cargo build`, so a flag or a path
+written after `--features wasm` goes to cargo rather than to wasm-pack.
 
-```bash
-wasm-pack build --target web --features wasm --release crates/yamc
-```
+The package is written to `crates/yamc/pkg/`: `yamc.js`, `yamc_bg.wasm` and
+their TypeScript declarations. To use it from a page of your own, serve the
+directory that holds the page and `pkg/` over HTTP, for instance with
+`python -m http.server 8000`, since a JavaScript module does not load from
+`file://`.
 
-This creates a `pkg/` directory containing the generated WebAssembly files and JavaScript bindings.
-
-Create an index.html that loads the WASM file.
-
-Copy the generated package to the examples directory and serve locally:
-
-```bash
-cp -r pkg examples/wasm/
-# Serve the demo pages locally
-python -m http.server 8000
-# Open the demo pages in your browser
-firefox http://localhost:8000/examples/wasm/index.html
-```
+Core keeps no standalone demo page for this package. The browser page it does
+ship is the one `model.to_html(path)` writes (see
+[below](#running-a-simulation-in-the-browser-wasmsimulation)), from the
+template in `packages/yamc-core/python/yamc/_browser_template/`, with a build
+of this crate embedded. In a source build of the Python package,
+`scripts/build_wasm_blobs.sh` rebuilds that embedded build (`yamc_sim`) and the
+mesh viewer's (`yamt`) into `packages/yamc-core/python/yamc/_wasm/`.
 
 ### Running WASM Tests
 
-To test the WebAssembly bindings:
+As core's CI runs them, from `crates/yamc`, with Firefox and geckodriver
+installed:
 
 ```bash
-wasm-pack test --headless --firefox crates/yamc
-```
-
-### Running WASM-Specific Tests
-
-For tests that require WASM-specific features, enable the optional `wasm-test` feature:
-
-```bash
+cd crates/yamc
 cargo test -p yamc --features wasm-test
-wasm-pack test --headless --firefox --features wasm-test crates/yamc
+wasm-pack test --headless --firefox --features wasm-test
 ```
 
-WASM-specific tests and their dependencies are then only included when the feature is enabled.
+The `wasm-test` feature brings in the WASM-specific tests and their
+dependencies. One of them, `tests/wasm_fetch_browser.rs`, fetches nuclear data
+from yamc-data.xsplot.com inside the browser, so the run needs network access.
 
 
 ## JavaScript API
