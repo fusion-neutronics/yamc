@@ -22,10 +22,16 @@ Both CSG ``Geometry`` and ``MeshGeometry`` are accepted.
 
 ### Photon transport
 
-Enable coupled neutron-photon transport with ``transport_secondary_photons=True``. Materials must have photon data loaded (see [Loading nuclear data](materials.md#loading-nuclear-data)).
+Enable coupled neutron-photon transport with ``transport_secondary_photons=True``.
+Set ``yamc.cross_section_data`` to a library with photoatomic data; the model
+loads the required element data automatically. No explicit material data read is
+needed (see [Loading nuclear data](materials.md#loading-nuclear-data)).
+A primary ``PhotonSource`` transports its own photons without this coupling flag.
 
 <!-- doctest: skip -->
 ```python
+yamc.cross_section_data = "endf-b8.1"
+
 model = yamc.Model(
     geometry=geometry,
     source=source,

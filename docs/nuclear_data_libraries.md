@@ -13,7 +13,7 @@ yamc.cross_section_data = "endf-b8.1"
 
 | keyword | what it is |
 |---------|-------------------------------------------------------------------|
-| ``endf-b8.1`` | ENDF/B-VIII.1. The default for photon data and for an unset ``decay``, ``reactions`` or ``fission_yields``. |
+| ``endf-b8.1`` | ENDF/B-VIII.1. The default for an unset ``decay``, ``reactions`` or ``fission_yields``. |
 | ``jeff-4.0`` | JEFF-4.0. |
 | ``jendl-5.0`` | JENDL-5. |
 | ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six, but its Li6 and Li7 make no tritium below 30 MeV: see [Lithium in TENDL-2025](#lithium-in-tendl-2025). |
@@ -30,22 +30,24 @@ when left alone, is in [Nuclear data settings](nuclear_data.md#nuclear-data-sett
 
 | library | cross sections | ``decay`` | ``reactions`` | ``fission_yields`` | ``branching`` |
 | --- | --- | :---: | :---: | :---: | :---: |
-| ``endf-b8.1`` | neutron + photon | yes | yes | yes | yes |
+| ``endf-b8.1`` | neutron + photoatomic | yes | yes | yes | yes |
 | ``jeff-4.0`` | neutron | yes | yes | yes | yes |
-| ``jendl-5.0`` | neutron + photon | yes | yes | yes | yes |
-| ``fendl-3.2d`` | neutron + photon | -- | yes | -- | yes |
-| ``tendl-2025`` | neutron | -- | yes | -- | yes |
-| ``tendl-2017`` | neutron | -- | yes | -- | yes |
+| ``jendl-5.0`` | neutron + photoatomic | yes | yes | yes | yes |
+| ``fendl-3.2d`` | neutron + photoatomic | -- | yes | -- | yes |
+| ``tendl-2025`` | neutron + photonuclear (next release, data only) | -- | yes | -- | yes |
+| ``tendl-2017`` | neutron + photonuclear (next release, data only) | -- | yes | -- | yes |
 
-The ``cross sections`` column is what ``yamc.cross_section_data`` can be set to.
-That setting is not transport-only: ``Material.transmute()`` and
+``yamc.cross_section_data`` selects a library's neutron and, when photon
+transport is requested, photoatomic data. The photonuclear entries describe
+additional evaluated data, not another photon transport library.
+The setting is not transport-only: ``Material.transmute()`` and
 ``Model.simulate_transmutation()`` fold the same cross sections against the
 spectrum to get their reaction rates, so an activation run needs it as much as a
 transport run does. The four remaining columns are the transmutation subsections,
 each set independently through its own ``yamc.transmutation_*`` setting. A library
 with no subsections still works for transport, it just cannot supply a chain.
 
-TENDL is neutron-only, so it has no decay or fission-yield evaluations. Take
+TENDL has neutron and photonuclear evaluations, but no decay or fission-yield evaluations. Take
 those from a library that has them and source ``reactions`` and ``branching`` from
 TENDL, whose parent coverage is far wider. FENDL-3.2d publishes the same two
 subsections, built against ENDF/B-VIII.1 decay data; its ``branching`` is the
@@ -57,31 +59,70 @@ message listing the subsections that library does provide.
 ``endf-b8.1``, ``jeff-4.0`` and ``jendl-5.0`` each supply a complete,
 single-library transmutation chain.
 
-### Photon data is chosen separately
+### Photon data follows the selected library
 
-Photons default to ``endf-b8.1`` whatever the neutron library is, which keeps
-fluorescence and Auger electrons working when the neutron data is TENDL or FENDL.
-Only three libraries can serve as a photon source at all:
+``yamc.cross_section_data`` selects both neutron and photoatomic photon data.
+Photon-only and coupled transport load the required elements automatically;
+an extra ``material.read_nuclear_data(...)`` call is not needed when the global
+setting names the intended library. Material construction itself downloads
+nothing: data is loaded when a calculation needs it.
+
+```python
+import yamc
+
+yamc.cross_section_data = "endf-b8.1"
+water = yamc.Material(composition={"H1": 2.0, "O16": 1.0}, density=1.0)
+```
+
+Only three libraries provide photoatomic data for photon transport:
 
 - ``endf-b8.1`` and ``jendl-5.0`` publish the photoatomic and atomic-relaxation
   pair a coupled run needs. JENDL-5's is EPICS2017 adopted by JAEA, so it is the
   same data ENDF/B-VIII.1 carries.
-- ``fendl-3.2d`` publishes photon cross sections with no atomic relaxation, so
-  fluorescence is silently suppressed if you point photons at it.
+- ``fendl-3.2d`` publishes photoatomic cross sections with no atomic relaxation,
+  so absorption emits no fluorescence or Auger electrons; the loader warns
+  about missing relaxation where it matters.
 - ``jeff-4.0`` and both TENDL releases publish no photoatomic data at all. JEFF's
   photon sublibrary is photonuclear, which is a different quantity.
 
-There is no global photon setting to move photons with. The only way off the
-default is per material, through ``photon_data`` on
-[read_nuclear_data](materials.md#loading-nuclear-data), whose values may be
-library keywords as well as paths.
+There is no implicit switch to another photon library. A photon run with
+``cross_section_data = "tendl-2025"`` or ``"tendl-2017"`` fails for missing
+photoatomic data, even after the new photonuclear files are published.
+To deliberately mix neutron and photon libraries, use an explicit per-element
+``photon_data`` map on
+[read_nuclear_data](materials.md#loading-nuclear-data). Explicit overrides
+take precedence over the global selection.
+
+### Photonuclear data in the next TENDL release
+
+The next TENDL-2025 and TENDL-2017 regeneration adds the gamma evaluations from
+``TENDL-g.tgz``. These are per-nuclide photonuclear reactions, not the
+per-element photoatomic interactions above. Release ``2026-10-12.1`` does not
+contain this new output; it becomes available only after the regenerated
+release is validated and published.
+
+The new folders are ``photonuclear/{Nuclide}.arrow/``. Each contains:
+
+- ``photonuclear.arrow``: the MF=3 cross sections on their original energy grids,
+  with Q values and ENDF interpolation, in eV and barns.
+- ``photonuclear_sections.arrow``: every original ENDF section, including
+  outgoing-particle distributions.
+- ``version.json``: provenance identifying ``particle="photonuclear"`` and
+  ``scope="evaluated"``.
+
+``photonuclear/index.json`` lists the evaluations, and the release manifest
+lists and hashes the files. This is data processing, not photonuclear collision
+sampling: neither ``PhotonSource`` nor coupled photon transport consumes these
+tables yet. A new ``photonuclear/`` folder does not supply a photoatomic
+``photon/`` folder.
 
 ## How big each library is
 
-Counted from each library's published release ``2026-10-12.1``. ``--`` means the
-library does not publish that at all, rather than publishing an empty one.
+Counted from each library's published release ``2026-10-12.1``. These counts do
+not describe the forthcoming regeneration. ``--`` means that release does not
+publish the category, rather than publishing an empty one.
 
-| library | neutron | photon | reaction edges | branching channels | decay nuclides | covariance |
+| library | neutron | photoatomic elements | reaction edges | branching channels | decay nuclides | covariance |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | ``endf-b8.1`` | 557 | 100 | 12,444 | 917 | 3,820 | 48% |
 | ``jeff-4.0`` | 593 | -- | 81,045 | 8,362 | 3,851 | 99% |
@@ -90,7 +131,7 @@ library does not publish that at all, rather than publishing an empty one.
 | ``tendl-2025`` | 2,848 | -- | 415,154 | 40,934 | -- | 100% |
 | ``tendl-2017`` | 2,801 | -- | 417,434 | 41,185 | -- | 100% |
 
-``neutron`` and ``photon`` are evaluations, one per nuclide and one per element.
+``neutron`` and ``photoatomic elements`` are evaluations, one per nuclide and one per element.
 ``reaction edges`` is how many ``(parent, reaction, product)`` triples the network
 holds, which is what decides whether a product is reachable at all. Most of them
 are the products of ``(n,X)`` (MT=5), its residuals and light particles, one

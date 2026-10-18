@@ -263,12 +263,14 @@ The compositions are reproduced from a US Department of Energy technical report 
 
 ### Loading nuclear data
 
-Nuclear data can be loaded automatically via ``yamc.cross_section_data`` or explicitly per material.
+Set ``yamc.cross_section_data`` to select neutron and photoatomic photon data
+from the same library. A calculation loads the required nuclides and elements
+automatically; material construction needs no explicit data read.
 
 <!-- doctest: skip -->
 ```python
-# Automatic: yamc.cross_section_data downloads and caches data as needed
-yamc.cross_section_data = "fendl-3.2d"
+# Automatic: neutron and photoatomic photon data load as needed
+yamc.cross_section_data = "endf-b8.1"
 
 # Explicit: per-material file paths
 mat.read_nuclear_data({
@@ -276,14 +278,18 @@ mat.read_nuclear_data({
     "Fe56": "path/to/Fe56.arrow",
 })
 
-# With photon data (required when transport_secondary_photons=True on Model)
+# Optional explicit photon override for local data or mixed libraries
 mat.read_nuclear_data(
     {"Fe56": "path/to/Fe56.arrow"},
     photon_data={"Fe": "path/to/Fe.arrow"},
 )
 ```
 
-Arrow (``.arrow``) format is used for both neutron and photon data. Photon data uses the element symbol as the key (not the nuclide name).
+Arrow (``.arrow``) format is used for both neutron and photoatomic photon data.
+Explicit photon maps use element symbols, not nuclide names, and override the
+global selection. They are not required when the selected library provides the
+desired data. See [Photon data follows the selected library](nuclear_data_libraries.md#photon-data-follows-the-selected-library)
+for available libraries and the distinction from TENDL photonuclear evaluations.
 
 ### Macroscopic cross sections
 
