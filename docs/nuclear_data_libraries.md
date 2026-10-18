@@ -16,7 +16,7 @@ yamc.cross_section_data = "endf-b8.1"
 | ``endf-b8.1`` | ENDF/B-VIII.1. The default for an unset ``decay``, ``reactions`` or ``fission_yields``. |
 | ``jeff-4.0`` | JEFF-4.0. |
 | ``jendl-5.0`` | JENDL-5. |
-| ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six, but its Li6 and Li7 make no tritium below 30 MeV: see [Lithium in TENDL-2025](#lithium-in-tendl-2025). |
+| ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six, but its lithium has a tritium production problem: see [Lithium in TENDL-2025](#lithium-in-tendl-2025). |
 | ``tendl-2017`` | TENDL-2017, for comparing a result against the older release. |
 | ``fendl-3.2d`` | FENDL-3.2d. Cross sections, plus ``reactions`` and ``branching`` subsections. |
 

@@ -52,19 +52,13 @@ pip install "yamc[all]"
 
 ### Install the development version
 
-`yamc-core` is built from the [fusion-neutronics/core](https://github.com/fusion-neutronics/core) repository, and `pip install yamc` gives its latest release. To get the latest unreleased changes, build `yamc-core` from core's main branch. This builds from source, so it needs a Rust toolchain, which can be installed with [rustup](https://www.rust-lang.org/tools/install):
+`pip install yamc` gives the latest release. The unreleased changes in this repository install straight from GitHub:
 
 ```bash
-# Install Rust (skip if you already have it)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
-
-pip install "yamc-core @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"
+pip install git+https://github.com/fusion-neutronics/yamc.git
 ```
 
-Extras work too, e.g. `pip install "yamc-core[all] @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"`.
-
-Install it on its own rather than alongside `yamc`, which pins the released `yamc-core` exactly: installing or upgrading `yamc` can put the release back in place of the development build. To work on the code itself, with the test tooling in `yamc-core`'s `dev` extra, follow core's [developer guide](https://github.com/fusion-neutronics/core/blob/main/docs/developer_info.md).
+`yamc` on PyPI and on GitHub pins `yamc-core` exactly, so this installs the current released `yamc-core` with any unreleased changes to this repository's packaging. Building `yamc-core` itself needs the core repository, which is not public.
 
 
 ## MPI Installation (Advanced)
@@ -129,7 +123,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 ```
 
-Then build `yamc-core` from source, as for the [development version](#install-the-development-version), with the `mpi` feature switched on. `MATURIN_PEP517_ARGS` passes the flag to maturin, which builds the wheel for pip:
+Then build `yamc-core` from a checkout of the core repository, with the `mpi` feature switched on. `MATURIN_PEP517_ARGS` passes the flag to maturin, which builds the wheel for pip:
 
 ```bash
 MATURIN_PEP517_ARGS="--features mpi" pip install "yamc-core @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"

@@ -143,7 +143,8 @@ nav:
     - Results: results.md
   - Method: method.md
   - Python API: api.md
-  - WebAssembly API: webassembly_api.md
+  # The WebAssembly API page was here; it moves to core's docs, which are not
+  # public yet.
   # Absolute, because the PDF is written by the exporter after the build and
   # is not a file in docs/ for MkDocs to resolve a relative link against.
   - Download as PDF: https://fusion-neutronics.github.io/yamc/yamc-documentation.pdf

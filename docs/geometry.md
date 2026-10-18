@@ -369,7 +369,7 @@ assembly.add(box, name="moderator", color=cq.Color("blue"))
 
 ### Meshing (CadToYamc)
 
-``CadToYamc`` imprints the assembly, meshes surfaces with the yamm scene mesher, and optionally fills volumes with tetrahedra using the yamm tet mesher.
+``CadToYamc`` imprints the assembly by default, meshes surfaces with the yamm scene mesher, and optionally fills volumes with tetrahedra using the yamm tet mesher.
 
 <!-- doctest: skip -->
 ```python
@@ -386,6 +386,43 @@ mesh = mesher.mesh(tet_volumes=["fuel"], target_edge_length=2.0)
 ```
 
 The ``material_tags`` can also be ``"assembly_names"`` or ``"assembly_materials"`` to derive tags from the assembly structure.
+
+### Meshing without imprinting
+
+Imprinting merges the surfaces where solids touch, so the mesh is conformal
+across them. It is also the slow part of meshing a large assembly, and it
+rejects CAD that will not imprint cleanly. ``imprint=False`` skips it and
+meshes every solid on its own:
+
+<!-- doctest: skip -->
+```python
+mesh = mesher.mesh(imprint=False, contact_tolerance=0.05)
+```
+
+Touching solids then meet along two separately faceted surfaces that may
+overlap or leave a thin gap. ``MeshGeometry`` tracks such a mesh
+discontinuously: a particle leaving one solid is placed in whichever touching
+solid contains it, instead of being read off a shared surface. Solids closer
+than ``contact_tolerance`` count as touching, so an overlap or a gap thinner
+than it is crossed straight into the next solid, with an overlap staying with
+the solid the particle was already in. A gap that is in the CAD stays a gap
+whatever the tolerance: the pair is checked against the CAD and recorded as
+separated. ``contact_tolerance`` defaults to twice ``tolerance``, which covers
+the slivers that two facetings of one CAD surface leave between them; raise it
+to accept sloppier CAD.
+
+Two solids overlapping deeper than the contact tolerance is an error by
+default. ``overlaps="smaller_wins"`` gives each such overlap to the smaller
+solid of the pair, wherever a particle arrives from, and takes the shared
+volume off the larger one. ``overlaps="ignore"`` skips the check.
+
+The mesh file records how it was made, and ``MeshGeometry`` reports it:
+
+<!-- doctest: skip -->
+```python
+print(mesh_geom.discontinuous)      # True for a mesh made without imprinting
+print(mesh_geom.contact_tolerance)  # cm; None for an imprinted mesh
+```
 
 ### Export
 
@@ -429,6 +466,8 @@ mesh_geom = yamc.MeshGeometry(
     graveyard_offset=10.0,              # vacuum shell 10 cm outside mesh
 )
 ```
+
+``contact_tolerance`` overrides the distance the file records and tracks the mesh discontinuously, even if it was written imprinted.
 
 A whole-model ``MeshGeometry`` with no vacuum boundary (no ``graveyard_offset``
 and no surface with a vacuum condition) is closed before transport: with a void
