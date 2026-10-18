@@ -10,8 +10,11 @@ the things it does well.
 transport engine in your browser, on your own machine, with no account and no
 upload.
 
-**`pip install yamc` on Linux, macOS or Windows.** The wheel carries the
-compiled solver, so there is no compiler or toolchain to set up. See
+**`pip install yamc` on Linux, macOS or Windows, on x86 or ARM.** The solver is
+a Rust core shipped inside the wheel behind thin
+[PyO3](https://pyo3.rs) bindings that target Python's stable ABI (3.10+), so
+nothing is compiled at install time. The dependency-free core also builds to
+WebAssembly, which is what YAMC online above is running. See
 [Installation](installation.md).
 
 **Nuclear data downloads itself.** Pick a library and only the parts your
@@ -46,7 +49,8 @@ from the evaluation's own covariance data. See
 ## Fast
 
 **GPU transport on any vendor's hardware.** `compute="gpu"` runs on AMD,
-NVIDIA or Intel GPUs in double precision. See
+NVIDIA or Intel GPUs in double precision, through one cubecl/Vulkan code path
+rather than a proprietary single-vendor toolkit. See
 [GPU transport](simulate_transport.md#gpu-transport-computegpu).
 
 **Variance reduction built in.** Weight windows are generated automatically
@@ -80,5 +84,8 @@ heat, decay photons and waste clearance. See
 fission yields can each come from a different library, or from your own files.
 See [Nuclear data settings](nuclear_data.md#nuclear-data-settings).
 
-**Results where your analysis already is.** Tallies convert to numpy, pandas,
-polars or xarray, and export to VTK-HDF for ParaView. See [Results](results.md).
+**Results where your analysis already is.** Nuclear data, tally results and
+meshes are stored and exchanged as Apache Arrow, which is columnar and
+language-agnostic, so files are portable and load quickly. Tallies convert to
+numpy, pandas, polars or xarray with little or no copying, and export to VTK-HDF
+for ParaView. See [Results](results.md).

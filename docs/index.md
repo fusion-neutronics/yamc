@@ -15,27 +15,7 @@ YAMC's priorities are:
 - A fully permissively licensed open-source dependency stack
 - Batteries included: CAD geometry meshing, transmutation, convenient cross section data downloading, and visualization built in
 
-## How these priorities are met
-
-Four design choices make this possible.
-
-The core is written in Rust. All of the physics, geometry, and data handling live in a
-Rust workspace. Rust compiles to self-contained native binaries with no runtime or shared-library
-dependencies, so the same code base packages cleanly across Linux, macOS, and Windows on both x86
-and ARM. The dependency-free core crates also compile to WebAssembly, so the same source can
-run in a browser.
-
-The Python package is a thin set of [PyO3](https://pyo3.rs) bindings over that core. The calls are
-wrappers and all computation happens in Rust at native speed. The bindings target
-Python's stable ABI (abi3, 3.10+), so a single wheel per platform installs with `pip` without
-compiling anything.
-
-Apache Arrow is the common data format. Nuclear data, tally results, and meshes are all stored and exchanged as Arrow. Arrow is columnar
-and language-agnostic, so data files are portable and load quickly, and tally results convert to
-pandas, polars, or xarray with little or no copying.
-
-GPU execution runs through cubecl/Vulkan instead of a proprietary single-vendor toolkit. One code
-path therefore targets AMD, NVIDIA, and Intel hardware, and the whole stack stays open source.
+What each of those means in practice is on [Why YAMC](why_yamc.md).
 
 ## Explore
 
