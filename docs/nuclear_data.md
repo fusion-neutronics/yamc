@@ -19,7 +19,7 @@ libraries by subsection.
 
 | setting | supplies | decides | left unset |
 | --- | --- | --- | --- |
-| ``cross_section_data`` | continuous-energy cross sections per nuclide | every reaction rate, in transport and in transmutation alike | nothing: anything that needs a neutron cross section stops with an error naming this setting |
+| ``cross_section_data`` | neutron cross sections per nuclide and photoatomic photon data per element | reaction rates in neutron/photon transport and transmutation | no default library; configure it or provide explicit material data |
 | ``transmutation_reactions`` | which reaction on which nuclide gives which product, and its Q | which activation products exist to be made | ``endf-b8.1`` |
 | ``transmutation_decay_data`` | half-lives, decay modes, mean decay energies, decay photon lines | how the inventory decays, and the photon source a shutdown dose rate transports | ``endf-b8.1`` |
 | ``transmutation_fission_yields`` | fission product yields | what a fission makes | ``endf-b8.1`` |
@@ -28,9 +28,10 @@ libraries by subsection.
 Four of the five have a default and give an answer without being set. ``cross_section_data`` has none, and every
 transmutation and shutdown-dose example on these pages assumes you have set it.
 
-Photons are chosen separately and default to ``endf-b8.1`` whatever the neutron
-library is. See
-[Nuclear data libraries](nuclear_data_libraries.md#photon-data-is-chosen-separately).
+Photons follow the same library selection as neutrons and are loaded
+automatically when transport needs them. Explicit per-element photon sources
+remain available for deliberately mixing libraries. See
+[Nuclear data libraries](nuclear_data_libraries.md#photon-data-follows-the-selected-library).
 
 #### The two that both say reactions
 
@@ -184,7 +185,14 @@ There are six recognized keywords: ``endf-b8.1``, ``jeff-4.0``, ``jendl-5.0``,
 [Nuclear data libraries](nuclear_data_libraries.md) has what each one publishes,
 how big each one is, and which can serve as a photon source.
 
-TENDL is neutron-only, so it has no decay or fission-yield evaluations; pair it with a photon library (``endf-b8.1`` by default) for coupled neutron/photon transport, and take ``decay``/``fission_yields`` from a library that has them while sourcing ``reactions`` and/or ``branching`` from a TENDL release. Pointing a transmutation part at a library that does not provide it (e.g. ``decay`` from a TENDL release) fails immediately with a message listing the subsections that library does provide.
+TENDL has no decay or fission-yield evaluations. Take ``decay``/``fission_yields``
+from a library that has them while sourcing ``reactions`` and/or ``branching``
+from TENDL. For coupled neutron/photon transport, deliberately supply photoatomic
+data from another library through a material's ``photon_data`` map; no separate
+photon library is selected implicitly. The next TENDL release adds
+[photonuclear evaluated data](nuclear_data_libraries.md#photonuclear-data-in-the-next-tendl-release),
+which does not replace photoatomic transport data. Pointing a transmutation part
+at a library that does not provide it still fails immediately.
 
 TENDL-2025's Li6 and Li7 make no tritium below 30 MeV, whether used as cross sections or as a ``reactions`` network, so use another library wherever lithium matters: see [Lithium in TENDL-2025](nuclear_data_libraries.md#lithium-in-tendl-2025).
 
