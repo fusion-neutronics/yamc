@@ -45,7 +45,7 @@ geometry = yamc.Geometry(cells=[cell])
 
 ## Build the source
 
-A single float is a monoenergetic source — here the 14.06 MeV D-T neutron:
+A single float is a monoenergetic source (here the 14.06 MeV D-T neutron):
 
 ```python
 source = yamc.NeutronSource(energy=14.06e6)
@@ -53,11 +53,15 @@ source = yamc.NeutronSource(energy=14.06e6)
 
 ## Add a tally
 
-Score H3 (tritium) production in the lithium cell. Per source neutron, this is the TBR:
+Score H3 (tritium) production in the lithium sphere. With no spatial filter the tally scores
+over the whole geometry, which here is one cell. Per source neutron, this is the TBR:
 
 ```python
-tally = yamc.Tally(scores=["H3-production"], cells=cell)
+tally = yamc.Tally(scores=["H3-production"])
 ```
+
+With more than one cell, `cells=cell` bins the tally per cell instead; see
+[Spatial binning](tallies.md#spatial-binning).
 
 ## Run the simulation
 
@@ -80,11 +84,11 @@ lists with one entry per score:
 
 ```python
 result = results[tally]
-print(f"TBR (H3 production per source neutron): {result.mean[0]:.3f} +/- {result.standard_deviation[0]:.3f}")
+print(f"TBR (H3 production per source neutron): {result.mean[0]} +/- {result.standard_deviation[0]}")
 ```
 
 For a pure-lithium sphere this prints a TBR of roughly:
 
 ```text
-TBR (H3 production per source neutron): 1.217 +/- 0.002
+TBR (H3 production per source neutron): 1.2169485390409323 +/- 0.002059927598397041
 ```
