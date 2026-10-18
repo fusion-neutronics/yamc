@@ -33,14 +33,22 @@ mat_lithium = yamc.Material(
 )
 ```
 
-## Build the geometry and source
+## Build the geometry
+
+A lithium sphere bounded by a vacuum surface:
 
 ```python
 surface_sphere = yamc.Sphere(radius=100, boundary="vacuum")
 cell = yamc.Cell(region=surface_sphere.below, material=mat_lithium)
 geometry = yamc.Geometry(cells=[cell])
+```
 
-source = yamc.NeutronSource(energy=14.06e6)  # a float is a monoenergetic source (14.06 MeV, D-T)
+## Build the source
+
+A single float is a monoenergetic source — here the 14.06 MeV D-T neutron:
+
+```python
+source = yamc.NeutronSource(energy=14.06e6)
 ```
 
 ## Add a tally
