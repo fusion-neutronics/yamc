@@ -48,16 +48,18 @@ mat = yamc.Material(
 
 ### Density specification
 
-Density is always a float; its meaning is set by the optional ``units`` keyword. With ``units="atom/barn-cm"`` the value is the total atom density and the composition values are relative atom fractions (requires ``fraction_type="atom"``).
+Density is always a float; its meaning is set by the optional ``density_units`` keyword. With ``density_units="atom/barn-cm"`` the value is the total atom density and the composition values are relative atom fractions (requires ``fraction_type="atom"``).
+
+The keyword matches the ``material.density_units`` property. The former ``units`` keyword is not accepted.
 
 ```python
 # Mass density (default units g/cm3)
 mat = yamc.Material(composition={"Fe": 1.0}, density=7.874)
-mat = yamc.Material(composition={"Fe": 1.0}, density=7874.0, units="kg/m3")
+mat = yamc.Material(composition={"Fe": 1.0}, density=7874.0, density_units="kg/m3")
 
 # Total atom density + relative atom fractions
 mat = yamc.Material(composition={"Li6": 0.625, "Li7": 0.375}, density=0.08,
-                    units="atom/barn-cm")
+                    density_units="atom/barn-cm")
 
 # Absolute per-nuclide atom densities, stored verbatim (e.g. from a solver)
 mat = yamc.Material.from_atom_densities({"Li6": 0.05, "Li7": 0.03})
