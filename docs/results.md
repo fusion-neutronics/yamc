@@ -21,14 +21,15 @@ Every ``TallyResult`` also carries reliability statistics. They are computed aut
 ```python
 result = results["flux"]
 print(result)
-# TallyResult 'flux'   shape=[1]   particles=1000000   elapsed=0.613 s
-#   mean . . . . . . . 1.7674e1 +/- 1.21e-2   (0.07% rel err)
-#   figure of merit .. 3.475e6
-#   variance of var. . 7.343e-6   skewness 1.880   kurtosis 5.343
-#   large-score tail slope .. 8.13
-#   statistical checks: PASSED (10/10)
+# TallyResult 'flux'   shape=[1]   particles=1000000   elapsed=1.025 s
+#   mean . . . . . . . 1.7667e1 +/- 1.21e-2   (0.07% rel err)
+#   figure of merit .. 2.080e6
+#   variance of var. . 7.277e-6   skewness 1.875   kurtosis 5.277
+#   large-score tail slope .. 7.78
+#   statistical checks: PASSED (11/11)
 #     mean stable....................... pass
 #     relative error < 0.10............. pass
+#     per-bin relative error < 0.10..... pass
 #     relative error decreasing......... pass
 #     relative error falls as 1/sqrt(N). pass
 #     variance of variance < 0.10....... pass
@@ -59,9 +60,9 @@ The ``statistical_checks`` object gives the pass/fail verdict, and ``convergence
 <!-- doctest: skip -->
 ```python
 checks = result.statistical_checks
-checks.passed                 # bool: overall verdict
+checks.passed                 # bool: overall verdict, False if the tail slope could not be estimated
 checks.relative_error_ok      # individual checks: True / False / None (not evaluated)
-print(checks.summary())       # the pass/fail table
+print(checks.summary())       # the pass/fail table and verdict: PASSED, FAILED or INCOMPLETE
 
 for point in result.convergence_history:
     print(point.n_histories, point.relative_error, point.figure_of_merit)

@@ -492,16 +492,19 @@ third and fourth moments. From it yamc reports:
 - the **figure of merit**, $\text{FOM} = 1/(R^2 t)$, with $R$ the relative
   error and $t$ the wall-clock time;
 - the **tail slope** of the score distribution, from a Hill estimate over the
-  50 largest scores.
+  201 largest scores.
 
-The checks passed are: relative error below 0.1, VoV below 0.1, tail slope
-above 3, and, over the second half of the run, a mean that is not trending,
-relative error and VoV that do not grow, a FOM that stays within a factor of 2,
+The checks passed are: relative error below 0.1, in total and in every
+populated bin, VoV below 0.1, tail slope above 3, and, over the second half of
+the run, a mean that is not trending (a 95% Student-t test on the slope of the
+means of the blocks of histories between snapshots), relative error and VoV
+that do not grow, a FOM that stays within a factor of 2,
 a relative error falling as $1/\sqrt{N}$ (a log-log slope between $-0.75$ and
 $-0.25$), a VoV falling as $1/N$ (a slope between $-1.5$ and $-0.5$) and a FOM
 with no trend in $N$ (a slope within $\pm 0.5$). The three rate checks read as
-not evaluated with fewer than four snapshots in that half, and the FOM trend
-also when the half spans less than 0.1 s.
+not evaluated with fewer than four snapshots in that half, and both FOM checks
+also when the half spans less than 0.1 s. A tally passes only if its tail slope
+could be estimated.
 
 A run can stop early on convergence targets: a relative error, standard
 deviation or VoV threshold, on all tallies or a named one. Targets are checked
@@ -581,7 +584,10 @@ $\sigma'_\text{MT}/\sigma_\text{MT}$. Under delta tracking the majorant is
 raised to cover every replica's total, so a flight moves no ratio, a real
 collision takes the same $\sigma'_\text{MT}/\sigma_\text{MT}$ and a virtual one
 multiplies it by $(\Sigma_\text{maj}-\Sigma'_t)/(\Sigma_\text{maj}-\Sigma_t)$.
-Track-length scores are weighted by the mean survival over the track. The
+Track-length scores are weighted by the mean survival over the track.
+Collision-estimator scores take the ratio a history arrives with, before the
+sampled reaction changes it: the collision density's change in $\Sigma_t$
+cancels the estimator's $1/\Sigma_t$. The
 spread of the replica results includes the Monte Carlo noise of the shared
 histories, which is estimated and subtracted
 ([Clements et al. 2024](#references)).
@@ -594,8 +600,8 @@ stays nominal. Secondary distributions, $\bar\nu$ and fission spectra are not
 perturbed, and photon data carries no covariance: a photon inherits its
 neutron's ratios times the change to the cross section of the reaction that
 made it. The ratios are carried through every tracking mode, survival biasing,
-weight windows and MPI. GPU runs, and collision-estimator, overlay, mesh and
-per-nuclide tallies, are refused.
+weight windows and MPI. GPU runs, and overlay, mesh and per-nuclide tallies,
+are refused.
 
 ## References
 
