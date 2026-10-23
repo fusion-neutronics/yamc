@@ -162,7 +162,7 @@ void_cell = yamc.Cell(region=box & outer_cyl.above, name="void")
 
 ### Geometry
 
-A ``Geometry`` is constructed from a list of cells. Cell and material IDs are auto-assigned if not set.
+A ``Geometry`` is constructed from a list of cells. Cell IDs are auto-assigned if not set. Material IDs are not assigned by the ``Geometry``: every ``Material`` gets one when it is built (the ``id=`` given, or else a fresh one), and a ``Geometry`` refuses two different materials with the same ID.
 
 <!-- doctest: skip -->
 ```python
@@ -360,7 +360,7 @@ CadQuery can also load externally created STEP files (e.g. exported from another
 import cadquery as cq
 
 sphere = cq.Workplane("XY").sphere(10.0)
-box = cq.Workplane("XY").box(30, 30, 30)
+box = cq.Workplane("XY").box(30, 30, 30).cut(sphere)  # cut, so no point is in two solids
 
 assembly = cq.Assembly()
 assembly.add(sphere, name="fuel", color=cq.Color("red"))
@@ -381,11 +381,16 @@ mesher.add_cadquery_object(assembly, material_tags=["fuel", "moderator"])
 # Surface-only mesh
 mesh = mesher.mesh(tolerance=0.1, angular_tolerance=0.1)
 
+# Per-solid tolerances, keyed by material tag
+mesh = mesher.mesh(tolerance={"fuel": 0.01, "moderator": 0.5})
+
 # Selective tet meshing (specific volumes)
 mesh = mesher.mesh(tet_volumes=["fuel"], target_edge_length=2.0)
 ```
 
 The ``material_tags`` can also be ``"assembly_names"`` or ``"assembly_materials"`` to derive tags from the assembly structure.
+
+``tolerance`` (chordal deflection) and ``angular_tolerance`` (radians) each take one number for every solid, or a dict keyed by material tag (every solid with that tag) or by 1-based solid ID (the keys of ``mesh.solid_faces``). Solids the dict does not name take 0.1. A surface two solids share is meshed at the finer of their two values, so the mesh stays watertight, and the ``mesh()`` docstring lists the other cases where a solid is meshed finer than it asks.
 
 ### Meshing without imprinting
 
@@ -407,11 +412,13 @@ than ``contact_tolerance`` count as touching, so an overlap or a gap thinner
 than it is crossed straight into the next solid, with an overlap staying with
 the solid the particle was already in. A gap that is in the CAD stays a gap
 whatever the tolerance: the pair is checked against the CAD and recorded as
-separated. ``contact_tolerance`` defaults to twice ``tolerance``, which covers
-the slivers that two facetings of one CAD surface leave between them; raise it
-to accept sloppier CAD.
+separated. ``contact_tolerance`` defaults to twice ``tolerance`` (with
+per-solid values, twice the largest), which covers the slivers that two
+facetings of one CAD surface leave between them; raise it to accept sloppier
+CAD.
 
-Two solids overlapping deeper than the contact tolerance is an error by
+Two solids overlapping deeper than ``contact_tolerance``, or without it twice
+the larger ``tolerance`` of the two, is an error by
 default. ``overlaps="smaller_wins"`` gives each such overlap to the smaller
 solid of the pair, wherever a particle arrives from, and takes the shared
 volume off the larger one. ``overlaps="ignore"`` skips the check.
