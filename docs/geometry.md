@@ -162,7 +162,7 @@ void_cell = yamc.Cell(region=box & outer_cyl.above, name="void")
 
 ### Geometry
 
-A ``Geometry`` is constructed from a list of cells. Cell IDs are auto-assigned if not set. Material IDs are not: every ``Material`` has one from when it was built, and a ``Geometry`` refuses two different materials with the same ID.
+A ``Geometry`` is constructed from a list of cells. Cell IDs are auto-assigned if not set. Material IDs are not assigned by the ``Geometry``: every ``Material`` gets one when it is built (the ``id=`` given, or else a fresh one), and a ``Geometry`` refuses two different materials with the same ID.
 
 <!-- doctest: skip -->
 ```python
@@ -360,7 +360,7 @@ CadQuery can also load externally created STEP files (e.g. exported from another
 import cadquery as cq
 
 sphere = cq.Workplane("XY").sphere(10.0)
-box = cq.Workplane("XY").box(30, 30, 30).cut(sphere)  # no overlap: every point in one solid
+box = cq.Workplane("XY").box(30, 30, 30).cut(sphere)  # cut, so no point is in two solids
 
 assembly = cq.Assembly()
 assembly.add(sphere, name="fuel", color=cq.Color("red"))

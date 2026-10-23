@@ -587,7 +587,9 @@ multiplies it by $(\Sigma_\text{maj}-\Sigma'_t)/(\Sigma_\text{maj}-\Sigma_t)$.
 Track-length scores are weighted by the mean survival over the track.
 Collision-estimator scores take the ratio a history arrives with, before the
 sampled reaction changes it: the collision density's change in $\Sigma_t$
-cancels the estimator's $1/\Sigma_t$. The
+cancels the estimator's $1/\Sigma_t$. With either estimator, a neutron's
+reaction-rate, production, heating or damage-energy score is also multiplied
+by the change to its own response, $\Sigma'_x/\Sigma_x$. The
 spread of the replica results includes the Monte Carlo noise of the shared
 histories, which is estimated and subtracted
 ([Clements et al. 2024](#references)).
