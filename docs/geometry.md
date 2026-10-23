@@ -162,7 +162,7 @@ void_cell = yamc.Cell(region=box & outer_cyl.above, name="void")
 
 ### Geometry
 
-A ``Geometry`` is constructed from a list of cells. Cell and material IDs are auto-assigned if not set.
+A ``Geometry`` is constructed from a list of cells. Cell IDs are auto-assigned if not set. Material IDs are not: every ``Material`` has one from when it was built, and a ``Geometry`` refuses two different materials with the same ID.
 
 <!-- doctest: skip -->
 ```python

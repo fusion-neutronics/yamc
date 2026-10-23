@@ -176,8 +176,10 @@ The following are checked before combining, and any failure is a hard error:
 
 - distinct seeds across all contributing runs;
 - same model: geometry, materials, source, physics settings and per-nuclide nuclear-data libraries (a library mismatch is reported per nuclide, e.g. ``n:Co58: "endf-b8.1" vs "fendl-3.2d"``);
-- same-name tallies must have identical configurations;
+- same-name tallies must have identical configurations. A material filter's bins are matched by the material each id names, not by the id, so a model built again in the same process, whose materials get new ids, still combines;
 - GPU-produced results are refused (the GPU path does not record the exact merge state).
+
+Results saved by yamc-core 0.16.2 or earlier still load, but those of a CSG model with materials do not combine with runs from 0.16.3 or later, which leave material ids out of the model fingerprint.
 
 Tallies present in only some runs are carried through unchanged with a ``UserWarning``. Their statistics come from the runs that scored them, and their FOM uses those runs' time only. ``results.runs`` lists the provenance (seed, history count, elapsed time, fingerprint, data libraries) of every contributing run.
 

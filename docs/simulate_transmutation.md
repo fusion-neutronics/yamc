@@ -69,23 +69,26 @@ it and zero has no logarithm.
 
 ### TransmutationResults
 
+Results are keyed by each transmutable material's ``id``. Below, ``material`` is
+the transmutable material in ``geometry``.
+
 <!-- doctest: skip -->
 ```python
 # Evolution of a nuclide over all timesteps
-evolution = results.get_nuclide_evolution(material_id=1, nuclide="Co60")
+evolution = results.get_nuclide_evolution(material_id=material.id, nuclide="Co60")
 print(results.times)  # cumulative times including t=0
 
 # Density at a specific step
-density = results.get_nuclide_density(material_id=1, nuclide="Co60", step=2)
+density = results.get_nuclide_density(material_id=material.id, nuclide="Co60", step=2)
 
 # Full material at a step. The getters answer None for a material_id or step
 # the run does not have, so a real script checks before using the result.
-mat = results.get_material(material_id=1, step=2)
+mat = results.get_material(material_id=material.id, step=2)
 if mat is not None:
     print(mat.nuclides)
 
 # All nuclides at a step
-nuclides = results.get_material_nuclides(material_id=1, step=2)
+nuclides = results.get_material_nuclides(material_id=material.id, step=2)
 ```
 
 ### Production routes from the chain
@@ -133,7 +136,7 @@ The solve computes the rate of every individual production edge to build its bur
 ```python
 # None for a material_id or step the run does not have; `or {}` keeps the rest
 # of the page working on a plain dict.
-rates = results.get_reaction_rates(material_id=1, step=0) or {}   # step indexes timesteps
+rates = results.get_reaction_rates(material_id=material.id, step=0) or {}   # step indexes timesteps
 rates["Fe58"]["(n,2n)"]        # [('Fe57', 1.205e-09)]            # rate in 1/s
 ```
 
@@ -193,7 +196,7 @@ uncertain = model.simulate_transmutation(
     data_uncertainty=yamc.DataUncertainty(seed=1, sources=["statistical"]),
 )
 for nuclide, reaction, target, rate, std_dev in (
-    uncertain.get_reaction_rate_uncertainty(material_id=1, step=0) or []
+    uncertain.get_reaction_rate_uncertainty(material_id=material.id, step=0) or []
 ):
     print(nuclide, reaction, target, rate, std_dev)   # 1/s per atom
 ```
@@ -214,7 +217,7 @@ the parent's removal rate rests on anything the evaluation does not give.
 
 <!-- doctest: skip -->
 ```python
-report = results.get_branching_report(material_id=1, step=0)
+report = results.get_branching_report(material_id=material.id, step=0)
 if report is not None:
     report["channels"]         # one dict per channel: parent, reaction, mt, file,
                                # representation ("share", "absolute" or

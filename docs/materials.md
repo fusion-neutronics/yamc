@@ -391,11 +391,11 @@ results = material.transmute(schedule=schedule)
 
 # results is a TransmutationResults. step_materials() gives one Material per
 # schedule step, in order.
-for i, mat in enumerate(results.step_materials(material_id=material.id or 0)):
+for i, mat in enumerate(results.step_materials(material_id=material.id)):
     print(f"Step {i+1}: {len(mat.nuclides)} nuclides")
 
 # The end state on its own, without walking the steps.
-final = results.get_final_material(material_id=material.id or 0)
+final = results.get_final_material(material_id=material.id)
 if final is not None:
     print(f"Final: {len(final.nuclides)} nuclides")
 ```
@@ -582,7 +582,7 @@ material a ``transmute()`` call solved, shielded or not:
 
 <!-- doctest: skip -->
 ```python
-shielding = results.get_self_shielding_info(material_id=material.id or 0)
+shielding = results.get_self_shielding_info(material_id=material.id)
 if shielding is not None:
     shielding["method"]            # how the depression was computed
     shielding["chord_cm"]          # None if the run was dilute
@@ -617,7 +617,7 @@ results = material.transmute(
     data_uncertainty=yamc.DataUncertainty(seed=42),
 )
 
-mid = material.id or 0
+mid = material.id
 # Both answer None for a nuclide, material or step the run does not have, so a
 # real script checks rather than formatting None into the output.
 mean = results.get_nuclide_density(material_id=mid, nuclide="Mn56", step=1)
@@ -652,7 +652,8 @@ not cover](#what-it-does-not-cover)): they are drawn jointly, so their
 cross-section draws differ between a run with and without the partner. The flux
 draw is a function of ``(seed, sample, spectrum)``, the spectrum's place among
 the schedule's spectra. The statistical draw is keyed on
-``(seed, sample, material)`` and made jointly over the material's tallied rates,
+``(seed, sample, material)``, the material by its place in the geometry rather
+than its id, and made jointly over the material's tallied rates,
 so adding or removing a tallied rate changes the draws of the others, while
 different materials, whose tallies are separate estimates, draw independently.
 The flux draw carries no material key: it is keyed on the spectrum's place in
