@@ -179,7 +179,7 @@ The following are checked before combining, and any failure is a hard error:
 - same-name tallies must have identical configurations. A material filter's bins are matched by the material each id names, not by the id, so a model built again in the same process, whose materials get new ids, still combines;
 - GPU-produced results are refused (the GPU path does not record the exact merge state).
 
-Results saved by yamc-core 0.16.2 or earlier still load, but those of a CSG model with materials do not combine with runs from 0.16.3 or later, which leave material ids out of the model fingerprint.
+Results saved by yamc-core 0.16.2 still load and combine with each other. They do not combine with runs from 0.16.3 if the model is a CSG model with materials (the fingerprint now labels each material by its place in the geometry, not its id), or if a tally both runs have filters on materials (0.16.2 did not record which material each id names).
 
 Tallies present in only some runs are carried through unchanged with a ``UserWarning``. Their statistics come from the runs that scored them, and their FOM uses those runs' time only. ``results.runs`` lists the provenance (seed, history count, elapsed time, fingerprint, data libraries) of every contributing run.
 
