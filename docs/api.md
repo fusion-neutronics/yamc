@@ -13,7 +13,7 @@ listed.
 ## Source distributions
 
 The spatial, energy and angular distributions live in the `yamc.sources`
-submodule, along with the fusion-spectrum and parametric tokamak plasma
+submodule, along with the fusion-spectrum, parametric tokamak and stellarator plasma
 builders. Usage examples are under [Sources](sources.md).
 
 ::: yamc.sources
