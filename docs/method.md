@@ -574,6 +574,17 @@ multiplied by its time correction factor, the Bateman activity of its chain
 over the irradiation and cooling schedule. One transport run therefore gives
 the dose at any number of cooling times.
 
+When the machine changes between steps (`simulate_shutdown_dose`), the run is
+split in two. A neutron run per irradiating model records each decay photon at
+birth (position, energy, weight, parent and cell) instead of tracking it. A
+photon run per pair of irradiating and observing configurations then draws
+those births in proportion to their weight, launched isotropically with the
+births' total weight per source neutron, after moving each by its cell's rigid
+motion $T_o T_i^{-1}$ (and dropping those whose cell is absent). The tally is
+per source neutron, as in the one-model case, so the time correction factors of
+the irradiating configuration's own pulses apply unchanged, and the
+contributions of all irradiating configurations add.
+
 ## Nuclear-data uncertainty
 
 Transport can estimate the uncertainty from the cross-section covariances in

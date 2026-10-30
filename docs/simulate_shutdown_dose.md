@@ -138,11 +138,76 @@ dose = schedule.time_correct_tally({dt: results_dt[dose_tally],
                                     dd: results_dd[dose_tally]})
 ```
 
+### A machine that changes between steps
+
+The workflow above activates and transports in one geometry. A real machine
+changes: it is irradiated with DD neutrons in one configuration and with DT in
+another, components are added between campaigns, and during shutdown, maintenance
+and decommissioning they are removed or moved. ``yamc.simulate_shutdown_dose``
+takes a schedule whose steps name the ``Model`` the machine is in, and does the
+transport itself.
+
+- A ``Pulse(model=...)`` irradiates that model with its own neutron source (give
+  ``model`` instead of ``source``).
+- A ``Cooldown(model=...)`` is the machine the decay photons are transported
+  through while it cools. It needs no source.
+- A step without a ``model`` stays in the previous step's.
+- Cells are the same component across models when they have the same **name**,
+  so name every cell that activates.
+- A cell missing from a model has been removed: it emits nothing there, but
+  its activation keeps decaying, and counts again if it comes back.
+- A cell somewhere else is described by the step's ``moves``,
+  ``{cell or name: (dx, dy, dz)}`` in cm or a 4x4 rigid transformation matrix,
+  relative to where the cell was built. The model must hold the cell at its moved
+  position; each moved decay photon is checked to land inside it.
+
+<!-- doctest: skip -->
+```python
+dd_phase = yamc.Model(geometry=reactor_without_plug, source=dd_source)
+dt_phase = yamc.Model(geometry=reactor_with_plug, source=dt_source)
+maintenance = yamc.Model(geometry=reactor_with_plug_pulled_out)  # no source needed
+decommissioned = yamc.Model(geometry=reactor_without_plug)
+
+schedule = yamc.PulseSchedule([
+    yamc.Pulse(model=dd_phase, rate=1e16, duration=(30, "d")),
+    yamc.Pulse(model=dt_phase, rate=1e17, duration=(30, "d")),
+    yamc.Cooldown(duration=(1, "d")),                     # still the DT layout
+    yamc.Cooldown(model=maintenance, duration=(7, "d"),
+                  moves={"port plug": (150, 0, 0)}),       # plug pulled 150 cm out
+    yamc.Cooldown(model=decommissioned, duration=(30, "d")),
+])
+
+# A photon tally, without parent_nuclides: it is binned by every radionuclide
+# the irradiations make. Each tally needs a name; results are keyed by it.
+worker = yamc.Tally(scores=["flux"], name="worker", mesh=mesh, particle="photon")
+dose = yamc.simulate_shutdown_dose(schedule, tallies=[worker], total_particles=1_000_000)
+dose["worker"].mean        # one row per schedule step
+dose["worker"].std_dev
+dose["worker"].by_nuclide
+dose["worker"].times
+```
+
+For every model a pulse irradiates in, the neutrons are transported once with
+decay photons on, and each decay photon is recorded where it is born instead of
+being tracked. For each pair of irradiating and observing configurations, those
+photons are moved with their cells (or dropped, for removed cells) and
+transported through the observing model, binned by parent radionuclide. Each
+irradiating configuration's own pulses give the time correction factors, so the
+dose at the end of a step is the sum, over the configurations that irradiated,
+of their corrected tallies. A schedule with two irradiating and four observing
+configurations takes two neutron runs and eight photon runs, however many steps
+it has.
+
+``std_dev`` is the photon transport's error given the recorded decay photons;
+the neutron transport's statistical error is not included. Runs on the CPU, on
+one process.
+
 ### Reference
 
 - ``model.radionuclides()``: activation radionuclides reachable from a Model's materials; pass to ``Tally(parent_nuclides=...)``.
-- ``yamc.Pulse(rate, duration, source=None)``: an irradiation campaign. ``duration`` is seconds or a ``(value, unit)`` tuple (units: s, min, h, d, a). ``source`` is the NeutronSource for transport and SDR. ``Model.simulate_transmutation`` may omit it and transports the model's source; ``Material.transmute`` needs one whose energy is a ``Histogram``, and there ``rate`` is the total flux in n/cm^2/s.
-- ``yamc.Cooldown(duration)``: a cooling step (no source).
+- ``yamc.Pulse(rate, duration, source=None, model=None, moves=None)``: an irradiation campaign. ``duration`` is seconds or a ``(value, unit)`` tuple (units: s, min, h, d, a). ``source`` is the NeutronSource for transport and SDR. ``Model.simulate_transmutation`` may omit it and transports the model's source; ``Material.transmute`` needs one whose energy is a ``Histogram``, and there ``rate`` is the total flux in n/cm^2/s.
+- ``yamc.Cooldown(duration, model=None, moves=None)``: a cooling step (no source). ``model`` and ``moves`` describe the machine during the step, for ``simulate_shutdown_dose``.
+- ``yamc.simulate_shutdown_dose(schedule, tallies, total_particles, seed=1, threads=None)``: the dose over a schedule whose steps name models; returns ``{tally name: DoseResult}`` with one row per step.
 - ``yamc.PulseSchedule([steps...])``: the timeline; ``.sources`` lists its distinct sources, ``len(schedule)`` its step count.
 - ``schedule.time_correct_tally(results, steps=None, data_uncertainty=None)``: returns a ``DoseResult`` with ``.mean`` / ``.std_dev`` / ``.by_nuclide`` / ``.times``, and ``.data_std_dev`` / ``.total_std_dev`` / ``.data_uncertainty_info`` when ``data_uncertainty`` is given.
 
