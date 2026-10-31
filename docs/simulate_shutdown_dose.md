@@ -182,25 +182,29 @@ schedule = yamc.PulseSchedule([
 worker = yamc.Tally(scores=["flux"], name="worker", mesh=mesh, particle="photon")
 dose = yamc.simulate_shutdown_dose(schedule, tallies=[worker], total_particles=1_000_000)
 dose["worker"].mean        # one row per schedule step
-dose["worker"].std_dev
+dose["worker"].std_dev     # the whole calculation's standard error
 dose["worker"].by_nuclide
 dose["worker"].times
 ```
 
 For every model a pulse irradiates in, the neutrons are transported once with
 decay photons on, and each decay photon is recorded where it is born instead of
-being tracked. For each pair of irradiating and observing configurations, those
-photons are moved with their cells (or dropped, for removed cells) and
-transported through the observing model, binned by parent radionuclide. Each
-irradiating configuration's own pulses give the time correction factors, so the
-dose at the end of a step is the sum, over the configurations that irradiated,
-of their corrected tallies. A schedule with two irradiating and four observing
-configurations takes two neutron runs and eight photon runs, however many steps
-it has.
+being tracked. Then, for each configuration the machine is observed in, each
+neutron history's decay photons, from every irradiated model, are moved with
+their cells (or dropped, for removed cells) and transported through the
+observing model together, as one photon history. That history's dose at the end
+of each step is formed from the time correction factors of each irradiating
+configuration's own pulses. A schedule with two irradiating and four observing
+configurations takes two neutron runs and four photon runs, however many steps
+it has, and every photon is transported once.
 
-``std_dev`` is the photon transport's error given the recorded decay photons;
-the neutron transport's statistical error is not included. Runs on the CPU, on
-one process.
+``std_dev`` is the standard error of the whole calculation. It is the spread of
+the per-history doses, so it covers the neutron transport as well as the photon
+transport, and the correlation one neutron history carries between
+radionuclides and between irradiations. For a machine that never changes it
+equals the error of the single-model run above. There is nothing to tune: the
+photon runs have one history per neutron history. Runs on the CPU, on one
+process.
 
 ### Reference
 
