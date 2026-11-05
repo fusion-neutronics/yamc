@@ -7,7 +7,7 @@ name = "yamc"
 # Kept in lockstep with yamc-core: CI rewrites this and every yamc-core pin
 # below from the release tag, and refuses to publish if that version is not on
 # PyPI yet.
-version = "0.16.3"
+version = "0.17.0"
 description = "Yet Another Monte Carlo: neutron and photon transport with mesh geometry support"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,7 +28,7 @@ classifiers = [
 #
 # The pin is exact. A range would let `pip install yamc==0.4.0` resolve to a
 # core wheel whose API does not match the docs published for 0.4.0.
-dependencies = ["yamc-core==0.16.3"]
+dependencies = ["yamc-core==0.17.0"]
 
 # yamc-core's extras under the same names, so `pip install "yamc[cad]"` works
 # as `pip install yamc` does and nobody needs the second name. Each is the
@@ -40,12 +40,12 @@ dependencies = ["yamc-core==0.16.3"]
 # is left out on purpose: it is the tooling for building yamc-core from a
 # checkout of fusion-neutronics/core, not something a user of `yamc` installs.
 [project.optional-dependencies]
-cad = ["yamc-core[cad]==0.16.3"]
-viz = ["yamc-core[viz]==0.16.3"]
-pandas = ["yamc-core[pandas]==0.16.3"]
-polars = ["yamc-core[polars]==0.16.3"]
-xarray = ["yamc-core[xarray]==0.16.3"]
-all = ["yamc-core[all]==0.16.3"]
+cad = ["yamc-core[cad]==0.17.0"]
+viz = ["yamc-core[viz]==0.17.0"]
+pandas = ["yamc-core[pandas]==0.17.0"]
+polars = ["yamc-core[polars]==0.17.0"]
+xarray = ["yamc-core[xarray]==0.17.0"]
+all = ["yamc-core[all]==0.17.0"]
 
 [project.urls]
 Homepage = "https://github.com/fusion-neutronics/yamc"

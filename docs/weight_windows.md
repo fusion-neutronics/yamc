@@ -189,7 +189,9 @@ A shutdown-dose (D1S, ``use_decay_photons=True``) run is a coupled run whose
 photon field is the decay photons emitted at activation sites, so the same
 ``particle="photon"`` (or coupled ``["neutron", "photon"]``) generation produces a
 window that resolves the deep decay-photon dose. Tally the decay dose as usual
-with ``parent_nuclides=model.radionuclides()``; the window shapes transport, and
+with ``parent_nuclides=model.radionuclides()`` (which, like the D1S run itself,
+needs ``yamc.transmutation_decay_data`` and ``yamc.transmutation_reactions`` set,
+see [Transmutation data](nuclear_data.md#transmutation-data)); the window shapes transport, and
 the pulse-schedule time-correction is applied afterwards unchanged (it is a linear
 post-scaling and does not interact with the window). See
 ``examples/python/decay_photon_degvr.py``.

@@ -13,7 +13,7 @@ yamc.cross_section_data = "endf-b8.1"
 
 | keyword | what it is |
 |---------|-------------------------------------------------------------------|
-| ``endf-b8.1`` | ENDF/B-VIII.1. The default for an unset ``decay``, ``reactions`` or ``fission_yields``. |
+| ``endf-b8.1`` | ENDF/B-VIII.1. |
 | ``jeff-4.0`` | JEFF-4.0. |
 | ``jendl-5.0`` | JENDL-5. |
 | ``tendl-2025`` | TENDL-2025. The widest isotope coverage of the six, but its lithium has a tritium production problem: see [Lithium in TENDL-2025](#lithium-in-tendl-2025). |
