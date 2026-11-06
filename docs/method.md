@@ -611,8 +611,30 @@ multiplied by its time correction factor, the Bateman activity of its chain
 over the irradiation and cooling schedule. One transport run therefore gives
 the dose at any number of cooling times.
 
+When the machine changes between steps (`simulate_shutdown_dose`), the run is
+split in two. A neutron run per irradiating model records each decay photon at
+birth (history, position, direction, energy, weight, parent and cell) instead of
+tracking it. A photon run per observing configuration $o$ then makes photon
+history $i$ out of every photon that neutron history $i$ recorded, in every
+irradiating configuration $c$, each moved by its cell's rigid motion
+$T_o T_c^{-1}$ (direction by the rotation alone; dropped if the cell is absent)
+and transported once at its own weight. The history's dose at the end of each
+step $s$ that $o$ observes is formed at the end of the history,
+
+$$
+D_i(s) = \sum_c \sum_p \mathrm{TCF}_{c,p}(s)\, x_{i,c,p},
+$$
+
+where $x_{i,c,p}$ is the history's tally of the photons of parent $p$ recorded
+in configuration $c$, and $\mathrm{TCF}_{c,p}$ uses only that configuration's
+pulses. The histories are independent, so the mean and standard error of
+$D_i(s)$ over them are those of the whole calculation, the neutron stage and
+every correlation within a history included. The photon runs use random-number
+streams independent of the neutron runs', since transporting history $i$'s
+photons on the stream that made them would correlate the two.
+
 The rigorous two-step method (R2S, [Chen and Fischer 2002](#references)) is
-offered beside it. One neutron transport tallies the spectrum of every
+offered beside the one-step method. One neutron transport tallies the spectrum of every
 activated region, each region's inventory is solved through the schedule with
 the transmutation solver, and a photon transport per step samples the decay
 photons uniformly over each region at that step's activity, with the line and
