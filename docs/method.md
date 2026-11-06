@@ -99,7 +99,12 @@ A history starts by choosing a source in proportion to its strength, then
 drawing its position, direction and energy.
 
 - **Position:** a point, or a cylindrical ring with independent $r$,
-  $\varphi$ and $z$ distributions about an axis.
+  $\varphi$ and $z$ distributions about an axis, or a mesh. On a mesh the
+  element is chosen by a binary search over the cumulative strengths, and the
+  point is uniform within it: directly in a box, uniform in $r^2$ (and in
+  $\varphi$ and $z$) in a cylindrical cell, and from sorted uniform
+  barycentric weights in a tetrahedron. With ``cells`` or ``materials`` given,
+  points outside them are rejected and redrawn in the same element.
 - **Direction:** isotropic or monodirectional.
 - **Energy:** discrete lines and histogram bins are drawn by the alias
   method. Uniform, normal and the D-D and D-T fusion spectra of
