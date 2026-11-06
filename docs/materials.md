@@ -1319,4 +1319,70 @@ Summing per-nuclide sigmas in quadrature instead would assume the nuclides vary
 independently, and they do not: a parent and its daughter move together, because
 every daughter atom came out of a parent atom.
 
+#### Displacement damage
+
+``displacement_damage=True`` makes ``transmute()`` (and ``yamc.transmute()``)
+also compute the radiation damage the schedule does: the damage energy deposited
+per atom and the NRT displacements per atom (dpa, ASTM E521). Each nuclide's
+MT=444 damage-energy cross section is folded against the pulse spectrum by the
+same collapse as the reaction rates, at each step's composition and flux, and
+cooldowns add nothing. Off by default, and then MT=444 is not fetched and nothing
+about the solve changes.
+
+Pass ``data_uncertainty`` as well and the dpa comes back with its nuclear-data
+spread. Below, a year in the three-group spectrum of the example above, with
+every source that applies:
+
+<!-- doctest: skip -->
+```python
+iron = yamc.Material(composition={"Fe": 1.0}, density=7.874, volume=1.0)
+results = iron.transmute(
+    schedule=yamc.PulseSchedule([
+        yamc.Pulse(rate=total_flux, duration=(1, "a"), source=spectrum),
+        yamc.Cooldown(duration=(1, "d")),
+    ]),
+    displacement_damage=True,
+    data_uncertainty=yamc.DataUncertainty(seed=42),
+)
+
+results.get_dpa(material_id=iron.id)                # one value per state, cumulative
+# [0.0, 6.4939, 6.4939]
+results.get_dpa(material_id=iron.id, element="Fe")  # one element's dpa
+results.get_damage_energy(material_id=iron.id)      # eV per atom, before the NRT conversion
+
+dpa = results.get_dpa_uncertainty(material_id=iron.id, step=1)
+# Estimate(nominal=6.4939e0, std_dev=1.5820e-1 +/- 6.90e-3, replicas=256)
+results.get_damage_energy_uncertainty(material_id=iron.id, step=1)
+```
+
+The values are cumulative, one per state aligned with ``times``: entry 0 is the
+initial composition and is zero. The material total weights each element's dpa
+by its atom fraction, and ``get_displacement_damage_info`` gives the
+displacement threshold energy used for each element and its source, and lists
+the nuclides with no MT=444 (whose damage is not counted).
+``displacement_energies={"Fe": 40.0}`` replaces a threshold.
+
+The dpa above is 6.49 with a 2.4% sigma from the iron cross sections. Each
+replica's dpa is accumulated over its own inventory, with the damage-energy rate
+moved by its draw:
+
+- ``cross_sections``: MT=444 has no covariance of its own, but it is the sum over
+  reactions of each cross section times the damage energy that reaction
+  deposits, so a draw moves it by each reaction's deposit times its drawn
+  change. Elastic and inelastic scattering, which carry most of it, are drawn
+  with the activation channels as one evaluation.
+  ``get_data_uncertainty_info(...)["damage_energy"]`` gives, per nuclide of the
+  starting composition, the share of its MT=444 rate the reactions' deposits
+  reproduce (``explained``, 1.00 for Fe56 here) and the relative sigma of its
+  drawn rate (``sigma``, 2.8% for Fe56). The part they do not reproduce,
+  fission's share above all, is held at nominal.
+- ``flux_spectrum``: the damage energy's own group terms under the replica's
+  flux draw, where the pulse carries a ``flux_std_dev`` or ``flux_covariance``.
+
+The damage energy of transmutation products, short-range (LB=8) covariance
+blocks and the displacement threshold energies are held at nominal. Asking for
+damage widens each nuclide's drawn cross sections to the reactions its damage
+energy comes from, so for a given seed the other draws differ from those of a
+run without ``displacement_damage``.
+
 See also [Model.simulate_transmutation()](simulate_transmutation.md) for coupled transport-transmutation.
