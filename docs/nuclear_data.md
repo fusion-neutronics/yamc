@@ -20,13 +20,18 @@ libraries by subsection.
 | setting | supplies | decides | left unset |
 | --- | --- | --- | --- |
 | ``cross_section_data`` | neutron cross sections per nuclide and photoatomic photon data per element | reaction rates in neutron/photon transport and transmutation | no default library; configure it or provide explicit material data |
-| ``transmutation_reactions`` | which reaction on which nuclide gives which product, and its Q | which activation products exist to be made | ``endf-b8.1`` |
-| ``transmutation_decay_data`` | half-lives, decay modes, mean decay energies, decay photon lines | how the inventory decays, and the photon source a shutdown dose rate transports | ``endf-b8.1`` |
-| ``transmutation_fission_yields`` | fission product yields | what a fission makes | ``endf-b8.1`` |
+| ``transmutation_reactions`` | which reaction on which nuclide gives which product, and its Q | which activation products exist to be made | no default: a calculation that reads it is refused |
+| ``transmutation_decay_data`` | half-lives, decay modes, mean decay energies, decay photon lines | how the inventory decays, and the photon source a shutdown dose rate transports | no default: a calculation that reads it is refused |
+| ``transmutation_fission_yields`` | fission product yields | what a fission makes | no default: a calculation that reads it is refused |
 | ``transmutation_branch_ratios`` | isomeric branching against incident energy | which product is left in a metastable state | no overlay, so every product lands in its ground state |
 
-Four of the five have a default and give an answer without being set. ``cross_section_data`` has none, and every
-transmutation and shutdown-dose example on these pages assumes you have set it.
+Only ``transmutation_branch_ratios`` has a default. The other four name the
+data a calculation reads, so nothing is downloaded from a library you did not
+choose: a calculation that needs a setting you have left unset is refused before
+it starts, with a message naming each unset setting and the line to copy. Every
+transmutation and shutdown-dose example on these pages sets what it reads.
+Which transmutation settings a calculation reads is listed under
+[Transmutation data](#transmutation-data).
 
 Photons follow the same library selection as neutrons and are loaded
 automatically when transport needs them. Explicit per-element photon sources
@@ -324,9 +329,8 @@ The network is assembled from four independently sourced parts, each set globall
 
 <!-- doctest: skip -->
 ```python
-# decay / reactions / fission_yields default to the endf-b8.1 library when
-# unset; set any part independently (keyword or path). Parts may come from
-# different libraries.
+# decay / reactions / fission_yields have no default: set each part the
+# calculation reads (keyword or path). Parts may come from different libraries.
 yamc.transmutation_decay_data     = "endf-b8.1"
 yamc.transmutation_reactions      = "endf-b8.1"
 yamc.transmutation_fission_yields = "endf-b8.1"
@@ -355,11 +359,18 @@ yamc.set_transmutation_reactions(False)       # decay only, no reaction topology
 yamc.set_transmutation_fission_yields(False)  # nothing here fissions
 ```
 
-``False`` is not the same as leaving a part unset, which falls back to the default
-library. A rate that then needs the part that was switched off is refused when the
+``False`` is not the same as leaving a part unset, which is refused by any
+calculation that reads it. Read back, each setting is what was assigned: the
+source, ``False`` when off, or ``None`` when unset. A rate that then needs the part that was switched off is refused when the
 burnup matrix is built, naming the nuclide and the reaction, rather than being
 solved as though the reaction produced nothing, or losing its fission products
 while still burning the nuclide.
 
-The transmutation APIs and the decay-photon post-processing (``PulseSchedule.time_correct_tally``) read these settings; there is no per-call override.
+The transmutation APIs and the decay-photon post-processing (``PulseSchedule.time_correct_tally``) read these settings; there is no per-call override. What each calculation reads:
+
+| calculation | reads |
+| --- | --- |
+| activity, decay heat, decay photon lines and contact dose of a result, and a schedule that only cools | ``transmutation_decay_data`` |
+| a D1S run (``use_decay_photons=True``), ``Model.radionuclides()`` and ``PulseSchedule.time_correct_tally`` | ``transmutation_decay_data`` and ``transmutation_reactions`` |
+| a schedule with an irradiating step: ``Material.transmute()``, ``yamc.transmute()`` and ``Model.simulate_transmutation()`` | all three |
 
