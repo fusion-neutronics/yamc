@@ -20,7 +20,10 @@ yamc.cross_section_data = "endf-b8.1"
 | ``tendl-2017`` | TENDL-2017, for comparing a result against the older release. |
 | ``fendl-3.2d`` | FENDL-3.2d. Cross sections, plus ``reactions`` and ``branching`` subsections. |
 
-Every setting also takes a path instead of a keyword, and ``cross_section_data``
+Every setting also takes a path instead of a keyword, including a folder that
+holds a whole library laid out as a release, which serves every setting at once
+(see [A whole library in one folder](nuclear_data.md#a-whole-library-in-one-folder)),
+and ``cross_section_data``
 additionally takes a directory or a dict keyed by nuclide; the four
 ``transmutation_*`` parts take one value each, since a network is assembled per
 subsection rather than per nuclide. Which setting does what, and what each does
