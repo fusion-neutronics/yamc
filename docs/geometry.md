@@ -328,7 +328,7 @@ triangles) when the mesh is loaded, and is available as
 
 <!-- doctest: skip -->
 ```python
-mesh_geom = yamc.MeshGeometry(filename="geometry.arrow", materials={"mat:fuel": fuel})
+mesh_geom = yamc.MeshGeometry(filename="geometry.arrow", materials={"fuel": fuel})
 
 for name, vol in zip(mesh_geom.volume_names, mesh_geom.volume_measures):
     print(f"{name}: {vol:.2f} cm^3")
@@ -378,7 +378,10 @@ from yamc.cad import CadToYamc
 mesher = CadToYamc()
 mesher.add_cadquery_object(assembly, material_tags=["fuel", "moderator"])
 
-# Surface-only mesh
+# Surface-only mesh, at the default tolerances (0.5 cm and 0.2 rad)
+mesh = mesher.mesh()
+
+# Finer facets on curved surfaces
 mesh = mesher.mesh(tolerance=0.1, angular_tolerance=0.1)
 
 # Per-solid tolerances, keyed by material tag
@@ -390,7 +393,13 @@ mesh = mesher.mesh(tet_volumes=["fuel"], target_edge_length=2.0)
 
 The ``material_tags`` can also be ``"assembly_names"`` or ``"assembly_materials"`` to derive tags from the assembly structure.
 
-``tolerance`` (chordal deflection) and ``angular_tolerance`` (radians) each take one number for every solid, or a dict keyed by material tag (every solid with that tag) or by 1-based solid ID (the keys of ``mesh.solid_faces``). Solids the dict does not name take 0.1. A surface two solids share is meshed at the finer of their two values, so the mesh stays watertight, and the ``mesh()`` docstring lists the other cases where a solid is meshed finer than it asks.
+``tolerance`` (chordal deflection, cm, default 0.5) and ``angular_tolerance`` (radians, default 0.2, about 11.5 degrees) each take one number for every solid, or a dict keyed by material tag (every solid with that tag) or by 1-based solid ID (the keys of ``mesh.solid_faces``). Solids the dict does not name take the default. A surface two solids share is meshed at the finer of their two values, so the mesh stays watertight, and the ``mesh()`` docstring lists the other cases where a solid is meshed finer than it asks. On curved surfaces the angular tolerance is what limits how far the facets sag from the CAD, so it is the one to tighten for a thin curved wall.
+
+Facets lie inside a curved surface, so a plain mesh of a curved solid is slightly smaller than the CAD. The mesher corrects this without adding triangles: it moves the vertices of each curved face and edge off the CAD, by less than the face's tolerance, until each face's mesh encloses the same volume as the CAD face. Shared vertices move once, so an imprinted mesh stays conformal, and planar faces are left as they are. A coarse mesh therefore keeps its solids' volumes, and the facets sit up to one tolerance either side of the CAD surface. Meshed at the defaults, the 10 cm sphere above has a ``volume_measures`` of 4188.790205 cm^3, against 4188.790205 cm^3 for the exact sphere.
+
+``mesh()`` checks the result against the CAD (``fidelity_check=True``, the default) and raises ``MeshFidelityError`` for a mesh whose face areas or solid volumes are far from the CAD's, or in which a solid's own surface crosses itself. The second happens when a wall thinner than its facets' sag is meshed at a loose angular tolerance: its two faces cut through each other over a strip, the volume hardly changes, and particles crossing the strip meet the boundary in the wrong order. The error names each such solid, where the crossing is and the angular tolerance to tighten. ``fidelity_check=False`` skips the checks.
+
+``mesh_threads`` (``"all"`` by default, or a positive integer) sets how many threads meshing uses, from the face meshing to the overlap checks and tet meshing. The mesh is the same on any number of threads; fewer threads lower the peak memory of a large assembly. ``imprint_threads`` does the same for the imprint.
 
 ### Meshing without imprinting
 
@@ -454,13 +463,23 @@ moderator = yamc.Material(composition={"H2O": 1.0}, density=1.0)
 mesh_geom = yamc.MeshGeometry(
     filename="geometry.arrow",
     materials={
-        "mat:fuel": fuel,
-        "mat:moderator": moderator,
+        "fuel": fuel,
+        "moderator": moderator,
     },
 )
 ```
 
-The mesh file is a YAMC Arrow IPC mesh (``.arrow``); other meshers are supported by writing that format. Material keys use the ``"mat:<name>"`` convention matching the export tags.
+The mesh file is a YAMC Arrow IPC mesh (``.arrow``); other meshers are supported by writing that format. The ``materials`` keys are volume names as ``mesh_geom.volume_names`` lists them: the material tags given to ``CadToYamc``, without a ``mat:`` prefix. A key that matches no volume raises ``ValueError``, which lists the volume names and suggests the nearest one:
+
+```text
+ValueError: 'geometry.arrow': materials keys match no volume: 'fual'. Volume names are: 'fuel', 'moderator'. Did you mean 'fuel' for 'fual'?
+```
+
+Volumes with no key are void, and are listed in one warning when the mesh is loaded:
+
+```text
+Warning: 1 named volume(s) have no entry in materials and are void: 'moderator'
+```
 
 Optional parameters control the vacuum boundary:
 
@@ -468,7 +487,7 @@ Optional parameters control the vacuum boundary:
 ```python
 mesh_geom = yamc.MeshGeometry(
     filename="geometry.arrow",
-    materials={"mat:fuel": fuel},
+    materials={"fuel": fuel},
     implicit_complement_material=None,  # void outside mesh
     graveyard_offset=10.0,              # vacuum shell 10 cm outside mesh
 )

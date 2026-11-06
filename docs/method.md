@@ -148,6 +148,24 @@ Before a crossing is accepted, the segment is checked for any other surface
 it passes through. A segment that skips a surface is recorded as lost rather
 than continuing in the wrong volume.
 
+A defect in the mesh loses the particle where the defect is, rather than
+letting it fly on in the wrong volume:
+
+- **A point the mesh cannot place.** Point location (at a source site, or
+  after a Woodcock flight) casts test rays and takes the parity of their
+  crossings. A ray whose parity disagrees with the way the nearest facet along
+  it faces (a stray facet, a flipped facet or a crack) is passed over. A point
+  that no ray places consistently is lost there, instead of being put in the
+  implicit complement and carried on as void.
+- **A crack in a volume's surface.** A particle that slips out through a
+  missing facet next meets the volume's far side from outside. That facet is
+  checked just short of the crossing: if the particle is still inside the
+  volume, the facet is only wound the wrong way and the particle leaves
+  through it; if it is outside, the particle left through the crack and is
+  lost where it left.
+
+A sound mesh takes neither path, so these checks cost it nothing.
+
 ### Mesh inside CSG
 
 A mesh can fill a CSG cell, with a translation and rotation. Its volumes

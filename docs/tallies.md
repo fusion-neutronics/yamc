@@ -156,7 +156,7 @@ tally = yamc.Tally(scores=["flux"], mesh=mesh)
 # Unstructured mesh binning (from MeshGeometry)
 tally = yamc.Tally(
     scores=["flux"],
-    unstructured_mesh=(mesh_geom, "mat:fuel"),  # (MeshGeometry, volume name or ID)
+    unstructured_mesh=(mesh_geom, "fuel"),  # (MeshGeometry, volume name or ID)
 )
 ```
 
