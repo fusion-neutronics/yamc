@@ -605,6 +605,22 @@ made it. The ratios are carried through every tracking mode, survival biasing,
 weight windows and MPI. GPU runs, and overlay, mesh and per-nuclide tallies,
 are refused.
 
+A transmutation with the "independent" method takes its uncertainty from its
+one transport: the replica weights above give each replica's rates, the
+per-history covariance of the tallies gives their statistical spread, and each
+replica's schedule is solved again from them. The "coupled" method cannot do
+this, because each step's rates were tallied in compositions that the earlier
+steps' noise and data had already moved. Each replica instead repeats the whole
+coupled calculation, as in Total Monte Carlo
+([Koning and Rochman 2008](#references)): its own transport seed, its own cross
+sections and isomeric production curves in every transport, and its own
+half-lives, decay branching ratios and fission yields in every solve. The
+spread over the replicas then carries the feedback through the compositions
+exactly, with nothing linearised. A replica transported on its own cross
+sections follows its own histories whatever its seed, so its spread holds the
+transport's noise as well, which is why the coupled method carries the cross
+sections only beside the statistical source.
+
 ## References
 
 - J. Amanatides and A. Woo, "A fast voxel traversal algorithm for ray
@@ -630,6 +646,9 @@ are refused.
   (2020) 1009-1015.
 - T. Kaltiaisenaho, "Implementing a photon physics model in Serpent 2",
   M.Sc. thesis, Aalto University (2016).
+- A. J. Koning and D. Rochman, "Towards sustainable nuclear energy: Putting
+  nuclear physics to work", Ann. Nucl. Energy 35 (2008) 2024-2030,
+  [doi:10.1016/j.anucene.2008.06.004](https://doi.org/10.1016/j.anucene.2008.06.004).
 - Q. Pan, L. Wang, Y. Cai, X. Liu and J. Xiong, "Density-extrapolation Global
   Variance Reduction (DeGVR) method for large-scale radiation field
   calculation", Comput. Math. Appl. 143 (2023) 10-22.

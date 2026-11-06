@@ -180,12 +180,116 @@ For a 14.06 MeV point source in a 10 cm iron sphere, one hour at 1e18 n/s:
 
 A rate is per atom of the parent, so weighting a route by inventory means multiplying by the parent's density at that step (``get_nuclide_density``). Over one short step the two together reproduce the step's own burnup: the Fe57 produced is the summed edge rate times the parent densities times the step length.
 
+### Uncertainty with the coupled method
+
+``data_uncertainty`` works with both methods, and the inventories, activity,
+decay heat and dose come back with a standard deviation as they do from
+[Material.transmute()](materials.md#nuclear-data-uncertainty). With
+``method="independent"`` the one transport's rates are resampled and each
+replica's schedule is solved again. With ``method="coupled"`` that would not
+describe the spread: each step's rates were tallied in compositions that the
+earlier steps' noise and data had already moved. Each replica therefore runs
+the whole coupled calculation again, every step's transport included, on its own
+draw:
+
+- ``"statistical"``: the replica has its own transport seed. Without this source
+  every replica keeps the nominal seed, and the spread is the nuclear data's.
+- ``"cross_sections"``: every transport of the replica, in every material, reads
+  nuclear data with the replica's MF=33 and resonance-parameter draw applied, so
+  the draw moves the flux, the rates, the compositions and every later step's
+  flux. A product that enters transport part way through the run keeps its draw.
+- ``"isomer_branching"``: every step of the replica tallies its isomeric partials
+  on production curves that carry the replica's MF=40 draw, and splits them at
+  each collision energy by the nominal rule.
+- ``"half_life"``, ``"decay_branching"`` and ``"fission_yield"`` are used in each
+  of the replica's solves, and ``"decay_energy"`` and ``"decay_photon_lines"``
+  move what is evaluated from its inventories.
+
+Replica ``k`` draws the same data as replica ``k`` of the independent method, so
+the two can be compared replica by replica. Nothing is linearised, and the
+nominal results are bit-identical to a run without ``data_uncertainty``. The
+default request, every source, runs. ``"cross_sections"`` is carried only beside
+``"statistical"``: a replica on its own cross sections follows its own
+histories whatever its seed, so its spread holds the transport's noise as well,
+and naming ``"cross_sections"`` alone raises. The independent method's replica
+weights do separate the two.
+
+<!-- doctest: skip -->
+```python
+iron = yamc.Material(composition={"Fe": 1.0}, density=7.87, volume=4188.79,
+                     transmutable=True)
+dt = yamc.NeutronSource(position=(0, 0, 0), energy=yamc.sources.Discrete([14.1e6], [1.0]))
+sphere = yamc.Sphere(radius=10.0, boundary="vacuum")
+model = yamc.Model(
+    geometry=yamc.Geometry([yamc.Cell(region=sphere.below, material=iron)]),
+    source=dt,
+)
+schedule = yamc.PulseSchedule([
+    yamc.Pulse(rate=1e18, duration=(1, "h"), source=dt),
+    yamc.Pulse(rate=1e18, duration=(1, "h"), source=dt),
+    yamc.Cooldown(duration=(1, "h")),
+])
+results = model.simulate_transmutation(
+    method="coupled",
+    schedule=schedule,
+    total_particles=2000,
+    data_uncertainty=yamc.DataUncertainty(seed=1, samples=16,
+                                          sources=["statistical", "half_life"]),
+)
+mean = results.get_nuclide_density(material_id=iron.id, nuclide="Mn56", step=3)
+sigma = results.get_nuclide_uncertainty(material_id=iron.id, nuclide="Mn56", step=3)
+if mean is not None and sigma is not None:
+    print(f"Mn56: {mean:.3e} +/- {sigma:.3e}  ({100 * sigma / mean:.1f}%)")
+# Mn56: 5.681e-08 +/- 7.772e-10  (1.4%)
+info = results.get_data_uncertainty_info(material_id=iron.id)
+if info is not None:
+    info["flux_response"]   # "coupled_replicas"
+```
+
+The cost is the transport of every irradiation step once per replica, the 16
+replicas above taking about 7 seconds on 32 cores. Leave ``samples`` unset and
+replicas are added 64 at a time by the [convergence
+rule](materials.md#nuclear-data-uncertainty), at least 128 of them, so ten
+irradiation steps of ten minutes' transport each come to about 210 hours.
+Each nuclide whose resonance parameters are sampled adds a few seconds per
+replica to rebuild its resonance range. ``samples`` bounds the cost.
+
+``DataUncertainty(attribution=True)`` reruns the ensemble once per applied
+source, each source drawn alone on the same streams, so it costs one more
+coupled ensemble per source. The ``"cross_sections"`` entry of ``by_source`` is
+the variance with ``"statistical"`` and ``"cross_sections"`` less the variance
+with ``"statistical"`` alone, the two sharing their transport seeds, and comes
+out negative where the cross sections move a nuclide by less than the
+transport's noise. There are no first-order ``contributors``, and every
+``linearity`` entry is ``None``. On the sphere above:
+
+<!-- doctest: skip -->
+```python
+attributed = model.simulate_transmutation(
+    method="coupled",
+    schedule=schedule,
+    total_particles=2000,
+    data_uncertainty=yamc.DataUncertainty(
+        seed=1, samples=16, sources=["statistical", "cross_sections"], attribution=True,
+    ),
+)
+breakdown = attributed.get_uncertainty_breakdown(material_id=iron.id, nuclide="Mn56", step=3)
+if breakdown is not None:
+    breakdown["variance"]    # 3.44e-18, Mn56 at 3.3%
+    breakdown["by_source"]   # {"cross_sections": 2.84e-18, "statistical": 6.04e-19}
+```
+
+The statistical entry is the square of the first example's Mn56 sigma
+(7.77e-10), whose replicas ran on the same transport seeds, and the iron cross
+sections carry the rest. With the cross sections each replica rebuilds the
+resonance ranges of the iron isotopes for its draw, so the two ensembles of 16
+replicas took about 200 seconds.
+
 ### Statistical uncertainty of the tallied rates
 
-Run with ``data_uncertainty`` including the ``"statistical"`` source (which
-``method="independent"`` alone accepts) and ``get_reaction_rate_uncertainty``
-gives each tallied reaction rate with its Monte Carlo standard deviation at one
-step:
+Run ``method="independent"`` with ``data_uncertainty`` including the
+``"statistical"`` source and ``get_reaction_rate_uncertainty`` gives each
+tallied reaction rate with its Monte Carlo standard deviation at one step:
 
 <!-- doctest: skip -->
 ```python

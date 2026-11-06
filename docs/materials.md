@@ -672,9 +672,9 @@ Gaussian one. Leave ``samples`` unset and the solver adds samples 64 at a time
 until every one of those sigmas meets the target, running at least 128 and at
 most 1024. A run the cap stops sets ``hit_cap`` in the report, and
 ``unconverged`` lists every output, nuclide and step that missed. On
-``Model.simulate_transmutation`` with the ``cross_sections`` source on, the
-count is fixed before the transport, which carries every sample: ``samples``,
-or 256 at the default target. Every sample is solved, and whatever missed the
+``Model.simulate_transmutation(method="independent")`` with the
+``cross_sections`` source on, the count is fixed before the transport, which
+carries every sample: ``samples``, or 256 at the default target. Every sample is solved, and whatever missed the
 target is reported the same way. Setting ``samples`` bounds cost or reproduces a
 specific run; ``convergence`` is the accuracy dial.
 
@@ -706,16 +706,20 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
   whose parameters cannot be sampled keeps the first-order MF=32 rows of
   ``covariance.arrow``, and the report's ``resonance_parameters`` says which
   and why. On the spectrum calls a sample's cross sections are folded against
-  the spectrum the rates are collapsed with. On ``Model.simulate_transmutation``
-  nothing is folded: the one transport carries a likelihood-ratio weight per
-  sample, as ``simulate_transport(data_uncertainty=...)`` does, and tallies every
+  the spectrum the rates are collapsed with. On
+  ``Model.simulate_transmutation(method="independent")`` nothing is folded: the
+  one transport carries a likelihood-ratio weight per sample, as
+  ``simulate_transport(data_uncertainty=...)`` does, and tallies every
   reaction rate, isomeric partial, fission-yield weight and flux bin once per
   sample under that sample's cross sections and resonance parameters. A sample's
   rates are then those its own data would give, flux included: a stronger
   resonance deepens its own self-shielding dip, and a perturbed scatterer moves
   every rate it shapes. The report's ``flux_response`` reads
   ``"replica_weights"`` there (``"supplied"`` on the spectrum calls), and
-  ``transport_replicas`` gives the count.
+  ``transport_replicas`` gives the count. With
+  [the coupled method](simulate_transmutation.md#uncertainty-with-the-coupled-method)
+  each replica's transports read nuclear data with that replica's draw applied
+  instead, and this source needs ``statistical`` beside it.
 - ``flux_spectrum``: the error on the spectrum you supplied, described below.
   The spectrum calls (``Material.transmute`` and ``yamc.transmute``) only. It
   moves every rate collapsed from the spectrum's groups, and every isomeric
@@ -743,9 +747,9 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
 - ``statistical``: the Monte Carlo uncertainty of transport-tallied reaction
   rates, from their per-history covariance, so rates scored by the same
   histories move together.
-  [Model.simulate_transmutation()](simulate_transmutation.md) only, which
-  accepts ``data_uncertainty`` with ``method="independent"`` alone:
-  ``method="coupled"`` raises.
+  [Model.simulate_transmutation()](simulate_transmutation.md) only. With
+  [the coupled method](simulate_transmutation.md#uncertainty-with-the-coupled-method)
+  it gives each replica its own transport seed instead.
 - ``decay_energy``: each nuclide's mean decay energy, from the sigmas the decay
   data gives its recoverable-heat components (beta, gamma, alpha), or from the
   total's sigma where no component carries one. The evaluation
@@ -781,9 +785,12 @@ xs_only = yamc.DataUncertainty(seed=42, sources=["cross_sections"])
   twice. An isomer listed alone, and every ``(n,n')`` isomer, is made at its
   drawn production, so its MF=40 sigma replaces the MF=33 sigma of its reaction
   that it carries under ``cross_sections`` alone, and can be the smaller. On
-  ``Model.simulate_transmutation`` the transport scores each stated state's
-  production on its covariance intervals, once per sample under the replica
-  weights, and each sample re-splits the tallied partials from its draw.
+  ``Model.simulate_transmutation(method="independent")`` the transport scores
+  each stated state's production on its covariance intervals, once per sample
+  under the replica weights, and each sample re-splits the tallied partials
+  from its draw. With
+  [the coupled method](simulate_transmutation.md#uncertainty-with-the-coupled-method)
+  every step of a replica tallies its partials on production curves that carry the replica's draw.
 
 A call ignores the sources that do not apply to it, and ``sources`` in the report
 below lists the ones that did.
@@ -856,6 +863,9 @@ names the evaluation to look at: within the cross sections a nuclide's whole
 evaluation has a ``reaction`` of ``None`` and each channel alone names its
 reaction, and a half-life or a decay branching has ``None`` too. The
 total stays the resampled one.
+With [the coupled method](simulate_transmutation.md#uncertainty-with-the-coupled-method)
+each ``by_source`` entry is a coupled ensemble of its own, and there are no
+``contributors``.
 
 ##### How a sample is drawn
 
@@ -1095,9 +1105,10 @@ of a sum. Each item says which way it goes, and where.
   product behind it, however trace, and leaving that out understates those
   products' sigmas. Elastic scattering, which shapes the flux without
   transmuting anything, is not drawn on these calls at all.
-  ``Model.simulate_transmutation`` carries all of this, because its transport's
-  replica weights move the flux with each sample's cross sections, elastic
-  scattering included.
+  ``Model.simulate_transmutation`` carries all of this, elastic scattering
+  included: with ``method="independent"`` its transport's replica weights move
+  the flux with each sample's cross sections, and with ``method="coupled"``
+  each replica is transported on its own drawn data.
 - **Decay photon spectrum covariance and continuum shape.** The
   ``decay_photon_lines`` source draws each spectrum's normalisation and each
   line's intensity and energy. MT=457 can also state a covariance between a
