@@ -574,6 +574,17 @@ multiplied by its time correction factor, the Bateman activity of its chain
 over the irradiation and cooling schedule. One transport run therefore gives
 the dose at any number of cooling times.
 
+The rigorous two-step method (R2S, [Chen and Fischer 2002](#references)) is
+offered beside it. One neutron transport tallies the spectrum of every
+activated region, each region's inventory is solved through the schedule with
+the transmutation solver, and a photon transport per step samples the decay
+photons uniformly over each region at that step's activity, with the line and
+continuum spectra of the decay data. A region is a material-filled cell, or with
+a mesh each part of such a cell under a voxel (cell-under-mesh), its spectrum
+then the voxel's in VITAMIN-J-175 groups and its volume estimated from $8^3$
+jittered points per voxel. Products that are themselves activated, and burnup,
+enter through the inventory solve.
+
 ## Nuclear-data uncertainty
 
 Transport can estimate the uncertainty from the cross-section covariances in
@@ -634,6 +645,9 @@ sections only beside the statistical source.
 - T. F. Chan, G. H. Golub and R. J. LeVeque, "Updating formulae and a
   pairwise algorithm for computing sample variances", Stanford University
   report STAN-CS-79-773 (1979).
+- Y. Chen and U. Fischer, "Rigorous MCNP based shutdown dose rate
+  calculations: computational scheme, verification calculations and
+  application to ITER", Fusion Eng. Des. 63-64 (2002) 107-114.
 - K. B. Clements, G. Geraci, A. J. Olson and T. S. Palmer, "A variance
   deconvolution estimator for efficient uncertainty quantification in Monte
   Carlo radiation transport applications", J. Quant. Spectrosc. Radiat.
