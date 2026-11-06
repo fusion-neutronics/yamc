@@ -1,6 +1,6 @@
 # Shutdown Dose Rate
 
-After irradiation, activated materials keep emitting decay gammas. The dose rate once the neutron source is switched off is the shutdown dose rate. YAMC computes it from a single transport run. This puts it among the single-transport methods, which also include UKAEA's D1S (Direct-1-Step) and N1S (Novel-1-Step), as opposed to R2S (Rigorous-2-Step), which runs a separate activation step. Decay photons are coupled directly into the neutron transport run, replacing the prompt photons. YAMC's method derives from D1S but computes time correction factors (TCFs) automatically for every reachable radionuclide and applies them in post-processing, so the irradiation and cooling schedule can change without re-running transport.
+After irradiation, activated materials keep emitting decay gammas. The dose rate once the neutron source is switched off is the shutdown dose rate. YAMC computes it from a single transport run. This puts it among the single-transport methods, which also include UKAEA's D1S (Direct-1-Step) and N1S (Novel-1-Step), as opposed to R2S (Rigorous-2-Step), which runs a separate activation step. Decay photons are coupled directly into the neutron transport run, replacing the prompt photons. YAMC's method derives from D1S but computes time correction factors (TCFs) automatically for every reachable radionuclide and applies them in post-processing, so the irradiation and cooling schedule can change without re-running transport. R2S is available too, through ``yamc.simulate_shutdown_dose(method="r2s")``: see [Rigorous two-step (R2S)](#rigorous-two-step-r2s).
 
 ### Overview
 
@@ -137,6 +137,97 @@ results_dd = model_dd.simulate_transport(total_particles=1_000_000)
 dose = schedule.time_correct_tally({dt: results_dt[dose_tally],
                                     dd: results_dd[dose_tally]})
 ```
+
+### Rigorous two-step (R2S)
+
+``yamc.simulate_shutdown_dose(method="r2s")`` computes the dose with the
+rigorous two-step method ([Chen and Fischer 2002](method.md#references))
+instead of the one-step method above. It takes a schedule whose steps name the
+``Model`` the machine is in (``Pulse(model=...)``, ``Cooldown(model=...)``, a
+step without one staying in the previous step's), and does the transport itself:
+
+1. One neutron transport of the irradiation model tallies the neutron spectrum
+   of every material-filled cell.
+2. Each cell's inventory is solved through the whole schedule with its own
+   spectrum, so activation products that are themselves activated, and burnup,
+   are included.
+3. At the end of each step every cell emits its decay photons uniformly over its
+   volume, in that step's model, and one photon transport per step scores the
+   tallies. ``by_nuclide`` breaks the dose down by emitting radionuclide, as it
+   does for D1S.
+
+Cells are matched across models by **name**. A cell missing from a step's model
+has been removed and emits nothing there; a cell the model holds somewhere else
+emits where it now is. Every pulse must irradiate in the same model. A cell's
+volume is estimated by sampling unless ``Cell(volume=...)`` gives it.
+
+A whole cell emitting uniformly is the method's weak point in a thick component,
+where the activation falls with depth. Pass a ``RegularRectangularMesh`` over the
+activated components as ``mesh`` and the source follows the flux instead
+(cell-under-mesh R2S): every part of a material-filled cell under a voxel is a
+region of its own, solved with that voxel's neutron spectrum (tallied in
+VITAMIN-J-175 groups) and emitting uniformly over that part. Cells do not have to
+be split. Below, a 40 cm iron bar is irradiated by 14 MeV neutrons from one end,
+and the photon flux is scored in a box beside each end:
+
+<!-- doctest: skip -->
+```python
+iron = yamc.Material(composition={"Fe": 1.0}, density=7.874, temperature=294)
+world = yamc.Sphere(radius=400.0, boundary="vacuum")
+bar = (yamc.Plane("x", 0.0).above & yamc.Plane("x", 40.0).below
+       & yamc.Cylinder("x", radius=2.0).below)
+irradiation = yamc.Model(
+    geometry=yamc.Geometry([
+        yamc.Cell(name="bar", region=bar, material=iron),
+        yamc.Cell(name="space", region=~bar & world.below),
+    ]),
+    source=yamc.NeutronSource(position=(-0.5, 0, 0),
+                              energy=yamc.sources.Discrete([14.06e6], [1.0])),
+)
+schedule = yamc.PulseSchedule([
+    yamc.Pulse(model=irradiation, rate=1e12, duration=(1, "h")),
+    yamc.Cooldown(duration=(1, "h")),
+])
+
+def box(x):
+    return yamc.RegularRectangularMesh(lower_left=[x - 5, -5, 5],
+                                       upper_right=[x + 5, 5, 15], shape=[1, 1, 1])
+
+tallies = [yamc.Tally(scores=["flux"], name="near", mesh=box(0), particle="photon"),
+           yamc.Tally(scores=["flux"], name="far", mesh=box(40), particle="photon")]
+
+cells = yamc.simulate_shutdown_dose(schedule, tallies=tallies,
+                                    total_particles=4000, method="r2s")
+voxels = yamc.simulate_shutdown_dose(
+    schedule, tallies=tallies, total_particles=4000, method="r2s",
+    mesh=yamc.RegularRectangularMesh(lower_left=[0, -2, -2],
+                                     upper_right=[40, 2, 2], shape=[8, 1, 1]),
+)
+for name, dose in (("cells", cells), ("mesh", voxels)):
+    near, far = dose["near"].mean[1][0], dose["far"].mean[1][0]
+    print(f"{name}: near / far = {near / far:.2f}")
+# cells: near / far = 0.79
+# mesh: near / far = 41.60
+```
+
+With whole cells the bar emits evenly along its length, so the two ends read
+about the same. With eight 5 cm voxels along it, the source sits where the
+neutrons activated the iron, and the end facing the neutron source reads forty
+times the other. Fe56(n,p)Mn56 dominates both.
+
+The parts' volumes are estimated by sampling each voxel, so a part smaller than
+about 0.2% of its voxel can be missed. Voxels no neutron reaches are not
+activated. With a mesh the pulses must irradiate with one set of ``moves``, and
+a cell moved after irradiation needs its ``moves`` (``{cell or name: (dx, dy,
+dz)}`` in cm or a 4x4 rigid transformation matrix, relative to where the cell
+was built), so that each voxel part goes with its cell; a part that does not land
+in its cell is an error. ``mesh`` is for R2S only and is refused with
+``method="d1s"``.
+
+With R2S, ``std_dev`` is the photon transport's statistical error given the
+solved inventories, and does not include the neutron transport's.
+``total_particles`` sets the neutron histories and each step's photon
+histories, so R2S runs one neutron transport and one photon transport per step.
 
 ### Reference
 
