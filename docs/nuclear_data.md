@@ -252,6 +252,71 @@ When a nuclide is needed (e.g. `Li6`), YAMC resolves it to `<dir>/Li6.arrow` aut
 yamc.cross_section_data = "/path/to/neutron/"
 ```
 
+#### A whole library in one folder
+
+A folder laid out as a published release, with its ``manifest.json`` beside the
+``neutron/``, ``photon/`` and ``transmutation/`` folders it describes, is a
+release folder, and its one path serves every setting. Cross sections are read
+from ``neutron/`` and ``photon/``, and each transmutation part from
+``transmutation/<part>.arrow/``:
+
+<!-- doctest: skip -->
+```python
+yamc.cross_section_data = "/data/endf-b8.1"
+yamc.transmutation_decay_data = "/data/endf-b8.1"
+yamc.transmutation_reactions = "/data/endf-b8.1"
+yamc.transmutation_fission_yields = "/data/endf-b8.1"
+```
+
+A copy of every file a published release's ``manifest.json`` lists, from
+``https://yamc-data.xsplot.com/<keyword>/<release>/``, with the manifest itself
+at the top, is such a folder, and so is a release folder in the cache
+(``<cache dir>/<keyword>/<release>/``) for the files it holds.
+
+Nothing is downloaded. The manifest is read as a published release's is: a
+``format_version`` this build does not read is refused with the advice to
+upgrade, and each file a load reads is checked against the size the manifest
+gives it. A part the manifest does not list is refused, naming the parts the
+folder does carry, and so is a file the manifest lists that the folder does not
+hold. Results record the folder in ``data_releases`` under its absolute path,
+with its ``release`` and ``manifest_sha256``, and ``offline`` set to ``False``.
+
+A load checks sizes only. ``yamc.verify_library`` is the full check: it
+re-hashes every file the manifest lists and looks for files it does not list,
+which is worth running on a library kept for offline use or copied between
+machines:
+
+<!-- doctest: skip -->
+```python
+import pprint
+
+report = yamc.verify_library("/data/irdff-ii")
+pprint.pprint(report, sort_dicts=False)
+```
+
+```text
+{'keyword': 'irdff-ii',
+ 'release': '2026-10-12.1',
+ 'format_version': 2,
+ 'manifest_sha256': '547003e2d63c167978be82915986206c581af7373c6f71ca0bb78732a1e182c5',
+ 'file_count': 3,
+ 'total_bytes': 6508798,
+ 'missing': [],
+ 'changed': [],
+ 'unlisted': [],
+ 'ok': True}
+```
+
+``ok`` is ``True`` when ``missing``, ``changed`` and ``unlisted`` are all empty.
+An unlisted file fails the check, because results identify the library by the
+manifest's sha256 and a file the manifest does not list is data that identity
+does not cover. A release folder in the cache holds only the files runs have
+downloaded, so the rest are reported missing.
+
+A bare name that is both a keyword and a folder in the working directory
+(``endf-b8.1`` with a folder ``./endf-b8.1`` beside it) is refused rather than
+guessed at. Write ``./endf-b8.1`` or an absolute path to mean the folder.
+
 #### cross_section_data with file paths
 
 A nuclide's data is a folder of Arrow files, ``<Nuclide>.arrow``, which a published release serves at ``https://yamc-data.xsplot.com/<keyword>/<release>/neutron/<Nuclide>.arrow/`` (every file its ``manifest.json`` lists for that folder). Once such folders are saved locally, their paths can be used to configure the nuclear data. Replace the `tests` dir with the path to the downloaded data files.
@@ -344,9 +409,15 @@ yamc.transmutation_branch_ratios  = "tendl-2025"
 yamc.transmutation_reactions      = "tendl-2017"
 
 # A value can also be a path to a local chain directory that holds decay/,
-# reactions/ and fission_yields/ subsection subdirectories:
+# reactions/ and fission_yields/ subsection subdirectories, or to a whole
+# library folder (see "A whole library in one folder" above):
 yamc.transmutation_decay_data = "/path/to/transmutation-endf-b8.1-sfr.arrow"
 ```
+
+A reactions or fission-yields folder must hold its ``reactions.arrow`` or
+``fission_yields.arrow``: one without it is refused, naming the folder, rather
+than read as a network with no reactions or no yields. Set the part to ``False``
+(below) to leave it out.
 
 See [Nuclear data libraries](nuclear_data_libraries.md) for which library provides which subsection. Setting a part to a library that does not publish it fails fast with a message listing that library's available subsections.
 

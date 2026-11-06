@@ -99,7 +99,12 @@ A history starts by choosing a source in proportion to its strength, then
 drawing its position, direction and energy.
 
 - **Position:** a point, or a cylindrical ring with independent $r$,
-  $\varphi$ and $z$ distributions about an axis.
+  $\varphi$ and $z$ distributions about an axis, or a mesh. On a mesh the
+  element is chosen by a binary search over the cumulative strengths, and the
+  point is uniform within it: directly in a box, uniform in $r^2$ (and in
+  $\varphi$ and $z$) in a cylindrical cell, and from sorted uniform
+  barycentric weights in a tetrahedron. With ``cells`` or ``materials`` given,
+  points outside them are rejected and redrawn in the same element.
 - **Direction:** isotropic or monodirectional.
 - **Energy:** discrete lines and histogram bins are drawn by the alias
   method. Uniform, normal and the D-D and D-T fusion spectra of
@@ -147,6 +152,24 @@ comes from the surface-to-volume topology, so no point location is needed.
 Before a crossing is accepted, the segment is checked for any other surface
 it passes through. A segment that skips a surface is recorded as lost rather
 than continuing in the wrong volume.
+
+A defect in the mesh loses the particle where the defect is, rather than
+letting it fly on in the wrong volume:
+
+- **A point the mesh cannot place.** Point location (at a source site, or
+  after a Woodcock flight) casts test rays and takes the parity of their
+  crossings. A ray whose parity disagrees with the way the nearest facet along
+  it faces (a stray facet, a flipped facet or a crack) is passed over. A point
+  that no ray places consistently is lost there, instead of being put in the
+  implicit complement and carried on as void.
+- **A crack in a volume's surface.** A particle that slips out through a
+  missing facet next meets the volume's far side from outside. That facet is
+  checked just short of the crossing: if the particle is still inside the
+  volume, the facet is only wound the wrong way and the particle leaves
+  through it; if it is outside, the particle left through the crack and is
+  lost where it left.
+
+A sound mesh takes neither path, so these checks cost it nothing.
 
 ### Mesh inside CSG
 
@@ -596,6 +619,17 @@ every correlation within a history included. The photon runs use random-number
 streams independent of the neutron runs', since transporting history $i$'s
 photons on the stream that made them would correlate the two.
 
+The rigorous two-step method (R2S, [Chen and Fischer 2002](#references)) is
+offered beside the one-step method. One neutron transport tallies the spectrum of every
+activated region, each region's inventory is solved through the schedule with
+the transmutation solver, and a photon transport per step samples the decay
+photons uniformly over each region at that step's activity, with the line and
+continuum spectra of the decay data. A region is a material-filled cell, or with
+a mesh each part of such a cell under a voxel (cell-under-mesh), its spectrum
+then the voxel's in VITAMIN-J-175 groups and its volume estimated from $8^3$
+jittered points per voxel. Products that are themselves activated, and burnup,
+enter through the inventory solve.
+
 ## Nuclear-data uncertainty
 
 Transport can estimate the uncertainty from the cross-section covariances in
@@ -627,6 +661,22 @@ made it. The ratios are carried through every tracking mode, survival biasing,
 weight windows and MPI. GPU runs, and overlay, mesh and per-nuclide tallies,
 are refused.
 
+A transmutation with the "independent" method takes its uncertainty from its
+one transport: the replica weights above give each replica's rates, the
+per-history covariance of the tallies gives their statistical spread, and each
+replica's schedule is solved again from them. The "coupled" method cannot do
+this, because each step's rates were tallied in compositions that the earlier
+steps' noise and data had already moved. Each replica instead repeats the whole
+coupled calculation, as in Total Monte Carlo
+([Koning and Rochman 2008](#references)): its own transport seed, its own cross
+sections and isomeric production curves in every transport, and its own
+half-lives, decay branching ratios and fission yields in every solve. The
+spread over the replicas then carries the feedback through the compositions
+exactly, with nothing linearised. A replica transported on its own cross
+sections follows its own histories whatever its seed, so its spread holds the
+transport's noise as well, which is why the coupled method carries the cross
+sections only beside the statistical source.
+
 ## References
 
 - J. Amanatides and A. Woo, "A fast voxel traversal algorithm for ray
@@ -640,6 +690,9 @@ are refused.
 - T. F. Chan, G. H. Golub and R. J. LeVeque, "Updating formulae and a
   pairwise algorithm for computing sample variances", Stanford University
   report STAN-CS-79-773 (1979).
+- Y. Chen and U. Fischer, "Rigorous MCNP based shutdown dose rate
+  calculations: computational scheme, verification calculations and
+  application to ITER", Fusion Eng. Des. 63-64 (2002) 107-114.
 - K. B. Clements, G. Geraci, A. J. Olson and T. S. Palmer, "A variance
   deconvolution estimator for efficient uncertainty quantification in Monte
   Carlo radiation transport applications", J. Quant. Spectrosc. Radiat.
@@ -652,6 +705,9 @@ are refused.
   (2020) 1009-1015.
 - T. Kaltiaisenaho, "Implementing a photon physics model in Serpent 2",
   M.Sc. thesis, Aalto University (2016).
+- A. J. Koning and D. Rochman, "Towards sustainable nuclear energy: Putting
+  nuclear physics to work", Ann. Nucl. Energy 35 (2008) 2024-2030,
+  [doi:10.1016/j.anucene.2008.06.004](https://doi.org/10.1016/j.anucene.2008.06.004).
 - Q. Pan, L. Wang, Y. Cai, X. Liu and J. Xiong, "Density-extrapolation Global
   Variance Reduction (DeGVR) method for large-scale radiation field
   calculation", Comput. Math. Appl. 143 (2023) 10-22.

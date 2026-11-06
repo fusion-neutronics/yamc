@@ -181,17 +181,20 @@ Track particle histories for debugging or visualization. Tracks are off by defau
 
 When tracking is enabled the captured ``Tracks`` are attached to the returned ``SimulationResults`` as ``results.tracks``; otherwise ``results.tracks`` is ``None``.
 
+A captured history holds one track per particle transported in it: the source particle and every secondary it produced (neutrons from (n,2n) and fission, and photons with ``transport_secondary_photons=True``), each with a ``particle_type`` of ``"neutron"`` or ``"photon"``. A track is identified by its ``history`` and its ``particle_id``, which is 0 for the source particle and numbers the secondaries within the history the same way on any thread count. ``parent_id`` and ``generation`` give each secondary's lineage. ``len(tracks)`` is the number of particle tracks, which is more than the number of histories captured once secondaries are made: capturing 5 histories of 14 MeV neutrons in an iron sphere with secondary photons on gives 71 tracks.
+
 <!-- doctest: skip -->
 ```python
 results = model.simulate_transport(total_particles=10000, capture_tracks=100)
 tracks = results.tracks  # None if capture_tracks= was not set
 
-print(len(tracks))            # number of particle histories captured
-print(tracks.total_events())  # total events across all histories
+print(len(tracks))            # number of particle tracks (source and secondaries)
+print(tracks.total_events())  # total events across all tracks
 
 # Iterate over individual particle tracks
 for track in tracks.tracks[:3]:  # first 3 particles
-    print(f"Particle {track.particle_id} (generation {track.generation}):")
+    print(f"History {track.history}, {track.particle_type} {track.particle_id} "
+          f"(parent {track.parent_id}, generation {track.generation}):")
     for event in track.events[:5]:  # first 5 events
         print(f"  {event.event_type:12s}  E={event.energy_in:.4e} -> {event.energy_out:.4e} eV"
               f"  pos=({event.x:.2f}, {event.y:.2f}, {event.z:.2f})"
@@ -200,14 +203,29 @@ for track in tracks.tracks[:3]:  # first 3 particles
 # Convert to records for pandas
 import pandas as pd
 df = pd.DataFrame(tracks.to_dataframe_records())
-print(df[["event_type", "energy_in", "energy_out", "x", "y", "z", "nuclide"]].head(10))
+print(df[["particle_type", "event_type", "energy_in", "energy_out", "x", "y", "z", "nuclide"]].head(10))
+photons = df[df.particle_type == "photon"]
 ```
 
-Each ``TrackEvent`` includes: ``event_type``, ``position``, ``direction``, ``energy_in``, ``energy_out``, ``weight``, ``cell_id``, ``reaction_mt``, ``nuclide``, and ``birth_reaction``.
+Each ``TrackEvent`` includes: ``particle_type``, ``event_type``, ``position``, ``direction``, ``energy_in``, ``energy_out``, ``weight``, ``cell_id``, ``reaction_mt``, ``nuclide``, and ``birth_reaction``. A track starts with a ``source_birth`` or a ``secondary_birth`` event, and the other event types are ``collision``, ``surface_crossing``, ``absorption``, ``russian_roulette`` and ``leak``.
+
+#### Viewing tracks in ParaView
+
+``tracks.to_vtkhdf()`` writes one polyline per particle track to a VTK-HDF file for [ParaView](https://www.paraview.org/) (needs ``h5py``, from ``pip install "yamc[viz]"``). The coordinates are in cm, as in ``model.to_vtkhdf()``, so the tracks overlay the geometry when both files are opened together.
+
+<!-- doctest: skip -->
+```python
+tracks.to_vtkhdf("tracks.vtkhdf")
+model.to_vtkhdf("model.vtkhdf")  # the geometry and source to show them in
+```
+
+Each point carries ``energy`` (eV, after the event), ``weight``, ``event_type`` and ``cell_id`` (-1 where unknown), and each line carries ``particle_type``, ``particle_id``, ``parent_id`` (-1 for a source particle), ``generation`` and ``history``, so the tracks can be coloured by any of them. ``event_type`` and ``particle_type`` are stored as integer codes, which ParaView can colour by; the names they stand for are in the file's root attributes ``event_type_names`` and ``particle_type_names``. ``tracks.polylines()`` returns the same arrays as a dict, and ``yamc.vtkhdf.polylines_to_vtkhdf(filename, points, offsets, point_data=..., cell_data=...)`` writes any set of polylines in the same format.
 
 ### Lost particles and geometry debugging
 
 If a particle crosses into a region not covered by any cell, or reaches an unbounded cell with no surface ahead of it (a missing vacuum boundary), it is "lost". YAMC prints diagnostics, kills the particle and counts it towards ``max_lost_particles``.
+
+On a triangulated ``MeshGeometry`` a particle is also lost at a point the mesh cannot place (a stray or flipped facet makes the test rays disagree), and where it leaves a volume through a crack in the volume's surface (see [Mesh geometry](method.md#mesh-geometry)). A defective mesh therefore shows up as particles lost at the defect, rather than as particles carried on as void and leaking out uncounted.
 
 <!-- doctest: skip -->
 ```python

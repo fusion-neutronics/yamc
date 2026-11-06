@@ -43,6 +43,41 @@ source = yamc.NeutronSource(
 )
 ```
 
+### Source on a mesh
+
+``yamc.sources.MeshDistribution`` spreads a source over the elements of a mesh:
+the voxels of a ``RegularRectangularMesh``, the cells of a
+``RegularCylindricalMesh``, or the tetrahedra of a tet ``MeshGeometry``. Each
+element emits in proportion to its strength, from a point uniform within it.
+Pass it as ``position=`` to ``NeutronSource`` or ``PhotonSource``.
+
+```python
+mesh = yamc.RegularRectangularMesh([0, 0, 0], [10, 10, 10], [2, 1, 1])
+space = yamc.sources.MeshDistribution(mesh, strengths=[3.0, 1.0])
+source = yamc.PhotonSource(position=space, energy=1e6)
+
+print(space.num_elements)    # 2
+print(space.total_strength)  # 4.0
+```
+
+Here three quarters of the photons are born in the voxel with ``x`` from 0 to
+5 cm and one quarter in the other.
+
+``strengths`` takes one non-negative value per element, in the order a tally
+on the same mesh numbers its bins, so a mesh tally's ``mean`` can be passed in
+directly. Omitted, each element's strength is its volume, which makes the
+source uniform over the mesh. Elements with zero strength never emit. A list of
+the wrong length, a NaN, infinite or negative value, or strengths that sum to
+zero raise ``ValueError``. When the strengths are rates (particles per second),
+``total_strength`` is the source rate to scale per-source-particle tallies by.
+
+``cells=`` (a ``Cell`` or a list of them) or ``materials=`` (a ``Material`` or
+a list) keeps each element's strength but has it emit only from the parts of it
+inside those cells, or inside the cells filled with those materials. A decay
+photon source on a voxel half filled with steel is then born in the steel, not
+in the void beside it. These need the geometry, so they apply in a ``Model``
+run; ``space.sample()`` on its own draws from the whole element.
+
 ### Energy distributions
 
 ```python
