@@ -209,6 +209,8 @@ Each ``TrackEvent`` includes: ``event_type``, ``position``, ``direction``, ``ene
 
 If a particle crosses into a region not covered by any cell, or reaches an unbounded cell with no surface ahead of it (a missing vacuum boundary), it is "lost". YAMC prints diagnostics, kills the particle and counts it towards ``max_lost_particles``.
 
+On a triangulated ``MeshGeometry`` a particle is also lost at a point the mesh cannot place (a stray or flipped facet makes the test rays disagree), and where it leaves a volume through a crack in the volume's surface (see [Mesh geometry](method.md#mesh-geometry)). A defective mesh therefore shows up as particles lost at the defect, rather than as particles carried on as void and leaking out uncounted.
+
 <!-- doctest: skip -->
 ```python
 model = yamc.Model(
