@@ -93,13 +93,17 @@ profiles) rather than from a hand-placed ring.
 ```python
 import yamc
 
-plasma = dict(
-    # Shape (cm, dimensionless)
+# Shape (cm, dimensionless)
+shape = yamc.sources.TokamakShape(
     major_radius=906.0,
     minor_radius=292.258,
     elongation=1.557,
     triangularity=0.270,
     shafranov_factor=0.44789,
+)
+
+plasma = dict(
+    shape=shape,
     # Confinement mode: "L", "H" or "A"
     mode="H",
     # Ion density profile (m^-3, cm for the pedestal radius)
@@ -122,6 +126,21 @@ model = yamc.Model(geometry=geometry, source=sources, tallies=tallies)
 
 Lengths are in cm, ion densities in m^-3, ion temperatures in eV and angles in
 radians. The full argument list is in the [API reference](api.md).
+
+The shape is its own object, `TokamakShape`, so it can be checked before any
+source is built. It refuses an unphysical shape (a minor radius not less than
+the major radius, a triangularity outside -1 to 1, a Shafranov factor of half
+the minor radius or more) when it is constructed, and gives the plasma volume
+and points on any flux surface:
+
+```python
+shape.volume()                  # plasma volume inside the boundary, cm^3
+r, z = shape.evaluate(1.0, 0.0) # outboard midplane of the boundary, cm
+```
+
+`evaluate(rho, theta)` takes the normalised radius `rho` (0 on the magnetic
+axis, 1 on the boundary) and the poloidal angle `theta` in radians. Either may
+be a sequence, so a whole flux surface comes back in one call.
 
 It returns a list of `NeutronSource` ring sources. The plasma is
 discretised onto a cylindrical (R, phi, Z) mesh and each non-empty voxel
@@ -198,11 +217,10 @@ temperatures = yamc.sources.tokamak_ion_temperature(
 )
 ```
 
-Two more helpers complete the set: `tokamak_convert_a_alpha_to_r_z()` maps
-plasma `(a, alpha)` coordinates onto `(R, Z)` with the elongation,
-triangularity and Shafranov shift applied, and
-`tokamak_neutron_source_density()` gives the Bosch-Hale reaction rate density
-in neutrons/s/m^3.
+`tokamak_neutron_source_density()` completes the set: it gives the Bosch-Hale
+reaction rate density in neutrons/s/m^3. Mapping flux coordinates onto
+`(R, Z)`, with the elongation, triangularity and Shafranov shift applied, is
+`TokamakShape.evaluate()` above.
 
 Plotting the two profiles across the plasma:
 

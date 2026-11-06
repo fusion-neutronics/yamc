@@ -41,10 +41,15 @@ model = yamc.Model(
 )
 ```
 
-For D1S shutdown dose rate calculations, enable decay photon production:
+For D1S shutdown dose rate calculations, enable decay photon production. A D1S
+run reads the decay data and the reactions network, which have no default
+(see [Transmutation data](nuclear_data.md#transmutation-data)):
 
 <!-- doctest: skip -->
 ```python
+yamc.transmutation_decay_data = "endf-b8.1"
+yamc.transmutation_reactions = "endf-b8.1"
+
 model = yamc.Model(
     ...,
     transport_secondary_photons=True,
