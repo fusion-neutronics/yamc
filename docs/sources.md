@@ -344,6 +344,272 @@ Emission crowds towards the magnetic axis, where the plasma is hottest, and
 the sparse 2.5 MeV points are the D-D component, about 0.5% of the yield for
 50:50 D-T fuel at these temperatures.
 
+### Stellarator plasma source
+
+`yamc.sources.stellarator_source()` builds a stellarator's neutron source from
+its shape and the same ion density and temperature profiles as the tokamak
+source.
+
+The shape is a `StellaratorShape`: R and Z as Fourier-Zernike series, in the
+conventions of [DESC](https://github.com/PlasmaControl/DESC),
+
+$$
+R(\rho, \theta, \zeta) = \sum_{lmn} R_{lmn}\, \mathcal{R}_l^{|m|}(\rho)\, \Theta_m(\theta)\, \Phi_n(\zeta)
+$$
+
+and likewise for Z. $\mathcal{R}_l^{|m|}$ is the Zernike radial polynomial
+($\mathcal{R}_l^{|m|}(1) = 1$, $l \ge |m|$, $l - |m|$ even), $\Theta_m$ is
+$\cos(m\theta)$ for $m \ge 0$ and $\sin(|m|\theta)$ for $m < 0$, and $\Phi_n$
+is $\cos(n N \zeta)$ for $n \ge 0$ and $\sin(|n| N \zeta)$ for $n < 0$, with
+$N$ the number of field periods. $\rho$ is the square root of the normalised
+toroidal flux and $\zeta$ the cylindrical toroidal angle. Each mode is an
+`(l, m, n)` triple and coefficients are in cm. A rotating ellipse with five
+field periods, $R = R_0 + a\rho\cos\theta + e\rho\cos(\theta - N\zeta)$ and
+$Z = a\rho\sin\theta - e\rho\sin(\theta - N\zeta)$, is seven coefficients:
+
+```python
+import yamc
+
+shape = yamc.sources.StellaratorShape(
+    num_field_periods=5,
+    r_modes=[(0, 0, 0), (1, 1, 0), (1, 1, 1), (1, -1, -1)],
+    r_lmn=[600.0, 150.0, 50.0, 50.0],
+    z_modes=[(1, -1, 0), (1, -1, 1), (1, 1, -1)],
+    z_lmn=[150.0, -50.0, 50.0],
+)
+
+sources = yamc.sources.stellarator_source(
+    shape=shape,
+    mode="H",
+    ion_density_centre=1.09e20,
+    ion_density_peaking_factor=1,
+    ion_density_pedestal=1.09e20,
+    ion_density_separatrix=3e19,
+    ion_temperature_centre=45.9e3,
+    ion_temperature_peaking_factor=8.06,
+    ion_temperature_beta=6.0,
+    ion_temperature_pedestal=6.09e3,
+    ion_temperature_separatrix=0.1e3,
+    pedestal_rho=0.8,
+)
+model = yamc.Model(geometry=geometry, source=sources, tallies=tallies)
+```
+
+The constructor refuses a shape whose surfaces reach $R \le 0$, self-intersect
+or are not nested. `shape.evaluate(rho, theta, zeta)` gives $(R, Z)$ for floats
+or sequences, and `shape.volume()` the plasma volume.
+
+The plasma is split into 50 radial shells in $\rho$, each one source per
+reaction. A shell samples positions with density $S(\rho)\, R\, |\tau|$, the
+neutron source density times the volume element of the shape, and emits the
+Ballabio spectrum at its emission-weighted ion temperature. Strengths are
+normalised to sum to 1, and `fuel` works as for the tokamak source.
+
+The profiles are the tokamak ones with the minor radius replaced by $\rho$, so
+`pedestal_rho` (between 0 and 1) places the pedestal. To plot them, call
+`tokamak_ion_density()` / `tokamak_ion_temperature()` with `minor_radius=1`,
+`pedestal_radius=pedestal_rho` and `r` set to the $\rho$ values.
+
+#### From DESC
+
+A DESC equilibrium already is this series. Its coefficients are in m:
+
+<!-- doctest: skip -->
+```python
+import desc.io
+
+eq = desc.io.load("equilibrium.h5")
+shape = yamc.sources.StellaratorShape(
+    num_field_periods=int(eq.NFP),
+    r_modes=eq.R_basis.modes.tolist(),
+    r_lmn=(100 * eq.R_lmn).tolist(),
+    z_modes=eq.Z_basis.modes.tolist(),
+    z_lmn=(100 * eq.Z_lmn).tolist(),
+)
+```
+
+The W7-X equilibrium that ships with DESC, converted this way, is in
+`docs/data/w7x_fourier_zernike.json`. Its flux surfaces at the start, a
+quarter and half way through a field period, and where its neutrons are born:
+
+```python exec="1" html="1" source="above"
+import json
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
+import yamc
+
+shape = yamc.sources.StellaratorShape(**json.load(open("docs/data/w7x_fourier_zernike.json")))
+sources = yamc.sources.stellarator_source(
+    shape=shape,
+    mode="H",
+    ion_density_centre=1.09e20,
+    ion_density_peaking_factor=1,
+    ion_density_pedestal=1.09e20,
+    ion_density_separatrix=3e19,
+    ion_temperature_centre=45.9e3,
+    ion_temperature_peaking_factor=8.06,
+    ion_temperature_beta=6.0,
+    ion_temperature_pedestal=6.09e3,
+    ion_temperature_separatrix=0.1e3,
+    pedestal_rho=0.8,
+)
+
+# Birth sites, shared out between the sources by strength as the transport does.
+strengths = np.array([source.strength for source in sources])
+counts = np.random.default_rng(1).multinomial(300_000, strengths / strengths.sum())
+points = np.concatenate(
+    [np.array(source.sample_n(int(n))[0]) for source, n in zip(sources, counts) if n]
+)
+phi = np.arctan2(points[:, 1], points[:, 0])
+major = np.hypot(points[:, 0], points[:, 1])
+
+period = 2 * math.pi / shape.num_field_periods
+thetas = np.linspace(0, 2 * math.pi, 200)
+fig, axes = plt.subplots(1, 4, figsize=(16, 4.5))
+for ax, fraction in zip(axes, (0.0, 0.25, 0.5)):
+    zeta = fraction * period
+    near = np.abs((phi - zeta + math.pi) % (2 * math.pi) - math.pi) < 0.01
+    ax.scatter(major[near], points[near, 2], s=1, alpha=0.3, color="tab:orange", rasterized=True)
+    for rho in (0.25, 0.5, 0.75, 1.0):
+        r, z = shape.evaluate(rho, thetas, zeta)
+        ax.plot(r, z, color="k", lw=0.8)
+    ax.set_aspect("equal")
+    ax.set_xlabel("R [cm]")
+    ax.set_title(f"{fraction:g} of a field period")
+axes[0].set_ylabel("Z [cm]")
+axes[3].scatter(points[::10, 0], points[::10, 1], s=0.5, alpha=0.2, color="tab:orange", rasterized=True)
+axes[3].set_aspect("equal")
+axes[3].set_xlabel("x [cm]")
+axes[3].set_ylabel("y [cm]")
+axes[3].set_title("birth sites, top view")
+fig.tight_layout()
+
+from io import StringIO as _S
+_b = _S(); plt.savefig(_b, format="svg", bbox_inches="tight"); print(_b.getvalue())
+```
+
+Emission is concentrated on the magnetic axis, where the plasma is hottest.
+
+#### From VMEC and VMEC++
+
+A wout file stores $R$ and $Z$ on a set of radial surfaces in the basis
+$\cos(m\theta - n\zeta)$ / $\sin(m\theta - n\zeta)$. VMEC2000, VMEC++ and
+DESC's VMEC export all write it as classic NetCDF, which
+`scipy.io.netcdf_file` reads:
+
+<!-- doctest: skip -->
+```python
+from scipy.io import netcdf_file
+
+with netcdf_file("wout_example.nc", mmap=False) as wout:
+    arrays = {name: wout.variables[name].data.copy() for name in ("nfp", "xm", "xn", "rmnc", "zmns")}
+```
+
+The function below turns those arrays into a `StellaratorShape`. It splits
+each term into the product basis, then fits every $(m, n)$ coefficient across
+the surfaces with Zernike radial polynomials, choosing the degree by
+cross-validation on alternate surfaces. It needs only numpy; copy it as it
+stands. Here it runs on the arrays of VMEC++'s CTH-like example
+(`docs/data/cth_like_wout.json`), and the fitted surfaces (lines) are drawn
+over the wout's own (dots):
+
+```python exec="1" html="1" source="above"
+import json
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
+import yamc
+
+
+def zernike_radial(rho, ell, m):
+    """R_l^m(rho) = (-1)^k rho^m P_k^(m, 0)(1 - 2 rho^2), k = (l - m) / 2."""
+    x, p_prev, p = 1.0 - 2.0 * rho**2, np.zeros_like(rho), np.ones_like(rho)
+    for j in range(1, (ell - m) // 2 + 1):
+        if j == 1:
+            p_prev, p = p, (m + 1) + 0.5 * (m + 2) * (x - 1.0)
+            continue
+        s = 2 * j + m
+        p_prev, p = p, (
+            (s - 1) * (s * (s - 2) * x + m**2) * p - 2 * (j + m - 1) * (j - 1) * s * p_prev
+        ) / (2 * j * (j + m) * (s - 2))
+    return (-1) ** ((ell - m) // 2) * rho**m * p
+
+
+def shape_from_wout(nfp, xm, xn, rmnc, zmns, rmns=None, zmnc=None, max_degree=20):
+    """A StellaratorShape from wout arrays (m, shape (ns, mn_mode))."""
+    rho = np.sqrt(np.linspace(0.0, 1.0, len(rmnc)))
+    folds = (np.arange(len(rho))[0::2], np.arange(len(rho))[1::2])
+
+    def fit(values, m):
+        def design(r, degree):
+            return np.column_stack([zernike_radial(r, m + 2 * i, m) for i in range(degree + 1)])
+
+        def held_out_error(degree):
+            return max(
+                np.abs(design(rho[b], degree) @ np.linalg.lstsq(design(rho[a], degree), values[a], rcond=None)[0] - values[b]).max()
+                for a, b in (folds, folds[::-1])
+            )
+
+        degree = min(range(min(max_degree, len(folds[1]) - 2) + 1), key=held_out_error)
+        return [m + 2 * i for i in range(degree + 1)], np.linalg.lstsq(design(rho, degree), values, rcond=None)[0]
+
+    shape = {"num_field_periods": int(nfp)}
+    for name, cos, sin in (("r", rmnc, rmns), ("z", zmnc, zmns)):
+        columns = {}
+        for j, (m, n) in enumerate(zip(np.asarray(xm, int), np.asarray(xn, int) // int(nfp))):
+            c = 0.0 if cos is None else np.asarray(cos)[:, j]
+            s = 0.0 if sin is None else np.asarray(sin)[:, j]
+            m, sign, n = int(m), int(np.sign(n)), int(abs(n))
+            # cos(a - b) = cos a cos b + sin a sin b, sin(a - b) = sin a cos b - cos a sin b
+            terms = [((m, n), c), ((m, -n), -sign * s)]
+            if m > 0:
+                terms += [((-m, -n), sign * c), ((-m, n), s)]
+            for mode, value in terms:
+                columns[mode] = columns.get(mode, 0.0) + value
+        modes, lmn = [], []
+        for (m, n), values in columns.items():
+            if np.all(np.asarray(values) == 0.0):
+                continue
+            ells, coefficients = fit(values, abs(m))
+            modes += [(ell, m, n) for ell in ells]
+            lmn += (100.0 * coefficients).tolist()
+        shape[f"{name}_modes"], shape[f"{name}_lmn"] = modes, lmn
+    return yamc.sources.StellaratorShape(**shape)
+
+
+wout = json.load(open("docs/data/cth_like_wout.json"))
+shape = shape_from_wout(**wout)
+
+# The wout's own surfaces, summed from its Fourier coefficients (m to cm).
+xm, xn = np.array(wout["xm"]), np.array(wout["xn"])
+rmnc, zmns = 100 * np.array(wout["rmnc"]), 100 * np.array(wout["zmns"])
+thetas = np.linspace(0, 2 * math.pi, 400)
+fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+for ax, zeta in zip(axes, (0.0, math.pi / wout["nfp"])):
+    phase = np.outer(thetas, xm) - xn * zeta
+    for j in range(0, len(rmnc), 2):
+        rho = math.sqrt(j / (len(rmnc) - 1))
+        ax.plot(np.cos(phase) @ rmnc[j], np.sin(phase) @ zmns[j], ".", ms=1.5, color="tab:blue", rasterized=True)
+        r, z = shape.evaluate(rho, thetas, zeta)
+        ax.plot(r, z, color="k", lw=0.6)
+    ax.set_aspect("equal")
+    ax.set_xlabel("R [cm]")
+    ax.set_title(f"zeta = {zeta:.2f}")
+axes[0].set_ylabel("Z [cm]")
+fig.tight_layout()
+
+from io import StringIO as _S
+_b = _S(); plt.savefig(_b, format="svg", bbox_inches="tight"); print(_b.getvalue())
+```
+
+The fit reproduces the stored surfaces to well under a millimetre, and unlike
+interpolation between surfaces it follows the $\rho^{|m|}$ behaviour of the
+coefficients near the magnetic axis, where emission peaks. For equilibria with
+`lasym` set, pass `rmns` and `zmnc` too.
+
 ### Multiple sources and strength weighting
 
 Pass a list of sources with relative strengths to ``Model()``.

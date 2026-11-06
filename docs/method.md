@@ -115,6 +115,20 @@ The tokamak source discretises the plasma profiles of
 [Fausser et al. 2012](#references) into one ring source per (voxel,
 reaction), each with a Ballabio spectrum at the voxel's ion temperature.
 
+The stellarator source takes the plasma shape as a Fourier-Zernike series in
+the conventions of [DESC](#references), $R$ and $Z$ as functions of $\rho$,
+$\theta$ and $\zeta$, evaluated with a Jacobi recurrence for the Zernike
+radial polynomials. The volume element $R\,\tau$, with
+$\tau = R_\rho Z_\theta - R_\theta Z_\rho$, is evaluated analytically, and
+a shape whose volume element changes sign (self-intersecting or non-nested
+surfaces) is refused. The plasma is split into radial shells; shell strengths
+are Gauss-Legendre integrals in $\rho$ of the emission density times
+$\mathrm{d}V/\mathrm{d}\rho$, the angular integral taken by a trapezoid
+rule fine enough to be exact for the trigonometric polynomial $R\,\tau$.
+Within a shell, $\rho$ is proposed with density $\propto\rho$ and the
+angles uniformly over one field period, accepted against a majorant of
+$S(\rho)\,R\,|\tau|/\rho$, and the field period is then chosen at random.
+
 Source strength is a relative selection probability only. Results are per
 source particle and are scaled to an absolute rate afterwards.
 
@@ -675,6 +689,9 @@ sections only beside the statistical source.
   deconvolution estimator for efficient uncertainty quantification in Monte
   Carlo radiation transport applications", J. Quant. Spectrosc. Radiat.
   Transf. 319 (2024) 108958.
+- D. W. Dudt and E. Kolemen, "DESC: A stellarator equilibrium solver", Phys.
+  Plasmas 27 (2020) 102513,
+  [doi:10.1063/5.0020743](https://doi.org/10.1063/5.0020743).
 - C. Fausser et al., "Tokamak D-T neutron source models for different plasma
   physics confinement modes", Fusion Eng. Des. 87 (2012) 787,
   [doi:10.1016/j.fusengdes.2012.02.025](https://doi.org/10.1016/j.fusengdes.2012.02.025).
