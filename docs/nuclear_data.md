@@ -317,6 +317,132 @@ A bare name that is both a keyword and a folder in the working directory
 (``endf-b8.1`` with a folder ``./endf-b8.1`` beside it) is refused rather than
 guessed at. Write ``./endf-b8.1`` or an absolute path to mean the folder.
 
+#### Building a library yourself
+
+``yamc.generate_library`` builds one of the published libraries from its
+evaluated source archives into a folder laid out exactly as the published
+release, with its ``manifest.json`` written last, so the folder serves every
+setting as above:
+
+<!-- doctest: skip -->
+```python
+report = yamc.generate_library("endf-b8.1", "/data/endf-b8.1")
+print(report["release"], report["file_count"], report["njoy"])
+
+yamc.cross_section_data = "/data/endf-b8.1"
+yamc.transmutation_decay_data = "/data/endf-b8.1"
+yamc.transmutation_reactions = "/data/endf-b8.1"
+yamc.transmutation_fission_yields = "/data/endf-b8.1"
+yamc.transmutation_branch_ratios = "/data/endf-b8.1"
+```
+
+It downloads each source archive and checks it against the size and sha256 it
+is pinned to, unpacks it, converts every evaluation (neutron data through NJOY
+with every covariance section the evaluation has, photon data with the Compton
+profile, density effect and bremsstrahlung tabulations, photonuclear data as
+evaluated), builds the transmutation chain, reads every folder back through the
+reader a simulation uses, and writes each particle's ``index.json`` and then the
+manifest.
+
+The libraries are ``"endf-b8.1"``, ``"jeff-4.0"``, ``"jendl-5.0"``,
+``"tendl-2025"``, ``"tendl-2017"``, ``"fendl-3.2d"`` and ``"irdff-ii"``. Each is
+built from its own evaluations only, never with another library's data:
+
+| keyword | particles | transmutation parts |
+| --- | --- | --- |
+| ``endf-b8.1``, ``jendl-5.0`` | neutron, photon | decay, reactions, fission_yields, branching |
+| ``jeff-4.0`` | neutron | decay, reactions, fission_yields, branching |
+| ``tendl-2025``, ``tendl-2017`` | neutron, photonuclear | reactions, branching |
+| ``fendl-3.2d`` | neutron, photon | reactions, branching |
+| ``irdff-ii`` | none | branching |
+
+A library without decay data of its own (TENDL, FENDL, IRDFF-II) writes each
+excited product level of its branching as the evaluation gives it, and a run
+names the isomer against the decay data it is given: TENDL branching with
+``transmutation_decay_data = "endf-b8.1"`` is matched to ENDF/B-VIII.1's
+isomers.
+
+The keyword arguments narrow a build:
+
+<!-- doctest: skip -->
+```python
+# The transmutation chain alone: no NJOY, minutes.
+yamc.generate_library("endf-b8.1", "/data/endf-b8.1-chain",
+                      parts=["decay", "reactions", "fission_yields", "branching"])
+
+# A few nuclides and an element (every Fe evaluation, and Fe photon data).
+yamc.generate_library("endf-b8.1", "/data/endf-b8.1-few",
+                      nuclides=["Li6", "Li7", "Fe"], temperatures=[293.6, 600.0])
+```
+
+- ``parts``: of ``"neutron"``, ``"photon"``, ``"photonuclear"``, ``"decay"``,
+  ``"reactions"``, ``"fission_yields"`` and ``"branching"``; the default is
+  every part the library's release carries.
+- ``nuclides``: nuclides and element symbols. The chain is always built whole.
+- ``temperatures``: in Kelvin, by default 250, 293.6, 600, 900, 1200 and 2500 K.
+  The 0 K grid is always kept.
+- ``njoy_exec``: the NJOY to run. The default is the ``njoy`` the njoy2016
+  wheel (``pip install njoy2016 --index-url https://shimwell.github.io/wheels``)
+  installs beside this Python, then the one on PATH. FENDL needs the IAEA-NDS
+  fork, and the builder refuses any other for it.
+- ``downloads``: a folder of source archives fetched by hand, searched first.
+
+Running it again resumes: a folder finished for this release is kept and only
+the rest are converted. The release stamp is the date the build started, kept on
+every resume. No manifest is written unless every evaluation converted (or is
+one NJOY is known not to process, declared with the reason), every folder reads
+back and the chain loads; a failed evaluation's reason is kept in
+``<path>/.build/failed/``, and running again retries only those. The returned
+dict has ``keyword``, ``release``, ``path``, ``parts``, ``converted`` and
+``reused`` (``"<particle>/<Name>"`` keys), ``not_converted`` (the declared
+failures with their reasons), ``stale_declarations``, ``njoy``,
+``chain_nuclides``, ``manifest_sha256``, ``file_count`` and ``total_bytes``.
+
+A full build is long, most of it NJOY: on a 32-core machine about 50 minutes
+for ENDF/B-VIII.1, 9 hours for JENDL-5 and a day or more for each TENDL.
+
+#### Converting single evaluations
+
+The converters behind the builder take one evaluation at a time, for data of
+your own or a patched evaluation. Each writes the same folders a library holds:
+
+<!-- doctest: skip -->
+```python
+# Transport data, through NJOY, with the evaluation's covariance sections.
+yamc.convert_neutron_transport(
+    input_path="n-026_Fe_056.endf", output_dir="out/neutron",
+    njoy_exec="njoy", temperatures=[293.6, 600.0], covariance=True)
+
+# Cross sections only, for a rate collapse; from ENDF, or from ACE without NJOY.
+yamc.convert_neutron_xs(
+    input_path="n-026_Fe_056.endf", output_dir="out/neutron-xs")
+
+# Photon data, with the tabulations yamc carries.
+yamc.convert_photon("photoat-026_Fe_000.endf", "out/photon",
+                    relaxation_path="atom-026_Fe_000.endf")
+
+# A photonuclear evaluation (TENDL's gamma sublibrary), kept as evaluated.
+yamc.convert_photonuclear(input_path="g-Fe056.tendl", output_dir="out/photonuclear")
+
+# The transmutation chain, from decay, fission yield and neutron evaluations,
+# and its isomeric branching.
+yamc.convert_transmutation(
+    decay_files=["dec-027_Co_060.endf"], fpy_files=["nfy-092_U_235.endf"],
+    neutron_files=["n-027_Co_059.endf"], output_path="out/chain")
+yamc.convert_branching(
+    neutron_files=["n-027_Co_059.endf"], decay_files=["dec-027_Co_060.endf"],
+    output_path="out/chain")
+```
+
+A folder of ``out/neutron/<Name>.arrow/`` directories is a path
+``cross_section_data`` takes, and ``out/chain`` a path each transmutation
+setting takes. ``convert_transmutation`` and ``convert_branching`` read every
+material in each file, so a tape of many materials needs no splitting, and they
+name every product as the evaluation gives it: a product the decay data has no
+record for is counted at run time as produced with unknown fate, never booked
+onto a neighbouring nuclide. ``convert_branching`` given no decay files writes
+each excited level as evaluated, to be matched at run time.
+
 #### cross_section_data with file paths
 
 A nuclide's data is a folder of Arrow files, ``<Nuclide>.arrow``, which a published release serves at ``https://yamc-data.xsplot.com/<keyword>/<release>/neutron/<Nuclide>.arrow/`` (every file its ``manifest.json`` lists for that folder). Once such folders are saved locally, their paths can be used to configure the nuclear data. Replace the `tests` dir with the path to the downloaded data files.
