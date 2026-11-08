@@ -160,7 +160,7 @@ tally = yamc.Tally(
 )
 ```
 
-The ``mean``/``std_dev``/``relative_error`` arrays are laid out flat. When multiple binning axes are present, the bin order from slowest to fastest varying is ``score``, ``cell``, ``material``, ``nuclide``, ``parent_nuclide``, ``energy``, ``mesh``.
+The ``mean``/``std_dev``/``relative_error`` arrays are laid out flat. When multiple binning axes are present, the bin order from slowest to fastest varying is ``score``, ``surface``, ``cosine``, ``cell``, ``material``, ``nuclide``, ``parent_nuclide``, ``energy``, ``mesh``. The ``surface`` and ``cosine`` axes only appear on [surface current](#surface-currents) tallies.
 
 ### Energy binning
 
@@ -298,6 +298,106 @@ Restrict scoring to neutrons or photons. This is required for separate neutron a
 ```python
 tally_n = yamc.Tally(scores=["flux"], cells=cell, particle="neutron")
 tally_p = yamc.Tally(scores=["flux"], cells=cell, particle="photon")
+```
+
+### Surface currents
+
+A tally with ``surfaces=`` counts particles crossing those surfaces, instead of scoring along tracks or at collisions. This gives leakage through a boundary directly, and the current through any surface inside a model. There is one result bin per surface, in the order given, and the results are particles per source particle.
+
+The scores count crossings by the side of the surface they cross to:
+
+| Score | Counts |
+|---|---|
+| ``"current-above"`` | crossings towards the surface's ``.above`` side, each adding the particle weight |
+| ``"current-below"`` | crossings towards ``.below``, each adding the particle weight |
+| ``"current-net"`` | above minus below |
+
+Which side is ``.above`` is the same as when building regions: outside a ``Sphere``, ``Cylinder``, ``Cone`` or ``Torus``, and the positive side of a ``Plane`` (``x > offset`` for ``axis="x"``). On a sphere, ``"current-above"`` is the outward current and ``"current-below"`` the inward one. On an x plane they are the currents towards +x and -x. A particle that crosses the same surface several times is counted at every crossing.
+
+<!-- doctest: skip -->
+```python
+# Leakage out of a sphere in vacuum. Nothing comes back through the outer
+# surface, so above and net are both the leakage and below is zero.
+outer = yamc.Sphere(radius=30.0, boundary="vacuum")
+leakage = yamc.Tally(
+    scores=["current-above", "current-below", "current-net"],
+    surfaces=outer,
+)
+# results[leakage].mean is [above, below, net] per source particle
+
+# Current through a plane inside a model, towards +x and towards -x
+wall = yamc.Plane(axis="x", offset=50.0)
+through_wall = yamc.Tally(scores=["current-above", "current-below"], surfaces=wall)
+
+# Several surfaces in one tally: one bin per surface
+layers = yamc.Tally(scores=["current-above"], surfaces=[inner_sphere, outer_sphere])
+```
+
+A surface tally also takes ``energy_bins`` (the energy of the particle as it crosses), ``particle``, and an energy function or dose coefficients. ``cosine_bins`` bins the crossings by the cosine of the angle between the particle's direction and the surface normal, which points to ``.above``. A cosine of 1 is straight along the normal and 0 is grazing; negative cosines are crossings towards ``.below``.
+
+<!-- doctest: skip -->
+```python
+import math
+
+# Outward leakage spectrum
+spectrum = yamc.Tally(
+    scores=["current-above"],
+    surfaces=outer,
+    energy_group_structure="VITAMIN-J-175",
+    particle="neutron",
+)
+
+# Only particles leaving within 17.28 degrees of the normal, as a detector
+# viewing part of the surface sees them
+detector_view = yamc.Tally(
+    scores=["current-above"],
+    surfaces=outer,
+    cosine_bins=[math.cos(math.radians(17.28)), 1.0],
+)
+```
+
+A surface tally cannot also take ``cells``, ``materials``, ``mesh``, ``nuclides``, ``response`` or ``estimator``. It needs ``tracking_mode="surface"`` (the default) and CSG surfaces, and runs on the CPU. Each surface needs an id; one is assigned automatically when a surface is created without ``surface_id=``.
+
+#### Example: leakage spectrum from an iron sphere
+
+<!-- doctest: skip -->
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+import yamc
+
+yamc.cross_section_data = "endf-b8.1"
+
+outer = yamc.Sphere(radius=30.0, boundary="vacuum")
+iron = yamc.Material(composition={"Fe": 1.0}, density=7.874, temperature=294)
+cell = yamc.Cell(region=outer.below, material=iron)
+geometry = yamc.Geometry([cell])
+
+source = yamc.NeutronSource(position=(0, 0, 0), energy=14.06e6)
+
+leakage = yamc.Tally(
+    scores=["current-above"],
+    surfaces=outer,
+    energy_group_structure="VITAMIN-J-175",
+    particle="neutron",
+    name="neutron_leakage",
+)
+
+model = yamc.Model(geometry=geometry, tallies=[leakage], source=source)
+results = model.simulate_transport(total_particles=200000)
+
+bins = np.array(leakage.energy_bins)
+current = np.array(results[leakage].mean)
+lethargy = np.log(bins[1:] / bins[:-1])
+print(f"neutrons leaking per source neutron: {current.sum():.3f}")
+
+fig, ax = plt.subplots()
+ax.stairs(current / lethargy, bins)
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel("Energy [eV]")
+ax.set_ylabel("Leakage per unit lethargy per source neutron")
+fig.savefig("leakage_spectrum.png", dpi=150)
 ```
 
 ### Energy function weighting
