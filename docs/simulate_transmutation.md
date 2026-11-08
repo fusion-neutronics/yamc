@@ -91,6 +91,48 @@ if mat is not None:
 nuclides = results.get_material_nuclides(material_id=material.id, step=2)
 ```
 
+### Tallies at each step
+
+The model's own tallies (``Model(tallies=[...])``) are scored by every step's
+transport, so anything that changes as the materials burn (TBR as Li6 depletes,
+heating, flux, spectra, mesh tallies) comes out of the one run, with no need to
+rebuild the model from ``get_material`` and run ``simulate_transport`` again:
+
+<!-- doctest: skip -->
+```python
+tbr = yamc.Tally(name="tbr", cells=breeder, scores=["H3-production"])
+model = yamc.Model(geometry=geometry, source=source, tallies=[tbr])
+results = model.simulate_transmutation(method="coupled", schedule=schedule, total_particles=5000)
+
+for step, t in enumerate(results.timesteps):
+    step_results = results.tally_results(step)   # a SimulationResults, or None
+    if step_results is not None:
+        print(t, step_results[tbr].mean, step_results[tbr].standard_deviation)
+
+means, std_devs = results.tally_evolution(tbr)   # one list of bins per transport step
+```
+
+``tally_results(step)`` returns the whole ``SimulationResults`` of that step's
+transport, read exactly as ``simulate_transport``'s are (by tally or name,
+``to_numpy``, mesh tallies included). ``step`` indexes ``timesteps``, as
+``get_source_rates`` and ``get_reaction_rates`` do: step ``i`` is the transport
+that drove the materials from composition ``i`` to composition ``i + 1``. Each
+step's tallies are reset before its transport, so they reflect that step's
+compositions only.
+
+- Values are per source particle, as ``simulate_transport`` returns them;
+  multiply by ``get_source_rates(material_id)[step]`` for absolute rates.
+- A decay-only step (a ``Cooldown``, or a ``Pulse`` with rate 0) runs no
+  transport and returns ``None``; ``tally_evolution`` skips it.
+- Only the model's own tallies come back. The transmutation's internal reaction
+  rate tallies and its scouting transport are not among them.
+- With ``method="independent"`` transport runs once, on the initial
+  compositions, and every irradiation step returns that one run's results: they
+  do not follow the burnup. Use ``method="coupled"`` for a TBR that falls as the
+  Li6 burns.
+- Every step keeps its own results, so a large mesh tally costs its size once
+  per transport step.
+
 ### Production routes from the chain
 
 ``TransmutationChain`` carries the topology a solve steps through: which nuclide becomes which, and how. ``reactions`` holds the neutron-induced edges, ``decays`` the radioactive ones, both keyed by parent and both giving ``(kind, target, branching)``:
