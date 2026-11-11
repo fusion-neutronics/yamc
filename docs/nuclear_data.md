@@ -173,6 +173,40 @@ raising, because ENDF libraries really do ship a neutron material (JENDL is one)
 and a caller walking a sublibrary will meet it. ``atomic_number`` is case
 sensitive and takes the symbol alone: ``"fe"`` and ``"iron"`` are both refused.
 
+Element and reaction labels are available for building tables and selectors:
+
+```python
+print(yamc.data.element_names()["Fe"])
+print(yamc.data.reaction_names()[102])
+print(yamc.cache_dir())
+```
+
+### Photon attenuation and converted-data inspection
+
+The NIST photon response tables used by contact-dose calculations are also
+public. They are bundled reference data, independent of the selected transport
+library:
+
+```python
+iron_attenuation = yamc.data.mass_attenuation_coefficient(element="Fe")
+air_absorption = yamc.data.mass_energy_absorption_coefficient(material="air")
+print(iron_attenuation.interpolate(energy=1e6))  # cm2/g
+print(air_absorption.interpolate(energy=1e6))   # cm2/g
+```
+
+After a conversion, inspect the individual nuclide or element directory without
+constructing a transport model:
+
+```python
+nuclide_info = yamc.read_nuclide_from_arrow("converted/Fe56.arrow")
+element_info = yamc.read_element_from_arrow("converted/Fe.arrow")
+print(nuclide_info, element_info)
+```
+
+`yamc.data.clear_nuclide_cache()` clears the in-memory nuclide cache, not the
+downloaded files. A material holding data can release its own references with
+`material.release_nuclear_data()` before the next part of a large sweep.
+
 ### Options for setting nuclear data source
 
 The source of nuclear data can be set at the nuclide, material and program level in a few ways.

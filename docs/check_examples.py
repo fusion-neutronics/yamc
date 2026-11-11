@@ -32,18 +32,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Every page carrying prose examples. api.md is excluded: it is mkdocstrings
-# directives, not Python. installation.md is shell, not Python.
+# Discover guide pages so new examples cannot silently fall outside this check.
+# Pages without plain Python fences, including API directives, are skipped.
 PAGES = [
     "README.md",
-    "docs/index.md",
-    "docs/quick_start.md",
-    "docs/usage_guide.md",
-    "docs/materials.md",
-    "docs/nuclear_data_libraries.md",
-    "docs/nuclear_data.md",
-    "docs/simulate_transmutation.md",
-    "docs/simulate_shutdown_dose.md",
+    *(page.relative_to(ROOT).as_posix() for page in sorted((ROOT / "docs").rglob("*.md"))),
 ]
 
 # Names a page uses without binding, because the surrounding prose introduces

@@ -125,7 +125,12 @@ direction = yamc.sources.Monodirectional([0, 0, 1])  # beam in +z
 plasma itself (its shape, confinement mode, and ion density and temperature
 profiles) rather than from a hand-placed ring.
 
+Bind the common parameters with `functools.partial`, then override the sector,
+fuel or mesh resolution when calling the source factory.
+
 ```python
+from functools import partial
+
 import yamc
 
 # Shape (cm, dimensionless)
@@ -137,7 +142,8 @@ shape = yamc.sources.TokamakShape(
     shafranov_factor=0.44789,
 )
 
-plasma = dict(
+make_plasma_source = partial(
+    yamc.sources.tokamak_source,
     shape=shape,
     # Confinement mode: "L", "H" or "A"
     mode="H",
@@ -155,7 +161,7 @@ plasma = dict(
     ion_temperature_separatrix=0.1e3,
 )
 
-sources = yamc.sources.tokamak_source(**plasma)
+sources = make_plasma_source()
 model = yamc.Model(geometry=geometry, source=sources, tallies=tallies)
 ```
 
@@ -198,8 +204,7 @@ way.
 ```python
 import math
 
-sources = yamc.sources.tokamak_source(
-    **plasma,
+sources = make_plasma_source(
     start_angle=0.0,
     rotation_angle=math.pi / 4,   # a 45 degree sector
 )
@@ -211,8 +216,8 @@ sources = yamc.sources.tokamak_source(
 supported species are `"D"` and `"T"`, giving D(d,n)3He and T(d,n)4He neutrons.
 
 ```python
-sources = yamc.sources.tokamak_source(**plasma, fuel={"D": 1.0})          # D-D only
-sources = yamc.sources.tokamak_source(**plasma, fuel={"D": 0.4, "T": 0.6})
+sources = make_plasma_source(fuel={"D": 1.0})          # D-D only
+sources = make_plasma_source(fuel={"D": 0.4, "T": 0.6})
 ```
 
 T(t,2n)4He is not included because yamc has no T-T neutron spectrum model, so
@@ -264,11 +269,13 @@ import matplotlib.pyplot as plt
 import yamc
 
 minor_radius = 292.258
-profile = dict(mode="H", minor_radius=minor_radius, pedestal_radius=0.8 * minor_radius)
+pedestal_radius = 0.8 * minor_radius
 radii = [i * minor_radius / 200 for i in range(201)]
 
 densities = yamc.sources.tokamak_ion_density(
-    **profile,
+    mode="H",
+    minor_radius=minor_radius,
+    pedestal_radius=pedestal_radius,
     ion_density_centre=1.09e20,
     ion_density_peaking_factor=1,
     ion_density_pedestal=1.09e20,
@@ -276,7 +283,9 @@ densities = yamc.sources.tokamak_ion_density(
     r=radii,
 )
 temperatures = yamc.sources.tokamak_ion_temperature(
-    **profile,
+    mode="H",
+    minor_radius=minor_radius,
+    pedestal_radius=pedestal_radius,
     r=radii,
     ion_temperature_centre=45.9e3,
     ion_temperature_peaking_factor=8.06,
@@ -311,7 +320,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yamc
 
-sources = yamc.sources.tokamak_source(**plasma, mesh_resolution=(60, 60))
+sources = make_plasma_source(mesh_resolution=(60, 60))
 
 # Share the points out between the sources by strength, the way the transport
 # picks them. Sampling every source equally would instead give each voxel the
