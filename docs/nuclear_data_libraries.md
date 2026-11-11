@@ -28,6 +28,9 @@ additionally takes a directory or a dict keyed by nuclide; the four
 ``transmutation_*`` parts take one value each, since a network is assembled per
 subsection rather than per nuclide. Which setting does what, and what each does
 when left alone, is in [Nuclear data settings](nuclear_data.md#nuclear-data-settings).
+Each library can also be built locally from its evaluated sources with
+``yamc.generate_library``, into such a folder (see
+[Building a library yourself](nuclear_data.md#building-a-library-yourself)).
 
 ## What each library publishes
 
