@@ -30,3 +30,35 @@ correction. Usage is under [Materials](materials.md#resonance-self-shielding).
     options:
       show_root_heading: false
       show_root_toc_entry: false
+
+## Data helpers
+
+Cross-section inspection, dose and attenuation coefficients, element and
+reaction names, and the nuclide cache are accessed through `yamc.data`.
+See [Nuclear data](nuclear_data.md) for examples and data configuration.
+
+::: yamc.data
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+
+## Material collections
+
+The bundled PNNL collection is available as `yamc.materials.pnnl`; see
+[PNNL material list](pnnl_materials.md) for selecting a composition.
+
+::: yamc.materials
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+
+## Parallel execution
+
+GPU adapter discovery and MPI support are accessed through `yamc.parallel`.
+See [Simulate transport](simulate_transport.md) for backend selection and MPI
+execution.
+
+::: yamc.parallel
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false

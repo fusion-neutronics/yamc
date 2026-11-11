@@ -156,9 +156,12 @@ tally = yamc.Tally(scores=["flux"], mesh=mesh)
 # Unstructured mesh binning (from MeshGeometry)
 tally = yamc.Tally(
     scores=["flux"],
-    unstructured_mesh=(mesh_geom, "fuel"),  # (MeshGeometry, volume name or ID)
+    unstructured_mesh=(mesh_geom, 1),  # (MeshGeometry, volume ID)
 )
 ```
+
+Use the volume ID from the mesh. A material name, such as
+`unstructured_mesh=(mesh_geom, "fuel")`, is also accepted for a named volume.
 
 The ``mean``/``std_dev``/``relative_error`` arrays are laid out flat. When multiple binning axes are present, the bin order from slowest to fastest varying is ``score``, ``surface``, ``cosine``, ``cell``, ``material``, ``nuclide``, ``parent_nuclide``, ``energy``, ``mesh``. The ``surface`` and ``cosine`` axes only appear on [surface current](#surface-currents) tallies.
 
@@ -340,7 +343,7 @@ A surface tally also takes ``energy_bins`` (the energy of the particle as it cro
 import math
 
 # Outward leakage spectrum
-spectrum = yamc.Tally(
+leakage_spectrum = yamc.Tally(
     scores=["current-above"],
     surfaces=outer,
     energy_group_structure="VITAMIN-J-175",

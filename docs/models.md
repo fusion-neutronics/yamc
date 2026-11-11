@@ -20,6 +20,19 @@ The particle count and random seed are per-run arguments to ``simulate_transport
 
 Both CSG ``Geometry`` and ``MeshGeometry`` are accepted.
 
+Before a run, inspect which data the assembled model needs:
+
+```python
+print(model.required_nuclides())
+print(model.required_temperatures())
+print(model.required_elements())
+```
+
+These are requirements, not a download. Temperatures map each nuclide to the
+requested temperature strings, or `None` if a material loads every available
+temperature. Elements are needed for photon transport and are empty when the
+model will transport no photons.
+
 ### Photon transport
 
 Enable coupled neutron-photon transport with ``transport_secondary_photons=True``.
@@ -51,7 +64,8 @@ yamc.transmutation_decay_data = "endf-b8.1"
 yamc.transmutation_reactions = "endf-b8.1"
 
 model = yamc.Model(
-    ...,
+    geometry=geometry,
+    source=source,
     transport_secondary_photons=True,
     use_decay_photons=True,
 )

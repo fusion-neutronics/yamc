@@ -78,6 +78,40 @@ them when one fits:
 q = yamc.Quadric(a=1.0, b=1.0, c=1.0, k=-100.0)
 ```
 
+### Plasma and formula surfaces
+
+`FluxSurface` builds a CSG surface from the same tokamak or stellarator shape
+used by a plasma source. `rho=1` is the plasma boundary; smaller positive
+values select an interior flux surface. `OffsetSurface` makes a layer at a
+signed distance in cm, positive outwards:
+
+```python
+plasma_shape = yamc.sources.TokamakShape(
+    major_radius=100.0, minor_radius=20.0, elongation=1.5,
+    triangularity=0.2, shafranov_factor=0.0,
+)
+plasma_boundary = yamc.FluxSurface(plasma_shape, rho=1.0)
+wall_boundary = yamc.OffsetSurface(plasma_boundary, distance=2.0)
+plasma_region = plasma_boundary.below
+first_wall_region = plasma_boundary.above & wall_boundary.below
+```
+
+Offsets compose by adding their distances. A large offset can have creases
+where fronts meet; construction warns rather than silently changing the
+distance. These are geometric surfaces, not a material or source assignment.
+
+`ImplicitSurface` accepts a formula whose zero is the surface. Its negative
+side is `.below`; `^` is the formula language's power operator:
+
+```python
+custom_surface = yamc.ImplicitSurface("sqrt(x^2 + y^2 + z^2) - 5")
+custom_region = custom_surface.below
+```
+
+Use the dedicated primitives when they fit: they are faster and provide finite
+bounds directly. A formula value is not necessarily a signed distance; see the
+[API reference](api.md) for the permitted functions and domain restrictions.
+
 **Boundary types** are set on the outermost surfaces:
 
 - ``"transmission"`` (default): particles pass through freely
@@ -168,6 +202,29 @@ A ``Geometry`` is constructed from a list of cells. Cell IDs are auto-assigned i
 ```python
 geometry = yamc.Geometry([pipe_cell, water_cell, void_cell])
 ```
+
+#### Point lookup and voxel data
+
+Geometry can be inspected without transporting particles or loading nuclear
+data. Point lookup returns `None` outside all cells:
+
+```python
+import numpy as np
+
+point_cell = geometry.find_cell(0.0, 0.0, 0.0)
+if point_cell is not None:
+    print(point_cell.id, point_cell.name)
+voxels = geometry.voxelize(
+    lower_left=(-10.0, -10.0, -10.0), spacing=(1.0, 1.0, 1.0),
+    shape=(20, 20, 20),
+)
+cell_grid = np.asarray(voxels.cell_ids).reshape(20, 20, 20)
+material_grid = np.asarray(voxels.material_ids).reshape(20, 20, 20)
+```
+
+The requested shape is `(nx, ny, nz)`, while flat voxel arrays reshape in
+`(nz, ny, nx)` C order. A cell ID of `-1` means no cell was found. These are
+sampled geometry labels, not transport tally values.
 
 ### Plotting
 

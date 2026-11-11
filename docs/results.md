@@ -91,6 +91,30 @@ model.convergence_targets = [yamc.ConvergenceTarget("relative_error", 0.02, tall
 
 The metric is one of ``"relative_error"``, ``"std_dev"``, or ``"variance_of_variance"``; omit ``tally=`` to require the threshold for every tally.
 
+### Nuclear-data uncertainty diagnostics
+
+When transport was requested with `data_uncertainty`, a tally exposes the
+nuclear-data spread separately from ordinary transport statistics. The
+attributes below are `None` on a run without that request:
+
+```python
+sigma = result.nuclear_data_standard_deviation
+if sigma is not None:
+    print(sigma, result.nuclear_data_replica_spread, result.nuclear_data_noise)
+    print(result.nuclear_data_noise_dominated)
+    print(result.replica_mean, result.replica_standard_error)
+    print(result.nuclear_data_linear_variance)
+    print(result.nuclear_data_variance_by_nuclide)
+```
+
+`mean` remains the nominal calculation; `replica_mean` is the ensemble mean.
+Replica spread includes Monte Carlo noise, so it is not interchangeable with
+the noise-corrected nuclear-data sigma. The noise flag identifies bins where
+that separation is poorly resolved. Per-nuclide contributions describe the
+first-order variance, not every nonlinear contribution to the final spread.
+See [Nuclear-data uncertainty](materials.md#nuclear-data-uncertainty) for the
+sampling controls and coverage limitations.
+
 ### Structured results
 
 Each ``TallyResult`` exposes ``shape`` and ``dim_labels`` for reshaping into numpy arrays.
@@ -107,19 +131,22 @@ data = np.array(result.mean).reshape(result.shape)
 
 ### xarray integration
 
-With ``xarray`` installed, structured results map directly to labelled arrays.
+With ``xarray`` installed (`pip install "yamc[xarray]"`), the built-in exporters
+retain the tally's dimensions and coordinates:
 
 <!-- doctest: skip -->
 ```python
-import xarray as xr
-
 result = results[tally]
-data = np.array(result.mean).reshape(result.shape)
-da = xr.DataArray(data, dims=result.dim_labels)
+da = result.to_xarray(field="mean")
+standard_deviation = result.to_xarray(field="standard_deviation")
+dataset = result.to_dataset()
 
 # Select a single energy bin
 flux_high = da.isel(energy=1)
 ```
+
+`to_dataset()` exports mean, standard deviation and relative error together.
+For manual array handling, `to_numpy()` and the flat arrays remain available.
 
 ### Plotting mesh tallies
 

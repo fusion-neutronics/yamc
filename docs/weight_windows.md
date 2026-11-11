@@ -109,7 +109,7 @@ voxel that is skipped.
 ```python
 windows = yamc.WeightWindowBounds(
     mesh=mesh,
-    lower_bounds=[...],        # length n_groups * num_voxels
+  lower_bounds=[1.0] * mesh.num_bins,  # one energy group, one bound per voxel
     upper_bounds=None,         # or omit and pass ratio=
     ratio=5.0,
     particle="neutron",
@@ -138,7 +138,7 @@ photon_ww = model.generate_weight_windows(
     total_particles=200_000, seed=1)
 prod = yamc.Model(geometry=geom, source=src, tallies=[flux],
                   transport_secondary_photons=True, variance_reduction=[photon_ww])
-results = prod.simulate_transport(total_particles=..., seed=7)
+results = prod.simulate_transport(total_particles=200_000, seed=7)
 ```
 
 ### Secondary and decay photons (coupled)
@@ -169,7 +169,7 @@ neutron_ww, photon_ww = model.generate_weight_windows(
 prod = yamc.Model(geometry=geom, source=src, tallies=[n_flux, p_flux],
                   transport_secondary_photons=True,
                   variance_reduction=[neutron_ww, photon_ww])
-results = prod.simulate_transport(total_particles=..., seed=7)
+results = prod.simulate_transport(total_particles=200_000, seed=7)
 ```
 
 A single-string ``particle`` still returns one ``WeightWindowBounds`` (unchanged);

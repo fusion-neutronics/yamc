@@ -187,6 +187,7 @@ A captured history holds one track per particle transported in it: the source pa
 ```python
 results = model.simulate_transport(total_particles=10000, capture_tracks=100)
 tracks = results.tracks  # None if capture_tracks= was not set
+assert tracks is not None
 
 print(len(tracks))            # number of particle tracks (source and secondaries)
 print(tracks.total_events())  # total events across all tracks

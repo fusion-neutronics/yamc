@@ -38,6 +38,56 @@ have to hand its rates back to a CPU solve every step even if it ran on the
 device. Any other value raises a ``ValueError`` explaining this (not a
 ``TypeError`` about an unexpected keyword).
 
+### Continuous feeds, extraction and transfer
+
+Pass a `Processing` object to `simulate_transmutation()` to change inventories
+continuously during irradiation and cooling. Every material it names must be a
+transmutable material in the model, with its own volume. This example transfers
+tritium from a lithium region to a surrounding collection region and feeds new
+lithium during the first schedule step:
+
+```python
+import math
+
+feed_material = yamc.Material(
+    composition={"Li": 1.0}, density=0.534,
+    volume=4 * math.pi * 10**3 / 3, transmutable=True,
+)
+collection_material = yamc.Material(
+    composition={"Fe": 1.0}, density=7.87,
+    volume=4 * math.pi * (20**3 - 10**3) / 3, transmutable=True,
+)
+inner_surface = yamc.Sphere(radius=10)
+outer_surface = yamc.Sphere(radius=20, boundary="vacuum")
+processing_geometry = yamc.Geometry([
+    yamc.Cell(region=inner_surface.below, material=feed_material),
+    yamc.Cell(region=inner_surface.above & outer_surface.below,
+              material=collection_material),
+])
+processing_model = yamc.Model(geometry=processing_geometry, source=source)
+processing = yamc.Processing()
+processing.add_transfer(
+    material=feed_material, component="H3", rate=1e-4,
+    rate_units="1/s", destination=collection_material,
+)
+processing.add_feed(
+    material=feed_material, composition={"Li6": 0.6, "Li7": 0.4},
+    rate=1e-3, rate_units="g/s", steps=[0],
+)
+processed = processing_model.simulate_transmutation(
+    method="independent", schedule=schedule, total_particles=5000,
+    processing=processing,
+)
+```
+
+A transfer rate is a first-order removal rate, not a mass flow. Omit
+`destination` to extract material from the system, omit `component` to transfer
+the whole composition, or name an element to select all its isotopes. Feed
+compositions are normalized atom fractions, with absolute units such as `g/s`,
+`kg/d`, `mol/h` or `atoms/s`. `steps` selects zero-based schedule steps; without
+it, a term also applies during cooldowns. The same object works with
+`method="coupled"` and with the standalone batch function `yamc.transmute()`.
+
 ### Cooling curves
 
 A decay curve needs points at cumulative times, but ``Cooldown`` takes the
@@ -90,6 +140,25 @@ if mat is not None:
 # All nuclides at a step
 nuclides = results.get_material_nuclides(material_id=material.id, step=2)
 ```
+
+Gas production and data-coverage diagnostics are available on the same results:
+
+```python
+gas = results.get_gas_production(material_id=material.id)
+if gas is not None:
+    print(list(zip(results.times, gas["H"], gas["He"])))
+screening = results.get_product_screening_info(material_id=material.id)
+if screening is not None:
+    print(screening["loaded"], screening["below_threshold"], screening["unavailable"])
+print(results.data_gaps)
+```
+
+Gas is in appm relative to the initial number of atoms, with the initial gas
+subtracted by default; `produced=False` instead reports all gas present.
+Unknown gas contributions are not silently zero-filled when the chain lacks a
+gas nuclide. Screening leaves a small product's production and decay in the
+inventory, but may omit its neutron reactions; inspect `unavailable` and
+`data_gaps` before treating a small result as a complete prediction.
 
 ### Tallies at each step
 
