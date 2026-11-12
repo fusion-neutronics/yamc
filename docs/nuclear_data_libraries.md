@@ -4,11 +4,12 @@ Six libraries are available by keyword. Point a setting at one and the sections 
 needs are downloaded on first use from the library's current published release,
 verified against that release's manifest, and cached on disk under
 ``yamc.cache_dir()``. Releases, the cache layout and offline use are described
-in [Nuclear data](nuclear_data.md#cross_section_data-with-a-library-keyword).
+in [Nuclear data](nuclear_data.md#cross-sections-from-a-library-keyword).
 
 <!-- doctest: skip -->
 ```python
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
+yamc.photon_cross_section_data = "endf-b8.1"
 ```
 
 | keyword | what it is |
@@ -23,8 +24,9 @@ yamc.cross_section_data = "endf-b8.1"
 Every setting also takes a path instead of a keyword, including a folder that
 holds a whole library laid out as a release, which serves every setting at once
 (see [A whole library in one folder](nuclear_data.md#a-whole-library-in-one-folder)),
-and ``cross_section_data``
-additionally takes a directory or a dict keyed by nuclide; the four
+and ``neutron_cross_section_data`` and ``photon_cross_section_data``
+additionally take a directory or a dict, keyed by nuclide and by element
+respectively; the four
 ``transmutation_*`` parts take one value each, since a network is assembled per
 subsection rather than per nuclide. Which setting does what, and what each does
 when left alone, is in [Nuclear data settings](nuclear_data.md#nuclear-data-settings).
@@ -43,10 +45,11 @@ Each library can also be built locally from its evaluated sources with
 | ``tendl-2025`` | neutron + photonuclear (next release, data only) | -- | yes | -- | yes |
 | ``tendl-2017`` | neutron + photonuclear (next release, data only) | -- | yes | -- | yes |
 
-``yamc.cross_section_data`` selects a library's neutron and, when photon
-transport is requested, photoatomic data. The photonuclear entries describe
-additional evaluated data, not another photon transport library.
-The setting is not transport-only: ``Material.transmute()`` and
+``yamc.neutron_cross_section_data`` selects a library's neutron data and
+``yamc.photon_cross_section_data`` its photoatomic data, independently. The
+photonuclear entries describe additional evaluated data, not another photon
+transport library.
+The neutron setting is not transport-only: ``Material.transmute()`` and
 ``Model.simulate_transmutation()`` fold the same cross sections against the
 spectrum to get their reaction rates, so an activation run needs it as much as a
 transport run does. The four remaining columns are the transmutation subsections,
@@ -65,18 +68,22 @@ message listing the subsections that library does provide.
 ``endf-b8.1``, ``jeff-4.0`` and ``jendl-5.0`` each supply a complete,
 single-library transmutation chain.
 
-### Photon data follows the selected library
+### Photon data is selected separately
 
-``yamc.cross_section_data`` selects both neutron and photoatomic photon data.
-Photon-only and coupled transport load the required elements automatically;
-an extra ``material.read_nuclear_data(...)`` call is not needed when the global
-setting names the intended library. Material construction itself downloads
-nothing: data is loaded when a calculation needs it.
+``yamc.photon_cross_section_data`` selects photoatomic photon data, and
+``yamc.neutron_cross_section_data`` selects neutron data. Both start unset and
+neither falls back on the other, so a coupled or D1S run sets both, a
+``PhotonSource`` run needs only the photon setting, and a neutron-only run only
+the neutron one. Photon-only and coupled transport load the required elements
+automatically; an extra ``material.read_nuclear_data(...)`` call is not needed
+when the global setting names the intended library. Material construction itself
+downloads nothing: data is loaded when a calculation needs it.
 
 ```python
 import yamc
 
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
+yamc.photon_cross_section_data = "endf-b8.1"
 water = yamc.Material(composition={"H1": 2.0, "O16": 1.0}, density=1.0)
 ```
 
@@ -92,12 +99,13 @@ Only three libraries provide photoatomic data for photon transport:
   photon sublibrary is photonuclear, which is a different quantity.
 
 There is no implicit switch to another photon library. A photon run with
-``cross_section_data = "tendl-2025"`` or ``"tendl-2017"`` fails for missing
-photoatomic data, even after the new photonuclear files are published.
-To deliberately mix neutron and photon libraries, use an explicit per-element
-``photon_data`` map on
-[read_nuclear_data](materials.md#loading-nuclear-data). Explicit overrides
-take precedence over the global selection.
+``photon_cross_section_data = "tendl-2025"`` or ``"tendl-2017"`` fails for
+missing photoatomic data, even after the new photonuclear files are published.
+A run that takes its neutron data from TENDL takes its photon data from one of
+the three libraries above, named in ``photon_cross_section_data``. A single
+material can also be given an explicit per-element ``photon_data`` map on
+[read_nuclear_data](materials.md#loading-nuclear-data), which takes precedence
+over the global selection.
 
 ### Photonuclear data in the next TENDL release
 
@@ -297,7 +305,7 @@ reads it.
 Transmutation is affected the same way, through either setting. A litre of
 natural lithium irradiated for 30 days at 1e14 n/cm2/s, in a spectrum with 30%
 of its flux between 13.5 and 14.5 MeV and the rest slowed down, makes 392 appm
-of tritium with ``endf-b8.1`` as both ``cross_section_data`` and
+of tritium with ``endf-b8.1`` as both ``neutron_cross_section_data`` and
 ``transmutation_reactions``, and none with ``tendl-2025`` as either.
 
 The ``tendl-2025`` keyword serves the library as published; yamc does not patch

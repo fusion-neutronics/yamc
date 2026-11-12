@@ -246,7 +246,7 @@ from matplotlib.colors import LogNorm
 
 import yamc
 
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
 steel = yamc.Material(composition={"Fe": 1.0}, density=7.874, temperature=294, name="steel")
 water = yamc.Material(composition={"H2O": 1.0}, density=1.0, temperature=294, name="water")
 inner, outer = yamc.Cylinder(axis="z", radius=2.0), yamc.Cylinder(axis="z", radius=8.0)
@@ -324,7 +324,7 @@ from vtkmodules.vtkIOHDF import vtkHDFReader
 import yamc
 
 pv.OFF_SCREEN = True
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
 
 # 5x7 block font for the word YAMC.
 FONT = {

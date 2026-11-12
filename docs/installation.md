@@ -60,6 +60,16 @@ pip install git+https://github.com/fusion-neutronics/yamc.git
 
 `yamc` on PyPI and on GitHub pins `yamc-core` exactly, so this installs the current released `yamc-core` with any unreleased changes to this repository's packaging. Building `yamc-core` itself needs the core repository, which is not public.
 
+### Check which build is installed
+
+`yamc.__version__` is the installed `yamc-core` version. `yamc.__commit__` is the full git hash of the core commit the extension was built from, and `yamc.__commit_dirty__` is `True` if tracked files differed from that commit when it was built. Both are `None` for a build made outside a git checkout of core.
+
+```bash
+python -c "import yamc; print(yamc.__version__, yamc.__commit__, yamc.__commit_dirty__)"
+```
+
+A released wheel reports the version of its release. A build from a core source checkout (`pip install -e`, `maturin develop` or a `git+` install, such as the MPI builds below) reports `0.0.0.dev0`, and its commit identifies it instead.
+
 
 ## MPI Installation (Advanced)
 
@@ -129,7 +139,7 @@ Then build `yamc-core` from a checkout of the core repository, with the `mpi` fe
 MATURIN_PEP517_ARGS="--features mpi" pip install "yamc-core @ git+https://github.com/fusion-neutronics/core.git#subdirectory=packages/yamc-core"
 ```
 
-This builds core's main branch. To build a release instead, put its tag after `core.git@`, as in `git+https://github.com/fusion-neutronics/core.git@<tag>#subdirectory=packages/yamc-core`. Core's [tags](https://github.com/fusion-neutronics/core/tags) are named after the versions they release.
+This builds core's main branch. To build a release instead, put its tag after `core.git@`, as in `git+https://github.com/fusion-neutronics/core.git@<tag>#subdirectory=packages/yamc-core`. Core's [tags](https://github.com/fusion-neutronics/core/tags) are named after the versions they release. A build from source reports version `0.0.0.dev0`; `yamc.__commit__` gives the commit it was built from (see [Check which build is installed](#check-which-build-is-installed)).
 
 ### Verify MPI Installation
 

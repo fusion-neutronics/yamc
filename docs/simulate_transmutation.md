@@ -6,6 +6,8 @@ Coupled transport-transmutation runs transport at each timestep with updated mat
 
 <!-- doctest: skip -->
 ```python
+yamc.neutron_cross_section_data = "endf-b8.1"
+
 _chain = "transmutation-endf-b8.1-sfr.arrow"
 yamc.transmutation_decay_data = _chain
 yamc.transmutation_reactions = _chain

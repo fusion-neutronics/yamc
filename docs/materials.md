@@ -265,14 +265,16 @@ The compositions are reproduced from a US Department of Energy technical report 
 
 ### Loading nuclear data
 
-Set ``yamc.cross_section_data`` to select neutron and photoatomic photon data
-from the same library. A calculation loads the required nuclides and elements
-automatically; material construction needs no explicit data read.
+Set ``yamc.neutron_cross_section_data`` to select neutron data and
+``yamc.photon_cross_section_data`` to select photoatomic photon data. The two are
+independent and both start unset. A calculation loads the required nuclides and
+elements automatically; material construction needs no explicit data read.
 
 <!-- doctest: skip -->
 ```python
 # Automatic: neutron and photoatomic photon data load as needed
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
+yamc.photon_cross_section_data = "endf-b8.1"
 
 # Explicit: per-material file paths
 mat.read_nuclear_data({
@@ -290,7 +292,7 @@ mat.read_nuclear_data(
 Arrow (``.arrow``) format is used for both neutron and photoatomic photon data.
 Explicit photon maps use element symbols, not nuclide names, and override the
 global selection. They are not required when the selected library provides the
-desired data. See [Photon data follows the selected library](nuclear_data_libraries.md#photon-data-follows-the-selected-library)
+desired data. See [Photon data is selected separately](nuclear_data_libraries.md#photon-data-is-selected-separately)
 for available libraries and the distinction from TENDL photonuclear evaluations.
 
 ### Macroscopic cross sections
@@ -313,7 +315,7 @@ Plotting macroscopic cross sections (rendered live when the docs are built):
 import matplotlib.pyplot as plt
 import yamc
 
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
 
 mat = yamc.Material(composition={"Fe": 1.0}, density=7.874, temperature=294, name="iron")
 
@@ -365,7 +367,7 @@ The example below uses a simple hand-specified 3-group spectrum so it can be rea
 ```python
 # Every irradiation needs neutron cross sections, and a run without them stops
 # with an error naming this setting.
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
 
 # The transmutation network is assembled from the per-subsection sources;
 # point the three network-forming parts at the chain file.

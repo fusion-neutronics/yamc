@@ -36,14 +36,16 @@ model will transport no photons.
 ### Photon transport
 
 Enable coupled neutron-photon transport with ``transport_secondary_photons=True``.
-Set ``yamc.cross_section_data`` to a library with photoatomic data; the model
-loads the required element data automatically. No explicit material data read is
+A coupled run reads both ``yamc.neutron_cross_section_data`` and
+``yamc.photon_cross_section_data``; set the photon one to a library with
+photoatomic data. The model loads the required element data automatically. No explicit material data read is
 needed (see [Loading nuclear data](materials.md#loading-nuclear-data)).
 A primary ``PhotonSource`` transports its own photons without this coupling flag.
 
 <!-- doctest: skip -->
 ```python
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
+yamc.photon_cross_section_data = "endf-b8.1"
 
 model = yamc.Model(
     geometry=geometry,
@@ -55,7 +57,8 @@ model = yamc.Model(
 ```
 
 For D1S shutdown dose rate calculations, enable decay photon production. A D1S
-run reads the decay data and the reactions network, which have no default
+run reads both cross-section settings, set above, and also the decay data and
+the reactions network, which have no default
 (see [Transmutation data](nuclear_data.md#transmutation-data)):
 
 <!-- doctest: skip -->

@@ -15,6 +15,10 @@ After irradiation, activated materials keep emitting decay gammas. The dose rate
 ```python
 import yamc
 
+# A D1S run transports neutrons and photons, so it needs both cross-section settings.
+yamc.neutron_cross_section_data = "endf-b8.1"
+yamc.photon_cross_section_data = "endf-b8.1"
+
 _chain = "transmutation-endf-b8.1-sfr.arrow"
 yamc.transmutation_decay_data = _chain
 yamc.transmutation_reactions = _chain
