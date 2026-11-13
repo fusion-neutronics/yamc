@@ -227,7 +227,7 @@ import matplotlib.pyplot as plt
 
 import yamc
 
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
 
 RADIUS = 50.0
 mixture = yamc.Material(
@@ -369,7 +369,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yamc
 
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
 
 outer = yamc.Sphere(radius=30.0, boundary="vacuum")
 iron = yamc.Material(composition={"Fe": 1.0}, density=7.874, temperature=294)
@@ -496,7 +496,9 @@ A complete example scoring energy-resolved neutron and photon flux with coupled 
 ```python
 import yamc
 
-yamc.cross_section_data = "endf-b8.1"
+# Coupled transport reads neutron and photon data.
+yamc.neutron_cross_section_data = "endf-b8.1"
+yamc.photon_cross_section_data = "endf-b8.1"
 
 # Geometry: iron sphere
 sphere = yamc.Sphere(radius=30.0, boundary="vacuum")

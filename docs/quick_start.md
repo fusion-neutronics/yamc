@@ -12,11 +12,15 @@ import yamc
 
 ## Configure the nuclear data
 
-A single library keyword downloads the required data automatically:
+This example transports neutrons only, so it needs neutron data. A single
+library keyword downloads the required data automatically:
 
 ```python
-yamc.cross_section_data = "endf-b8.1"
+yamc.neutron_cross_section_data = "endf-b8.1"
 ```
+
+A run that transports photons also sets ``yamc.photon_cross_section_data``; see
+[Neutron and photon cross sections](nuclear_data.md#neutron-and-photon-cross-sections).
 
 Six libraries are available, and they differ in content as well as name; see
 [Nuclear data libraries](nuclear_data_libraries.md).

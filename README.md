@@ -19,8 +19,8 @@ pip install yamc
 ```python
 import yamc
 
-# pick a nuclear data library, downloaded on demand
-yamc.cross_section_data = "endf-b8.1"
+# pick a neutron data library, downloaded on demand
+yamc.neutron_cross_section_data = "endf-b8.1"
 
 # make your own or use inbuilt material definitions
 steel = yamc.materials.pnnl.material("Steel, Stainless 316")
